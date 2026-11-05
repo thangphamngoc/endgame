@@ -340,6 +340,14 @@ function startRound(room, n) {
     state = { drum: 'drum' };
   } else if (plan.game === 'cau-khi') {
     // assignTeams is called by endRound(1) before startRound(2); keep bridges if present.
+    // Đưa vị trí server của người sống sót về đúng bệ cầu của đội mình — nếu không
+    // vị trí server vẫn kẹt ở vạch đích vòng 1 (z≈-35) trong khi client đã dịch
+    // tới cầu (z≈-95), mọi pos/input sau đó đều bị coi là teleport / kẹp về sân cũ.
+    for (const p of room.players.values()) {
+      if (p.alive && !p.spectator && p.team !== null && p.team !== undefined) {
+        p.x = [-11, 0, 11][p.team] || 0; p.z = -95; p.gongX = p.x; p.gongZ = p.z;
+      }
+    }
     state = { bridges: Object.keys(room.bridges || {}).length };
   } else if (plan.game === 'keo-co') {
     const alive = games.shuffle([...room.players.values()].filter((p) => p.alive && !p.spectator), rng);
@@ -533,6 +541,13 @@ function endRound(room, n, reason) {
       teams: teamSurvivors.map((p) => ({ id: p.id, name: p.name, team: p.team })),
       players: publicPlayers(room),
     });
+    // Gửi lại lượt của từng đội SAU khi client đã biết mình thuộc đội nào
+    // (assignTeams đã gửi 'turn' trước tin 'team', lúc đó client chưa biết team
+    // của mình nên không khớp được lượt với đội của mình).
+    for (const team of Object.keys(room.bridges)) {
+      const b = room.bridges[team];
+      if (b) broadcast(room, { type: 'turn', team: Number(team), leaderId: b.leader });
+    }
     setTimeout(() => {
       if (room.phase !== 'team') return;
       startRound(room, 2);
@@ -577,8 +592,17 @@ function applyInput(room, player, dx, dz, jump) {
   const len = Math.hypot(dx, dz);
   if (len > 1.0001) { dx /= len; dz /= len; }
   const step = MAX_SPEED * (TICK_MS / 1000);
-  const nx = Math.max(-ARENA_X, Math.min(ARENA_X, player.x + dx * step));
-  const nz = Math.max(ARENA_Z_MIN, Math.min(ARENA_Z_MAX, player.z + dz * step));
+  let nx = player.x + dx * step;
+  let nz = player.z + dz * step;
+  if (room.phase === 'round2' && player.team !== null && player.team !== undefined) {
+    // Trên cầu: kẹp trong làn cầu của đội mình, không kẹp về sân vòng 1.
+    const bx = [-11, 0, 11][player.team] || 0;
+    nx = Math.max(bx - 5.4, Math.min(bx + 5.4, nx));
+    nz = Math.max(-145, Math.min(-87.5, nz));
+  } else {
+    nx = Math.max(-ARENA_X, Math.min(ARENA_X, nx));
+    nz = Math.max(ARENA_Z_MIN, Math.min(ARENA_Z_MAX, nz));
+  }
   const moved = Math.hypot(nx - player.x, nz - player.z);
   player.x = nx; player.z = nz;
   if (room.phase === 'round1' && player.alive && !player.finished) {
@@ -873,7 +897,7 @@ wss.on('connection', (ws) => {
         if (bridge.weak[step] === plank) {
           bridge.broken[step] = true;
           eliminatePlayer(room, player, 'Bước vào ván yếu, rơi khỏi cầu');
-          broadcast(room, { type: 'bridgeUpdate', team: player.team, step, broken: true });
+          broadcast(room, { type: 'bridgeUpdate', team: player.team, step, broken: true, plank });
           broadcast(room, { type: 'players', players: publicPlayers(room) });
           advanceLeader(room, player.team);
           checkRound2End(room);

@@ -81,6 +81,7 @@
   var flyoverTitleEl = null, countdownEl = null;
   var spectatorView = 'follow', watchedId = null, spectatorList = [];
   var myTeam = null, myBridgeStep = 0, myBridge = null, teamQueue = [], teamLeader = null;
+  var teamLeaders = {}, brokenSteps = {}, teamAutoTimer = null;
   var localBridges = {}, localRanking = [];
   var lastChatAt = 0, hideBubbles = false;
   var labelsEl = document.getElementById('labels');
@@ -2468,6 +2469,9 @@
       phase = msg.phase;
       if (msg.phase === 'round1') { startRoundCommon(1, 'trong-hoi', 'Trống Hội', 120); matchStartAt = Date.now(); }
       if (msg.phase === 'team') {
+        // Ẩn ngay bảng "hết vòng 1" để thông tin chia team hiện ra luôn, thay vì
+        // bị che mất 3 giây đầu trong tổng số 5,5 giây của bước chia team.
+        hideInterstitial();
         var ts2 = $('team-screen'); if (ts2) ts2.classList.remove('hidden');
         var tl = $('team-list');
         if (tl) tl.innerHTML = (msg.teams || []).map(function (t) {
@@ -2475,6 +2479,10 @@
         }).join('');
         var me = (msg.teams || []).find(function (t) { return t.id === myId; });
         if (me) { myTeam = me.team; if (player) player.team = me.team; }
+        // Lượt đội mình có thể đã tới trước tin 'team' — lúc đó mới khớp được.
+        if (myTeam !== null && teamLeaders[myTeam] !== undefined) {
+          setHudDrum(teamLeaders[myTeam] === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
+        }
       }
       if (msg.phase === 'round2') {
         var ts3 = $('team-screen'); if (ts3) ts3.classList.add('hidden');
@@ -2502,9 +2510,12 @@
       return;
     }
     if (msg.type === 'turn') {
+      // Giữ lượt theo từng đội: tin 'turn' của đội khác tới trước khi client biết
+      // mình thuộc đội nào vẫn phải nhớ, không được ghi đè bằng một biến chung.
+      teamLeaders[msg.team] = msg.leaderId;
       teamLeader = msg.leaderId;
       if (msg.team === myTeam) {
-        setHudDrum(teamLeader === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
+        setHudDrum(msg.leaderId === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
       }
       return;
     }
@@ -2512,10 +2523,14 @@
       // Ván vỡ / bước đi được server xác nhận thì client mới vẽ lại cầu.
       if (msg.broken) {
         toast('Ván yếu đã vỡ ở bước ' + (msg.step + 1));
+        brokenSteps[msg.team + ':' + msg.step] = true;
         var pl = bridges[msg.team] && bridges[msg.team].planks[msg.step];
         if (pl) { // chỉ đánh dấu vỡ, không tự rơi ván (server là nguồn chuẩn)
-          if (pl.weakSide === 0) pl.brokenL = true; else pl.brokenR = true;
-          breakPlank(pl, pl.weakSide);
+          // Server gửi kèm phía ván đã giẫm (msg.plank); không dùng weakSide bốc
+          // ngẫu nhiên ở client (multi không gọi randomizeBridge nên luôn là 0).
+          var side = (msg.plank === 0 || msg.plank === 1) ? msg.plank : pl.weakSide;
+          if (side === 0) pl.brokenL = true; else pl.brokenR = true;
+          breakPlank(pl, side);
         }
       } else if (msg.playerId === myId && msg.bridgeStep !== undefined) {
         myBridgeStep = msg.bridgeStep;
@@ -2717,8 +2732,15 @@
     var tl = $('team-list'); if (tl) tl.innerHTML = html;
     var ts = $('team-screen'); if (ts) ts.classList.remove('hidden');
     var btb = $('btn-to-bridge'); if (btb) btb.textContent = 'Vào cầu ngay';
+    // Tự chuyển sang vòng 2 sau vài giây như dòng chữ trên màn hình đã hứa —
+    // trước đây màn hình chỉ chuyển khi bấm nút, nên nếu nút không bấm được thì kẹt ở đây.
+    clearTimeout(teamAutoTimer);
+    teamAutoTimer = setTimeout(function () {
+      if (mode === 'single' && phase === 'team') beginRound2Play();
+    }, 5500);
   }
   function beginRound2Play() {
+    clearTimeout(teamAutoTimer);
     var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
     phase = 'round2'; currentRound = 2; roundTimeLimit = 0; roundEndsAt = 0;
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
@@ -2736,7 +2758,12 @@
     }
   }
   function stepOnBridge(plank) {
-    if (mode === 'multi') { sendWS({ type: 'bridge', action: 'step', plank: plank }); return; }
+    if (mode === 'multi') {
+      // Bước hiện tại đã vỡ (đồng đội giẫm ván yếu trước đó) thì phải nhảy qua khoảng trống.
+      if (brokenSteps[(myTeam || 0) + ':' + myBridgeStep]) sendWS({ type: 'bridge', action: 'jumpGap' });
+      else sendWS({ type: 'bridge', action: 'step', plank: plank });
+      return;
+    }
     if (!isPlayerTurn()) { toast('Chưa tới lượt của bạn.'); return; }
     var b = bridges[myTeam || 0];
     var step = myBridgeStep;
@@ -2980,7 +3007,10 @@
     }
   }
   function checkR2EndSingle() {
-    if (phase !== 'round2') return;
+    // Người chơi bị loại ở vòng 2 vẫn đang xem (phase 'spectator') thì vòng vẫn
+    // phải kết thúc khi mọi bot đã xong — trước đây hàm này từ chối chạy ở
+    // phase 'spectator' nên trận kẹt mãi ở màn hình khán giả, không ai kết thúc vòng.
+    if (phase !== 'round2' && !(phase === 'spectator' && currentRound === 2)) return;
     var running = 0;
     for (var i = 0; i < bots.length; i++) if (bots[i].alive && !bots[i].finished) running++;
     var playerDone = !player || !player.alive || player.finished;
@@ -3442,6 +3472,11 @@
     if (ev.code === 'Space') {
       ev.preventDefault();
       if (window.Rounds && window.Rounds.onSpace && window.Rounds.onSpace()) return; // Vòng kéo co / nhảy bao bố dùng Space làm nút hành động.
+      // Multi vòng 2: đứng trước khoảng trống ván đã vỡ thì Space = nhảy qua (jumpGap).
+      if (mode === 'multi' && phase === 'round2' && brokenSteps[(myTeam || 0) + ':' + myBridgeStep]) {
+        sendWS({ type: 'bridge', action: 'jumpGap' });
+        return;
+      }
       if (mode === 'single' && (phase === 'round1' || phase === 'round2')) {
         jumpQueued = true;
       } else {
@@ -3524,8 +3559,9 @@
         if (hits[i].object.userData.bridge) {
           var bd = hits[i].object.userData;
           if (phase === 'round2' && player && player.alive) {
-            if (mode === 'multi') { /* lượt và ván do server quyết, click chỉ là gợi ý */ }
-            else if (bd.team === myTeam && bd.step === myBridgeStep) stepOnBridge(bd.plank);
+            // Multi: click ván là cách duy nhất để bước — gửi thẳng cho server,
+            // server kiểm tra lượt (không phải lượt thì trả lỗi, không tự loại).
+            if (bd.team === myTeam && bd.step === myBridgeStep) stepOnBridge(bd.plank);
           }
           break;
         }
@@ -3604,7 +3640,11 @@
   };
   var btnToBridge = $('btn-to-bridge');
   if (btnToBridge) btnToBridge.onclick = function () {
+    clearTimeout(teamAutoTimer);
     var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
+    // Nút này được showRanking dùng lại làm "Chơi lại từ vòng 1": lúc đó phase
+    // đã là 'finished' nên phải đi qua luồng chơi lại, không thì bấm không có tác dụng.
+    if (phase === 'finished') { var br = $('btn-replay'); if (br) br.click(); return; }
     if (mode === 'single' && phase === 'team') beginRound2Play();
   };
   document.querySelectorAll('.spec-view, .specBtn[data-specmode]').forEach(function (b) {
@@ -3692,6 +3732,7 @@
     if (round === 2) {
       scene.fog.near = 16; scene.fog.far = 130;
       scene.background.set(0xe8c39a);
+      brokenSteps = {};
     }
     if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed });
   }
