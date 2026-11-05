@@ -38,7 +38,7 @@ Không bắt đầu Phase 1 cho tới khi Sudo chốt OD-01 và OD-02 trong BRD 
 | ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
 |---|---|---|---|---|---|---|
 | P1-01 | Thiết kế chi tiết 4 trò mới: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê, Rồng Rắn Cướp Cờ (luật, cách chấm, chống học thuộc, biến thể theo người chơi) | P0 | Dự kiến | OD-01, OD-02 | L | Mỗi trò có tài liệu luật 1 trang: mục tiêu, cách chơi, cách loại, biến thể random, trường hợp biên; Sudo duyệt |
-| P1-02 | Giới hạn thời gian vòng 1 + quy tắc kết thúc vòng (sửa lỗ hổng trận kẹt khi có người đứng yên) | P0 | Dự kiến | — | S | Hết giờ vòng 1 thì vòng tự kết thúc theo quy tắc đã công bố; không còn trường hợp trận kẹt vì một người đứng yên |
+| P1-02 | Giới hạn thời gian vòng 1 (120 giây) + quy tắc kết thúc vòng (sửa lỗ hổng trận kẹt khi có người đứng yên) | P0 | Đang làm (workstream song song) — quyết định 120 giây đã chốt (BRD §9.4 OD-02); tại thời điểm viết tài liệu này code server.js chưa có giới hạn 120 giây, chỉ có nhịp trống/chiêng, nên chưa ghi "đã xong"; QC có thể lật lại con số 120 giây sau play-test | — | S | Hết 120 giây vòng 1 thì vòng tự kết thúc theo quy tắc đã công bố; không còn trường hợp trận kẹt vì một người đứng yên |
 | P1-03 | Seed random theo phòng–vòng (thay `Math.random()` rải rác) cho nhịp trống, ván yếu, biến thể trò | P1 | Dự kiến | P1-01 | M | Cùng seed cho cùng kết quả random; trận khác seed thì khác kết quả; seed lưu trong dữ liệu trận |
 | P1-04 | Cài 4 trò mới vào game (client + server), mỗi trò một module riêng | P0 | Dự kiến | P1-01, P1-03 | L | Chơi được cả 4 trò ở chế độ chơi đơn và multiplayer; luật loại đúng tài liệu P1-01 |
 | P1-05 | Đường loại 6 vòng co giãn theo số người thực tế (456 → 280 → 150 → 70 → 24 → 6 → 1 ở phòng đủ người; bảng co giãn cho phòng nhỏ) | P1 | Dự kiến | P1-04 | M | Phòng 20 người có đường loại hợp lý tới 1 người thắng; phòng đủ 456 người theo đúng đường loại tầm nhìn |
@@ -82,6 +82,36 @@ ngân sách hosting, chính sách kiểm duyệt).
 | P3-06 | Analytics tối thiểu: số trận, số người chơi, tỉ lệ hoàn thành, tỉ lệ dùng chat/du lịch (theo KPI trong BRD §2) | P1 | Dự kiến | P3-01 | M | Có số đo thật cho KPI-01..KPI-05 sau 1 tuần chạy (số đo thực tế, không ước tính) |
 | P3-07 | Lọc tên người chơi + giới hạn ký tự đặc biệt | P2 | Dự kiến | — | S | Tên có từ cấm hoặc ký tự đặc biệt quá mức bị từ chối với thông báo rõ |
 | P3-08 | Tài khoản / đăng nhập (chỉ làm nếu Sudo chốt OD-08 là làm) | P2 | Dự kiến | OD-08, P3-01 | L | Đăng nhập được, hồ sơ lưu lịch sử trận; chơi không đăng nhập vẫn được (khách) |
+
+## Phase 3b — Kinh tế trong game (monetization, bản stub)
+
+Mục tiêu: lõi trận miễn phí, chỉ bán đồ trang trí bằng Hội Xu; tiền thật
+chỉ là stub demo (BRD §10, OD-03 đã quyết 2026-11-05). Phase này làm
+xong phần stub; mở thanh toán thật là việc riêng sau này (M-08), cần
+quyết định mới của Sudo.
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| M-01 | Module kinh tế server `server/economy.js`: ví Hội Xu, shop cosmetic, kiểm tra sở hữu khi trang bị, Pass free+paid (XP/cấp/thưởng), giải đấu Chủ Hội, cheer/gift sticker, Vé Du Lịch, nhiệm vụ ngày, stub checkout, lưu JSON `data/economy.json` | P0 | Đã làm (bản stub) | — | M | `node --check` qua; kiếm xu đúng mức (+10/vòng, +50/thắng, +20/nhiệm vụ, +5/cheer); trang bị món chưa mua bị từ chối; mua Pass/vé bằng tiền thật trả về `stub:true`, không gọi cổng thanh toán |
+| M-02 | Giao diện shop client `client/js/shop.js`: `window.HoiShop` + `window.HoiWallet.set`, vẽ shop/pass/giải đấu/quà tặng khi container có sẵn, thử lại 1 lần sau 2 giây nếu chưa có, mọi nút tiền thật ghi "(Demo — chưa thanh toán thật)" | P0 | Đã làm (bản stub) | M-01 | M | `node --check` qua; không mở WebSocket mới (dùng `window.__sendWS` nếu có); không crash khi container chưa tồn tại |
+| M-03 | Nối economy vào `server/server.js`: try-require `economy.js`, dispatch `msg.type==='economy'` sang `economy.handle`, gọi hook kiếm xu/XP (`awardRoundSurvived`, `awardWin`, `recordMatchPlayed`, `recordChatSent`) ở đúng chỗ trong luồng trận | P0 | Dự kiến (workstream server sở hữu) | M-01 | S | Chơi 1 trận thật: qua vòng +10 xu, thắng +50 xu, nhiệm vụ ngày tăng tiến độ; server vẫn chạy khi `economy.js` lỗi (try-require) |
+| M-04 | Nối shop vào client: thêm container `#shop-panel`, `#pass-panel`, `#tournament-panel`, `#gift-panel` + `#wallet-hud` vào `index.html`, thêm thẻ `<script src="js/shop.js">`, expose `window.__sendWS`, chuyển message `{type:'economy'}` từ server vào `HoiShop.onMessage` | P0 | Dự kiến (workstream client sở hữu) | M-02 | S | Mở trang: shop vẽ được, mua/trang bị 1 món thật qua server, ví cập nhật; không mở 2 WebSocket |
+| M-05 | Triển khai Docker: `Dockerfile` (node:20-alpine, non-root), `docker-compose.yml`, `.env.example` (`PORT`, `NODE_ENV`, `ECONOMY_STUB=true`, không secret), `.dockerignore`, `data/` vào `.gitignore` | P1 | Đã làm (bản stub) | — | S | `docker compose up` chạy được, mở `localhost:3000` chơi được (chưa kiểm bằng Docker trong build này — chỉ kiểm `npm start` + `curl /`) |
+| M-06 | Cập nhật docs: BRD §10 monetization + FR-34..FR-45 + OD-02/OD-03 đã quyết; PLAN (tài liệu này); ARCHITECTURE §7.5 + §9 + decision log; README mục kinh tế demo | P1 | Đã làm (bản stub) | M-01, M-02 | S | Docs ghi đúng cái đã làm (stub) và cái chưa làm (M-03, M-04, M-08); không ghi "đã xong" cho việc của workstream khác |
+| M-07 | Play-test tay toàn bộ luồng kinh tế: mua/trang bị, lên cấp Pass, tạo giải đấu + trao giải, cheer/gift, mua Vé Du Lịch, nhiệm vụ ngày qua ngày mới, restart server giữ ví | P1 | Dự kiến | M-03, M-04 | M | Checklist play-test kinh tế mới (ngay dưới đây) thử bằng tay, không còn lỗi P0/P1 mở |
+| M-08 | Thanh toán thật (sau này, KHÔNG làm trong phase này): cổng thanh toán, giá tiền thật, tài khoản/đăng nhập, lưu giao dịch bằng database, đối soát/hoàn tiền, lật `ECONOMY_STUB=false` | P2 | Dự kiến (chặn bởi quyết định mới của Sudo) | OD-03 (tiền thật), P3-01, P3-08 | L | Thu được 1 giao dịch thật end-to-end trong môi trường test của cổng thanh toán; nhãn stub đã gỡ khỏi UI/docs |
+
+#### Checklist play-test kinh tế (mới, cho M-07 — chưa làm)
+
+- [ ] Mua 1 món bằng xu: ví trừ đúng giá, món vào inventory, mua lại báo đã sở hữu.
+- [ ] Trang bị món chưa mua (gửi message tay): server từ chối, nhân vật không đổi đồ.
+- [ ] Qua 1 vòng +10 xu, thắng trận +50 xu, XP tăng, lên cấp nhận thưởng Pass miễn phí.
+- [ ] Mua Pass trả phí: trả về `stub:true`, không thu tiền thật, thưởng track trả phí của cấp đã đạt được mở.
+- [ ] Tạo giải đấu: giải thưởng trừ khỏi ví chủ hội; trao giải cho người thắng, ví người thắng cộng đúng số xu; tạo giải tên cấm bị từ chối.
+- [ ] Cheer 2 lần liên tiếp cùng người: lần 2 bị chặn (60 giây); tặng sticker trừ xu người gửi, người nhận +5 xu.
+- [ ] Mua Vé Du Lịch bằng xu và bằng stub: đều mở tour cao cấp, không ảnh hưởng trận đấu.
+- [ ] Nhiệm vụ ngày: đủ điều kiện thì nhận +20 xu, nhận lại trong ngày bị từ chối; sang ngày mới reset.
+- [ ] Tắt server rồi bật lại: ví, inventory, Pass, giải đấu vẫn còn (đọc từ `data/economy.json`).
 
 ## Phase 4 — Hoàn thiện và tăng trưởng
 
@@ -188,8 +218,8 @@ bản demo chưa được coi là xong hoàn toàn — xem §3.
 | Quyết định (mã trong BRD §9.4) | Cần trước phase | Nếu chưa quyết thì sao |
 |---|---|---|
 | OD-01: danh sách 18–20 trò trong kho | Phase 1 | Không thiết kế được trò mới (P1-01, P1-04 chặn) |
-| OD-02: luật loại ở trò đồng đội | Phase 1 | Không làm được Kéo Co Nhịp và đường loại vòng 3 (P1-01, P1-05 chặn) |
-| OD-03: mô hình kinh doanh / giải thưởng | Phase 1 (thiết kế) và Phase 3 (triển khai) | Làm game không có thu tiền/giải thưởng; thêm sau sẽ tốn công sửa lại tài khoản và chống gian lận |
+| OD-02: luật loại ở trò đồng đội | Phase 1 | **Đã quyết 2026-11-05:** trận ≥ 24 người lúc bắt đầu vòng 3 thì đội thua bị loại toàn bộ; phòng nhỏ (< 24) chỉ loại 2 người đóng góp yếu nhất đội thua (≤ 2 người thì loại hết). Giới hạn vòng 1 chốt 120 giây (P1-02 đang làm ở workstream song song; QC có thể lật lại con số sau play-test). |
+| OD-03: mô hình kinh doanh / giải thưởng | Phase 1 (thiết kế) và Phase 3 (triển khai) | **Đã quyết 2026-11-05:** kinh tế chỉ bán đồ trang trí bằng Hội Xu, tiền thật chỉ là stub demo (BRD §10; stub M-01/M-02 đã làm). Mở thanh toán thật (M-08) vẫn chưa quyết và chưa làm. |
 | OD-04: ngân sách hosting + mức chịu tải | Phase 2–3 | Không chọn được kiến trúc production (một server hay nhiều server) |
 | OD-05: chính sách kiểm duyệt chat | Phase 3 | Không mở public được (rủi ro nội dung xấu) |
 | OD-06: có làm voice chat không | Phase 4 | Mặc định là **không làm**; chỉ làm nếu Sudo chốt làm |

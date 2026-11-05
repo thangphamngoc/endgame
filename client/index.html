@@ -14,11 +14,16 @@
 
   <!-- HUD -->
   <div id="hud" class="panel hidden">
-    <div class="hud-row"><span id="hud-round">VÒNG 1/2</span><span id="hud-drum">TRỐNG ĐÁNH — Chạy đi!</span></div>
-    <div class="hud-row"><span>Thời gian: <b id="hud-time">0:00</b></span><span>Còn sống: <b id="hud-alive">—</b></span></div>
+    <div class="hud-row"><span id="hud-round">VÒNG 1/6</span><span id="hud-drum">TRỐNG ĐÁNH — Chạy đi!</span></div>
+    <div class="hud-row"><span>Thời gian trận: <b id="hud-time">0:00</b></span><span>Còn sống: <b id="hud-alive">—</b></span></div>
+    <div id="round-timer-wrap" class="hidden"><div id="round-timer-fill"></div></div>
+    <div id="hud-round-time" class="round-countdown hidden"></div>
     <div id="progress"><div id="progress-fill"></div></div>
     <div id="team-panel" class="hidden"></div>
   </div>
+
+  <!-- Wallet Hội Xu (shop.js cập nhật qua window.HoiWallet.set) -->
+  <div id="wallet-hud" class="panel">Hội Xu: —</div>
 
   <!-- Minimap -->
   <div id="minimap-box" class="panel hidden">
@@ -30,7 +35,7 @@
   <!-- Lobby / menu -->
   <div id="menu" class="panel">
     <h1>TRỐNG HỘI &amp; CẦU KHỈ</h1>
-    <p class="subtitle">Hội làng Việt Nam · Vòng 1 Trống Hội · Vòng 2 Cầu Khỉ Sương Mù</p>
+    <p class="subtitle">Hội làng Việt Nam · 6 vòng: Trống Hội · Cầu Khỉ Sương Mù · Kéo Co Nhịp · Nặn Tò He · Bịt Mắt Bắt Dê · Rồng Rắn Cướp Cờ</p>
     <label>Tên của bạn <input id="player-name" maxlength="30" placeholder="Ví dụ: Thang" value="Người chơi"></label>
     <div class="btn-row">
       <button id="btn-single" class="btn primary">CHƠI ĐƠN (60 BOT)</button>
@@ -49,6 +54,11 @@
     </div>
     <p class="note">Chia team chỉ để chia lượt, không có team thắng/thua. Rớt cầu là loại cá nhân, xếp hạng theo thời gian về đích.</p>
     <button id="btn-tour-lobby" class="btn small">Du lịch Hạ Long trước khi chơi</button>
+    <div class="btn-row">
+      <button id="btn-shop" class="btn small">CỬA HÀNG</button>
+      <button id="btn-pass" class="btn small">VÉ MÙA (PASS)</button>
+      <button id="btn-tournament" class="btn small">GIẢI ĐẤU</button>
+    </div>
   </div>
 
   <!-- Team intermission -->
@@ -121,6 +131,19 @@
     <div class="note">Enter mở/gửi, Esc đóng. Đang gõ thì WASD không di chuyển. Giới hạn 2 giây/tin.</div>
   </div>
 
+  <!-- Economy panels (shop.js điền nội dung; ẩn mặc định) -->
+  <div id="shop-panel" class="panel hidden"></div>
+  <div id="pass-panel" class="panel hidden"></div>
+  <div id="tournament-panel" class="panel hidden"></div>
+  <div id="gift-panel" class="panel hidden"></div>
+
+  <!-- Round overlay (vòng 3-6 + vòng dự phòng, do rounds.js điền) -->
+  <div id="round-overlay" class="panel hidden"></div>
+  <!-- Fog overlay cho vòng Bịt Mắt Bắt Dê -->
+  <div id="blind-overlay" class="hidden"></div>
+  <!-- Interstitial giữa các vòng -->
+  <div id="interstitial" class="panel hidden"></div>
+
   <!-- Mobile controls -->
   <div id="joystick" class="hidden"><div id="joy-knob"></div></div>
   <button id="btn-jump" class="btn hidden">NHẢY</button>
@@ -128,5 +151,7 @@
   <div id="toast"></div>
 </div>
 <script src="js/game.js"></script>
+<script src="js/rounds.js"></script>
+<script src="js/shop.js"></script>
 </body>
 </html>

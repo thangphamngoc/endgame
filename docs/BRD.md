@@ -66,8 +66,11 @@ nào để đối chiếu.
 | KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận + báo lỗi (cần làm) |
 | KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
 
-**Mục tiêu kinh doanh (chưa quyết):** hiện chưa có mô hình thu tiền, giải
-thưởng hay quảng cáo cho game. Đây là quyết định mở cho Sudo (xem §9).
+**Mục tiêu kinh doanh (ĐÃ QUYẾT 2026-11-05):** mô hình kinh tế là
+**chỉ bán đồ trang trí (cosmetic-only) bằng Hội Xu**, lõi trận sinh tồn
+hoàn toàn miễn phí, tiền thật chỉ là **stub demo** (chưa bật thanh toán
+thật). Chi tiết xem §10. Các chỉ tiêu doanh thu chưa đặt — cần Sudo duyệt
+sau khi có số người chơi thật.
 
 ## 3. Các bên liên quan (stakeholders)
 
@@ -113,7 +116,9 @@ thưởng hay quảng cáo cho game. Đây là quyết định mở cho Sudo (xe
 - Trận đầy đủ 6 vòng và kho thử thách 18–20 trò (xem §8).
 - Tài khoản / đăng nhập, hồ sơ người chơi, bạn bè, mời chơi.
 - Bảng xếp hạng lưu lâu dài, lịch sử trận, thống kê cá nhân.
-- Giải thưởng, tiền, thanh toán, quảng cáo (mô hình kinh doanh chưa quyết).
+- Giải thưởng tiền mặt, quảng cáo (chưa quyết — xem §10: giải thưởng
+  trong game chỉ trả bằng Hội Xu, không đổi ra tiền mặt).
+- Thanh toán thật (chưa bật — chỉ có stub demo, xem §10).
 - Voice chat.
 - Dashboard kiểm duyệt chat, tố cáo, mute, lọc từ (hiện chỉ có giới hạn
   ký tự, chống spam, ẩn chat ở client).
@@ -185,7 +190,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-08 | Vòng 1: trống chạy, chiêng đứng yên | HUD hiển thị đúng trạng thái; nhịp random mỗi trận, không lặp pattern cố định | Đã có |
 | FR-09 | Loại người di chuyển lúc chiêng | Di chuyển hoặc nhảy lúc chiêng → bị loại ngay, chuyển khán giả; người đứng yên không bị loại | Đã có |
 | FR-10 | Về đích vòng 1 | Tới vạch đích thì qua vòng, ghi thời gian về đích | Đã có |
-| FR-11 | Giới hạn thời gian vòng 1 | Vòng 1 tự kết thúc khi hết giờ dù còn người đứng yên (quy tắc kết thúc rõ) | Dự kiến (lỗ hổng đã biết) |
+| FR-11 | Giới hạn thời gian vòng 1 (120 giây) | Vòng 1 tự kết thúc khi hết 120 giây dù còn người đứng yên (quy tắc kết thúc rõ) | Đang làm (workstream song song — quyết định 120 giây đã chốt, xem §9.4 OD-02; tại thời điểm viết tài liệu này code server.js chưa có giới hạn 120 giây, chỉ có nhịp trống/chiêng; QC có thể lật lại con số 120 giây sau play-test) |
 | FR-12 | CHIA TEAM cân bằng, tối đa 3 team | Người sống sót chia đều theo thứ tự về đích; màu áo/vòng theo team | Đã có |
 | FR-13 | Mỗi team một cầu riêng, ván yếu riêng | Ván yếu random riêng từng cầu, từng trận | Đã có |
 | FR-14 | Chỉ leader được bước cầu | Người chưa tới lượt bị server chặn và báo "Chưa tới lượt" | Đã có |
@@ -208,6 +213,18 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-31 | Bảng xếp hạng lưu lâu dài | Xếp hạng theo mùa/tuần, xem lại được sau khi tắt game | Dự kiến |
 | FR-32 | Kiểm duyệt chat (tố cáo, mute, lọc) | Người chơi tố cáo được, host/mod mute được, từ xấu bị lọc | Dự kiến |
 | FR-33 | Voice chat | Nói chuyện bằng giọng nói trong phòng | Dự kiến (chưa quyết có làm không) |
+| FR-34 | Ví Hội Xu | Mỗi người chơi có ví Hội Xu; số dư hiện ở HUD (#wallet-hud); xu kiếm được cộng ngay sau sự kiện trận đấu | Đã làm (bản stub) — `server/economy.js` (kiếm xu +10/vòng, +50/thắng, +20/nhiệm vụ ngày, +5/cheer) + `client/js/shop.js` (`window.HoiWallet.set`); HUD #wallet-hud và nối WebSocket do workstream client/server sở hữu, chưa xong |
+| FR-35 | Shop đồ trang trí | Shop có ~16 món cosmetic mua bằng xu (áo bà ba 3 màu, nón lá, cờ team, bong bóng chat, emote, đồ trang trí đảo); mua xong vào inventory | Đã làm (bản stub) — catalogue trong `economy.js` + giao diện trong `shop.js` (#shop-panel); container #shop-panel do workstream client sở hữu, chưa xong |
+| FR-36 | Kiểm tra sở hữu khi trang bị/dùng | Server từ chối trang bị/dùng món chưa sở hữu, dù client khai đã có | Đã làm (bản stub) — `economy.js` `equipItem`/`useEmote` kiểm tra inventory mỗi lần |
+| FR-37 | Hội Làng Pass (free + paid) | XP 100/vòng sống sót, 500/thắng trận; cấp 1–20; mỗi cấp có thưởng track miễn phí và track trả phí (toàn cosmetic) | Đã làm (bản stub) — `economy.js` (XP, cấp, thưởng) + `shop.js` (#pass-panel); mua Pass trả phí là stub demo, xem FR-41 |
+| FR-38 | Chủ Hội — tạo giải đấu riêng | Tạo phòng giải đấu có tên thương hiệu; giải thưởng trả bằng Hội Xu từ ví chủ hội; người thắng nhận toàn bộ giải bằng xu | Đã làm (bản stub) — `economy.js` `createTournament`/`awardTournamentWinner` + `shop.js` (#tournament-panel); container do workstream client sở hữu, chưa xong |
+| FR-39 | Cổ vũ & tặng sticker | Khán giả cổ vũ miễn phí (người nhận +5 xu, giới hạn 1 lần/60 giây/cặp) hoặc tặng sticker trả xu (10/20/30 xu, người nhận +5 xu) | Đã làm (bản stub) — `economy.js` `cheer`/`giftSticker` + `shop.js` (#gift-panel); container do workstream client sở hữu, chưa xong |
+| FR-40 | Vé Du Lịch Hạ Long | Vé tour cao cấp cho người bị loại: thêm câu chuyện đảo, tuyến tour cao cấp, huy hiệu lưu niệm; mua bằng 500 xu hoặc stub tiền thật; không ảnh hưởng kết quả trận | Đã làm (bản stub) — `economy.js` `buyTourPass` + nút trong `shop.js` (#gift-panel) |
+| FR-41 | Stub checkout tiền thật | Mọi mua bằng tiền thật (Pass trả phí, Vé Du Lịch) trả về `{ok:true, stub:true}` + thông báo demo, không gọi cổng thanh toán; nút ghi rõ "(Demo — chưa thanh toán thật)" | Đã làm (bản stub) — `economy.js` `buyPass`/`buyTourPass(pay:'stub')` + nhãn stub trong `shop.js` và docs |
+| FR-42 | Nhiệm vụ ngày | 3 nhiệm vụ/ngày, mỗi nhiệm vụ +20 xu: chơi 1 trận, sống sót 2 vòng, gửi 5 chat; mỗi nhiệm vụ nhận 1 lần/ngày | Đã làm (bản stub) — `economy.js` (tiến độ + nhận thưởng); tiến độ chỉ tăng khi server.js gọi các hook `recordMatchPlayed`/`awardRoundSurvived`/`recordChatSent` — workstream server chưa nối hook, nên tiến độ hiện chưa tăng trong game thật |
+| FR-43 | Lưu trữ kinh tế | Hồ sơ (ví, inventory, pass, tour) lưu bền vững qua restart server | Đã làm (bản stub) — JSON `data/economy.json` (RAM + ghi file mỗi lần đổi); chưa phải database production (xem ARCHITECTURE §7.5) |
+| FR-44 | Kiểm duyệt tên shop / giải đấu | Tên giải đấu/thương hiệu bị từ chối khi trống, quá 40 ký tự hoặc chứa từ cấm | Đã làm (bản stub) — `economy.js` `validateTournamentText` |
+| FR-45 | Không pay-to-win / không cá cược / không loot box | Không món nào mua bằng tiền/xu cho chỉ số hay lợi thế trận đấu; không đặt tiền vào kết quả trận; không hộp quà ngẫu nhiên trả phí | Đã làm (bản stub) — catalogue toàn cosmetic; giải thưởng chỉ bằng xu, không đổi ra tiền mặt; xem §10 |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -247,7 +264,7 @@ Nguyên tắc thiết kế kho trò, theo tầm nhìn gốc:
 |---|---|---|---|
 | 1 | **Trống Hội** | Trống chạy, chiêng đứng yên; nhịp random. | 1 — đã có |
 | 2 | **Cầu Khỉ Sương Mù** | Cầu 9 bước, mỗi bước 2 ván, ván yếu random; đi theo lượt từng team. | 2 — đã có |
-| 3 | **Kéo Co Nhịp** | Hai đội kéo co theo nhịp trống: bấm đúng nhịp thì kéo mạnh, lệch nhịp thì mất lực; đội thua bị loại theo luật loại cá nhân (cần quyết: loại cả đội hay loại người kéo yếu nhất — xem §9). | 3 (dự kiến) |
+| 3 | **Kéo Co Nhịp** | Hai đội kéo co theo nhịp trống: bấm đúng nhịp thì kéo mạnh, lệch nhịp thì mất lực; đội thua bị loại theo luật **ĐÃ QUYẾT (OD-02, 2026-11-05)**: trận đủ người (≥ 24 người lúc bắt đầu vòng 3) thì cả đội thua bị loại; phòng nhỏ (< 24 người) thì chỉ 2 người đóng góp yếu nhất của đội thua bị loại (đội thua chỉ còn ≤ 2 người thì loại hết). | 3 (dự kiến) |
 | 4 | **Nặn Tò He** | Vẽ/nặn theo mẫu hiện ra trong thời gian giới hạn; chấm theo độ giống mẫu (mẫu random mỗi trận, không học thuộc được). | 3–4 (dự kiến) |
 | 5 | **Bịt Mắt Bắt Dê** | Một người bịt mắt (góc nhìn hạn chế) đi bắt "dê" di chuyển; người còn lại né tránh trong khu vực giới hạn. | 4 (dự kiến) |
 | 6 | **Rồng Rắn Cướp Cờ** | Vòng cuối: hai đội rồng rắn tranh cờ ở giữa sân; cướp được cờ và mang về đích thì thắng. | Cuối (dự kiến) |
@@ -333,13 +350,123 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 | # | Quyết định | Vì sao cần | Chặn phase nào |
 |---|---|---|---|
 | OD-01 | Chốt danh sách 18–20 trò trong kho và 6 trò mỗi trận chọn như thế nào | Phase 1 không thiết kế được trò mới nếu chưa có danh sách | Phase 1 |
-| OD-02 | Luật loại ở trò đồng đội (ví dụ Kéo Co): loại cả đội hay chỉ người yếu nhất? | Ảnh hưởng trực tiếp đường loại và cảm giác công bằng | Phase 1 |
-| OD-03 | Có giải thưởng / tiền / mô hình kinh doanh không? Nếu có thì hình thức nào? | Ảnh hưởng tài khoản, chống gian lận, pháp lý, hosting | Phase 1 (thiết kế) và Phase 3 (triển khai) |
+| OD-02 | Luật loại ở trò đồng đội (ví dụ Kéo Co): loại cả đội hay chỉ người yếu nhất? | **ĐÃ QUYẾT 2026-11-05:** trận đủ người (≥ 24 người lúc bắt đầu vòng 3) thì đội thua bị loại toàn bộ; phòng nhỏ (< 24 người) thì chỉ 2 người đóng góp yếu nhất của đội thua bị loại (đội thua chỉ còn ≤ 2 người thì loại hết). Giới hạn vòng 1 chốt 120 giây (FR-11; QC có thể lật lại con số sau play-test). | Phase 1 |
+| OD-03 | Có giải thưởng / tiền / mô hình kinh doanh không? Nếu có thì hình thức nào? | **ĐÃ QUYẾT 2026-11-05:** kinh tế chỉ bán đồ trang trí (cosmetic-only) bằng Hội Xu; lõi trận miễn phí; tiền thật chỉ là stub demo (chưa bật thanh toán thật). Chi tiết §10; triển khai stub FR-34..FR-45. | Phase 1 (thiết kế) và Phase 3 (triển khai) |
 | OD-04 | Ngân sách hosting và mức chịu tải mục tiêu (bao nhiêu phòng song song?) | Quyết định kiến trúc production (một server hay nhiều server) | Phase 2–3 |
 | OD-05 | Chính sách kiểm duyệt chat: mức độ lọc, ai mute, xử lý tố cáo trong bao lâu? | Cần trước khi mở public | Phase 3 |
 | OD-06 | Có làm voice chat không? | Voice chat tốn nhiều công sức và rủi ro kiểm duyệt | Phase 4 (hoặc không làm) |
 | OD-07 | Mục tiêu người chơi đồng thời đầu tiên sau khi ra mắt (ví dụ 50 / 200 / 456)? | Quyết định mức độ đầu tư vào scale ở Phase 2 | Phase 2 |
 | OD-08 | Có làm tài khoản / đăng nhập không, hay giữ chơi bằng tên tự chọn? | Ảnh hưởng bảng xếp hạng, lịch sử, chống gian lận | Phase 1–3 |
+
+## 10. Kinh tế trong game (MONETIZATION) — ĐÃ QUYẾT 2026-11-05
+
+> Trạng thái: mô hình **đã quyết** (OD-03). Bản stub triển khai trong
+> `server/economy.js` + `client/js/shop.js` (FR-34..FR-45). Tiền thật
+> **chưa bật** — mọi checkout tiền thật chỉ là stub demo, không xử lý
+> thanh toán thật. Mở thanh toán thật sau này cần quyết định mới của Sudo
+> + cổng thanh toán + tài khoản/kiểm duyệt (xem §10.6).
+
+### 10.1. Nguyên tắc
+
+- **Lõi trận sinh tồn hoàn toàn miễn phí.** Vào phòng, chơi 2 vòng (mục
+  tiêu 6 vòng), chat, khán giả, du lịch Hạ Long — không mất tiền, không
+  cần tài khoản ở giai đoạn đầu.
+- **Không pay-to-win:** không món nào mua bằng tiền hay xu cho chỉ số,
+  tốc độ, sức mạnh, ván chắc, lượt đi thêm hay bất kỳ lợi thế nào trong
+  trận đấu.
+- **Không cá cược / không đặt tiền vào kết quả:** không ai được đặt tiền
+  (thật hay xu) vào việc ai thắng/thua một trận.
+- **Không loot box:** không bán hộp quà ngẫu nhiên trả phí; mọi món trong
+  shop ghi rõ giá và nội dung trước khi mua.
+- **Không bán chỉ số:** shop chỉ bán đồ trang trí (cosmetic).
+- **Bản sắc dân gian Việt Nam:** áo bà ba, nón lá, khăn đóng, trống hội,
+  hoa sen, đèn lồng, cây đa — không dùng tài sản/tên Squid Game hay
+  Minecraft.
+
+### 10.2. Hội Xu — tiền tệ trong game
+
+| Kiếm xu | Mức |
+|---|---|
+| Sống sót 1 vòng | +10 xu |
+| Thắng trận | +50 xu |
+| Nhiệm vụ ngày (mỗi nhiệm vụ 1 lần/ngày) | +20 xu |
+| Được người khác cổ vũ / tặng sticker | +5 xu |
+
+Nhiệm vụ ngày (3 nhiệm vụ, xem FR-42): chơi 1 trận; sống sót 2 vòng;
+gửi 5 tin chat. Xu chỉ tiêu trong game (shop, giải thưởng giải đấu, vé
+tour). **Xu không đổi ra tiền mặt, không rút được.**
+
+### 10.3. Shop đồ trang trí (cosmetic-only)
+
+Catalogue trong `server/economy.js` (~16 món + 3 món chỉ nhận qua Pass):
+
+- Skin áo bà ba Đỏ/Xanh/Vàng (150 xu) — **chỉ là biến thể màu, không
+  khác chỉ số**.
+- Nón lá (trắng 100 xu, hoa sen 200 xu), khăn đóng (180 xu).
+- Cờ team: Trống Hội / Cầu Khỉ (120 xu), Hạ Long (200 xu).
+- Bong bóng chat lá tre (80 xu), hoa sen (150 xu).
+- Emote: vẫy tay (60 xu), đánh trống (100 xu), reo hò (100 xu).
+- Trang trí đảo: đèn lồng đình (250 xu), cây đa đầu làng (300 xu).
+
+Server kiểm tra sở hữu mỗi lần trang bị/dùng (FR-36): client khai đã có
+món chưa mua thì bị từ chối.
+
+### 10.4. Hội Làng Pass — track miễn phí + track trả phí
+
+- XP: 100 XP/vòng sống sót, 500 XP khi thắng trận. Cấp 1–20 (500 XP/cấp).
+- Mỗi cấp có thưởng track miễn phí và track trả phí (toàn đồ trang trí,
+  xem `PASS_REWARDS` trong `economy.js`); lên cấp tự nhận thưởng track
+  miễn phí, thưởng track trả phí chỉ nhận khi đã mở Pass trả phí.
+- Mở Pass trả phí hiện là **STUB checkout**: `buyPass` trả về
+  `{ok:true, stub:true, message:'Thanh toán thật chưa bật — đây là bản
+  demo, Pass đã mở khóa thử.'}` và mở khóa thử trong demo. Nút mua trong
+  giao diện ghi rõ "(Demo — chưa thanh toán thật)".
+
+### 10.5. Chủ Hội (giải đấu riêng) + cổ vũ / tặng quà + Vé Du Lịch
+
+- **Chủ Hội:** người chơi tạo giải đấu có tên thương hiệu (tên bị kiểm
+  duyệt: trống/quá 40 ký tự/chứa từ cấm thì từ chối). Giải thưởng trả bằng
+  Hội Xu từ ví của chủ hội; người thắng nhận toàn bộ giải bằng Hội Xu.
+  Giải thưởng **không đổi ra tiền mặt**.
+- **Cổ vũ / tặng quà (khán giả):** cổ vũ miễn phí, người nhận +5 xu
+  (giới hạn 1 lần/60 giây cho mỗi cặp người cổ vũ–người nhận). Sticker
+  trả xu (Hoa Sen 10 xu, Trống Hội 20 xu, Cá Chép Vàng 30 xu): người gửi
+  trả tiền sticker, người nhận +5 xu.
+- **Vé Du Lịch Hạ Long** (500 xu, hoặc stub tiền thật): mở thêm câu
+  chuyện đảo, tuyến tour cao cấp và huy hiệu lưu niệm cho người bị loại
+  đi du lịch. **Không ảnh hưởng kết quả trận đấu.**
+
+### 10.6. Bảng dòng tiền (money flow) — tiền thật STUB so với Hội Xu
+
+| Dòng | Dạng | Trạng thái hiện tại |
+|---|---|---|
+| Chơi trận, chat, khán giả, du lịch cơ bản | Miễn phí | Đã có trong demo |
+| Kiếm Hội Xu (vòng, thắng, nhiệm vụ, cheer) | Xu (tiền trong game) | Đã làm (bản stub) — `economy.js` |
+| Mua đồ trang trí bằng xu | Xu → cosmetic | Đã làm (bản stub) |
+| Hội Làng Pass track miễn phí | XP chơi game → cosmetic | Đã làm (bản stub) |
+| Hội Làng Pass track trả phí | **Tiền thật → STUB** | **Stub demo** — chưa có cổng thanh toán, chưa thu tiền thật |
+| Vé Du Lịch Hạ Long bằng tiền thật | **Tiền thật → STUB** | **Stub demo** — như trên |
+| Giải thưởng giải đấu Chủ Hội | Xu (ví chủ hội → ví người thắng) | Đã làm (bản stub); không đổi ra tiền mặt |
+| Sticker tặng khán giả | Xu (ví người tặng → người nhận +5 xu) | Đã làm (bản stub) |
+| Đổi xu ra tiền mặt / rút tiền | — | **Không có, không làm** |
+| Đặt cược vào kết quả trận | — | **Cấm, không làm** |
+| Loot box trả phí | — | **Cấm, không làm** |
+
+Mở thanh toán thật sau này (chưa quyết) cần, theo thứ tự: (1) Sudo chốt
+cổng thanh toán + giá tiền thật; (2) tài khoản/đăng nhập để gắn giao dịch
+với người dùng; (3) lưu giao dịch bền vững (database, không phải JSON);
+(4) đối soát/hoàn tiền và kiểm duyệt; (5) lật `ECONOMY_STUB=false` và gỡ
+nhãn stub khỏi UI/docs. **Không được lật cờ stub khi chưa có 5 điều trên.**
+
+### 10.7. Điều cấm (ràng buộc)
+
+| Cấm | Vì sao |
+|---|---|
+| Pay-to-win (bán chỉ số/lợi thế trận) | Phá công bằng — luật chơi đã chốt |
+| Cá cược / đặt tiền vào kết quả trận | Rủi ro pháp lý, phá trải nghiệm |
+| Loot box (hộp quà ngẫu nhiên trả phí) | Người mua không biết mình nhận gì |
+| Đổi Hội Xu ra tiền mặt | Biến game thành kênh tiền tệ |
+| Thanh toán thật không ghi rõ là demo | Người chơi tưởng đã trả tiền thật |
 
 ---
 *Tài liệu liên quan: [ARCHITECTURE.md](./ARCHITECTURE.md) (kiến trúc và đường

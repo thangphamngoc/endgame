@@ -43,6 +43,13 @@
   var phase = 'menu'; // menu | countdown | round1 | team | round2 | finished | tourism
   var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0;
   var aliveCount = 0, aliveBefore = 0;
+  // ---- Luồng 6 vòng ----
+  var ROUND_NAMES = { 1: 'Trống Hội', 2: 'Cầu Khỉ Sương Mù', 3: 'Kéo Co Nhịp', 4: 'Nặn Tò He', 5: 'Bịt Mắt Bắt Dê', 6: 'Rồng Rắn Cướp Cờ' };
+  var ROUND_GAMES = { 1: 'trong-hoi', 2: 'cau-khi', 3: 'keo-co', 4: 'to-he', 5: 'bit-mat', 6: 'rong-ran' };
+  var ROUND_TIME_LIMITS = { 'keo-co': 60, 'to-he': 60, 'bit-mat': 60, 'o-an-quan': 90, 'nhay-bao-bo': 60, 'rong-ran': 120 };
+  var TOTAL_ROUNDS = 6;
+  var currentRound = 0, roundTimeLimit = 0, roundEndsAt = 0, roundStartAlive = [];
+  var lastInputSentAt = 0, jumpQueued = false, interstitialTimer = null;
   var keys = {}, typing = false, joy = { x: 0, y: 0, active: false };
   var camAngle = 0.6, camDist = 14, camHeight = 7, camTarget = new THREE.Vector3();
   var flyTo = null, focusedIsland = null, tourismMode = false;
@@ -341,7 +348,8 @@
     drumState = 'drum'; drumTimer = 2.5;
     showHUD(true); updateAliveHUD();
     toast('Đếm ngược… Trống sắp đánh!');
-    setTimeout(function () { if (mode === 'single') { phase = 'round1'; $('hud-round').textContent = 'VÒNG 1/2'; } }, 3200);
+    updateSingle._teamTimer = 0; updateSingle._r1TimeoutDone = false;
+    setTimeout(function () { if (mode === 'single') startRoundCommon(1, 'trong-hoi', 'Trống Hội', 120); }, 3200);
   }
   function connectWS() {
     if (ws && ws.readyState === WebSocket.OPEN) return ws;
@@ -356,7 +364,13 @@
     connectWS();
   }
   function onServerMessage(msg) {
+    // Tin nhắn riêng của các vòng 3-6 do rounds.js xử lý trước.
+    if (window.Rounds && window.Rounds.onServerMessage && window.Rounds.onServerMessage(msg)) return;
     if (msg.type === 'welcome') { myId = msg.id; return; }
+    if (msg.type === 'roundStart') { startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed); return; }
+    if (msg.type === 'economy' && window.HoiShop && window.HoiShop.onMessage) { window.HoiShop.onMessage(msg); return; }
+    if (msg.type === 'roundEnd') { onRoundEnd(msg); return; }
+    if (msg.type === 'tick') { onTick(msg); return; }
     if (msg.type === 'rooms') {
       $('room-list').innerHTML = msg.rooms.map(function (r) {
         return '<button class="btn small" onclick="window.__joinRoom(\'' + r.code + '\')">' + r.code + ' — ' + r.count + ' người</button>';
@@ -384,7 +398,7 @@
     }
     if (msg.type === 'phase') {
       phase = msg.phase;
-      if (msg.phase === 'round1') { $('hud-round').textContent = 'VÒNG 1/2'; matchStartAt = Date.now(); }
+      if (msg.phase === 'round1') { startRoundCommon(1, 'trong-hoi', 'Trống Hội', 120); matchStartAt = Date.now(); }
       if (msg.phase === 'team') {
         $('team-screen').classList.remove('hidden');
         $('team-list').innerHTML = (msg.teams || []).map(function (t) {
@@ -395,9 +409,14 @@
       }
       if (msg.phase === 'round2') {
         $('team-screen').classList.add('hidden');
-        $('hud-round').textContent = 'VÒNG 2/2';
+        startRoundCommon(2, 'cau-khi', 'Cầu Khỉ Sương Mù', 0);
         buildBridges();
         teleportToBridge();
+      }
+      if (msg.phase === 'round3' || msg.phase === 'round4' || msg.phase === 'round5' || msg.phase === 'round6') {
+        var rn = Number(msg.phase.slice(5));
+        $('team-screen').classList.add('hidden');
+        startRoundCommon(rn, ROUND_GAMES[rn], ROUND_NAMES[rn], ROUND_TIME_LIMITS[ROUND_GAMES[rn]] || 90);
       }
       if (msg.phase === 'finished') {
         showRanking(msg.ranking || []);
@@ -518,7 +537,9 @@
     allPersons().forEach(function (p) {
       if (p.alive && p.team !== null) { p.z = -48; p.x = bridgeX(p.team); p.group.position.set(p.x, 4, p.z); }
     });
-    phase = 'round2'; $('hud-round').textContent = 'VÒNG 2/2';
+    phase = 'round2'; currentRound = 2; roundTimeLimit = 0; roundEndsAt = 0;
+    roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
+    $('hud-round').textContent = 'VÒNG 2/6 — Cầu Khỉ Sương Mù';
   }
   function showTeamScreenSingle() {
     phase = 'team';
@@ -549,7 +570,7 @@
     } else {
       myBridgeStep++; player.bridgeStep = myBridgeStep;
       if (myBridgeStep >= 9) {
-        localRanking.push({ name: player.name, time: (Date.now() - matchStartAt) / 1000 });
+        localRanking.push({ name: player.name, time: (Date.now() - matchStartAt) });
         showRanking(localRanking);
       } else {
         player.z = -52 - myBridgeStep * 5; player.group.position.set(player.x, 4, player.z);
@@ -676,9 +697,13 @@
     }
     if (ev.key === 'Escape') { closeChat(); return; }
     if (document.activeElement === $('chat-input')) return;
+    if (ev.key === ' ' && window.Rounds && window.Rounds.onSpace && window.Rounds.onSpace()) {
+      ev.preventDefault(); return; // Vòng kéo co / nhảy bao bố dùng Space làm nút hành động.
+    }
     keys[ev.key.toLowerCase()] = true;
     if (ev.key === ' ') {
       ev.preventDefault();
+      jumpQueued = true;
       if (player && player.grounded) { player.vy = 9; player.grounded = false; player.jumped = true;
         if (mode === 'multi') sendWS({ type: 'pos', x: player.x, z: player.z, jumped: true });
       }
@@ -688,7 +713,7 @@
         if (b && b.broken[myBridgeStep]) {
           myBridgeStep++; player.bridgeStep = myBridgeStep;
           player.z = -52 - myBridgeStep * 5; player.group.position.set(player.x, 4, player.z);
-          if (myBridgeStep >= 9) { localRanking.push({ name: player.name, time: (Date.now() - matchStartAt) / 1000 }); showRanking(localRanking); }
+          if (myBridgeStep >= 9) { localRanking.push({ name: player.name, time: (Date.now() - matchStartAt) }); showRanking(localRanking); }
         }
       }
     }
@@ -759,6 +784,8 @@
   }, { passive: true });
   joyEl.addEventListener('touchend', function () { joy.active = false; joy.x = 0; joy.y = 0; knob.style.left = '35px'; knob.style.top = '35px'; });
   $('btn-jump').addEventListener('click', function () {
+    if (window.Rounds && window.Rounds.onSpace && window.Rounds.onSpace()) return;
+    jumpQueued = true;
     if (player && player.grounded) { player.vy = 9; player.grounded = false; }
   });
 
@@ -779,6 +806,8 @@
   $('btn-panorama').onclick = backToPanorama;
   $('btn-back-match').onclick = backToMatch;
   $('btn-replay').onclick = function () {
+    if (window.Rounds) window.Rounds.endRound();
+    hideInterstitial();
     if (mode === 'multi') sendWS({ type: 'replay' });
     $('spectator').classList.add('hidden'); $('team-screen').classList.add('hidden');
     $('menu').classList.remove('hidden'); showHUD(false);
@@ -821,10 +850,36 @@
     b.onclick = function () { sendChat(b.dataset.text); };
   });
 
+  // ---- Cửa hàng / Hội Xu (shop.js do workstream khác tạo; chưa có thì báo nhẹ) ----
+  // Mở panel kinh tế do shop.js vẽ; chưa có shop.js thì báo nhẹ.
+  [['btn-shop', 'shop-panel'], ['btn-pass', 'pass-panel'], ['btn-tournament', 'tournament-panel']].forEach(function (pair) {
+    var b = $(pair[0]); if (!b) return;
+    b.onclick = function () {
+      if (!window.HoiShop) { toast('Cửa hàng chưa sẵn sàng.'); return; }
+      if (typeof window.HoiShop.render === 'function') window.HoiShop.render();
+      ['shop-panel', 'pass-panel', 'tournament-panel', 'gift-panel'].forEach(function (pid) {
+        var pp = $(pid); if (pp) pp.classList.add('hidden');
+      });
+      var target = $(pair[1]);
+      if (target) target.classList.remove('hidden');
+    };
+  });
+  // Fallback để shop.js (khi có) cập nhật số dư qua window.HoiWallet.set(balance).
+  if (!window.HoiWallet) {
+    window.HoiWallet = { set: function (balance) { var el = $('wallet-hud'); if (el) el.textContent = 'Hội Xu: ' + balance; } };
+  }
+
   // ---- Vòng lặp game ----
   var lastTime = performance.now(), minimapTimer = 0;
   function updateSingle(dt) {
     if (phase === 'round1') {
+      // Hết giờ vòng 1 (giới hạn 120s, server cũng áp cùng giới hạn): ai chưa về đích bị loại.
+      if (roundEndsAt && Date.now() >= roundEndsAt && !updateSingle._r1TimeoutDone) {
+        updateSingle._r1TimeoutDone = true;
+        allPersons().filter(function (p) { return p.alive && !p.finished; })
+          .forEach(function (p) { eliminate(p, 'Hết giờ — người chưa về đích bị loại'); });
+        toast('Hết giờ — người chưa về đích bị loại');
+      }
       drumTimer -= dt;
       if (drumTimer <= 0) {
         drumState = drumState === 'drum' ? 'gong' : 'drum';
@@ -850,7 +905,7 @@
         // Chờ 1 nhịp rồi sang CHIA TEAM.
         if (!updateSingle._teamTimer) updateSingle._teamTimer = 1;
         updateSingle._teamTimer -= dt;
-        if (updateSingle._teamTimer <= 0) { updateSingle._teamTimer = 0; showTeamScreenSingle(); }
+        if (updateSingle._teamTimer <= 0) { updateSingle._teamTimer = 0; var st1 = roundEndStats(); localRoundEnd(1, st1.survivors, st1.eliminated); }
       }
     }
     if (phase === 'round2') {
@@ -868,16 +923,14 @@
             var plank = randInt(0, 1);
             if (b.weak[step] === plank) { b.broken[step] = true; leader.alive = false; }
             else { leader.bridgeStep++; leader.z = -52 - leader.bridgeStep * 5; leader.group.position.set(leader.x, 4, leader.z); }
-            if (leader.bridgeStep >= 9) localRanking.push({ name: leader.name, time: (Date.now() - matchStartAt) / 1000 });
+            if (leader.bridgeStep >= 9) localRanking.push({ name: leader.name, time: (Date.now() - matchStartAt) });
           }
         }
       });
       var left = allPersons().filter(function (p) { return p.alive && p.bridgeStep < 9; });
       if (!left.length && phase === 'round2') {
-        if (player && !localRanking.find(function (r) { return r.name === player.name; })) {
-          // Người chơi bị loại trước khi về đích thì bảng vẫn hiện người về đích.
-        }
-        if (localRanking.length) showRanking(localRanking);
+        var st2 = roundEndStats();
+        localRoundEnd(2, st2.survivors, st2.eliminated);
       }
     }
     if (player && player.finished && phase === 'round1') {
@@ -887,6 +940,8 @@
   function updatePlayerMovement(dt) {
     if (!player || !player.alive || phase === 'tourism') return;
     if (document.activeElement === $('chat-input')) return;
+    // Vòng vẽ / ô ăn quan dùng overlay, không di chuyển nhân vật.
+    if (window.Rounds && window.Rounds.blocksMovement && window.Rounds.blocksMovement()) return;
     var speed = 9;
     var mx = 0, mz = 0;
     if (keys['w'] || keys['arrowup']) mz -= 1;
@@ -899,7 +954,7 @@
       var oldX = player.x, oldZ = player.z;
       player.x += mx * speed * dt; player.z += mz * speed * dt;
       // Giới hạn trong đảo chính ở vòng 1.
-      if (phase === 'round1') { player.x = Math.max(-28, Math.min(28, player.x)); player.z = Math.max(-48, Math.min(38, player.z)); }
+      if (phase === 'round1' || phase === 'round3' || phase === 'round5' || phase === 'round6') { player.x = Math.max(-28, Math.min(28, player.x)); player.z = Math.max(-48, Math.min(38, player.z)); }
       if (phase === 'round2') {
         // Trên cầu chỉ đi theo lượt và theo bước; di chuyển tự do bị chặn lại.
         if (mode === 'single' && !isMyTurnSingle()) { player.x = oldX; player.z = oldZ; }
@@ -912,6 +967,13 @@
       if (mode === 'single' && phase === 'round1' && drumState === 'gong') {
         eliminate(player, 'Di chuyển trong lúc chiêng');
       }
+    }
+    // Gửi input đã throttle tối đa 15Hz; giữ lại pos cho tương thích vòng 1/2.
+    if (mode === 'multi' && (mx || mz || jumpQueued) && Date.now() - lastInputSentAt >= 66) {
+      lastInputSentAt = Date.now();
+      var ilen = Math.hypot(mx, mz) || 1;
+      sendWS({ type: 'input', dx: mx / ilen, dz: mz / ilen, jump: jumpQueued });
+      jumpQueued = false;
     }
     // Nhảy / trọng lực đơn giản.
     if (!player.grounded) {
@@ -991,10 +1053,12 @@
     requestAnimationFrame(animate);
     var dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now;
     var t = now / 1000;
-    if (phase === 'round1' || phase === 'round2') {
+    if (phase.indexOf('round') === 0) {
       matchTime = (Date.now() - matchStartAt) / 1000;
       $('hud-time').textContent = fmtTime(matchTime);
     }
+    updateRoundTimer();
+    if (window.Rounds) window.Rounds.update(dt);
     if (mode === 'single') updateSingle(dt);
     updatePlayerMovement(dt);
     updateCamera(dt);
@@ -1033,6 +1097,140 @@
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
+
+  // ---- Luồng 6 vòng (mở rộng) ----
+  function roundEndStats() {
+    var alive = allPersons().filter(function (p) { return p.alive; });
+    var elim = roundStartAlive.filter(function (n) {
+      return !alive.some(function (p) { return p.name === n; });
+    });
+    return { survivors: alive.length, eliminated: elim };
+  }
+  function startRoundCommon(round, game, name, timeLimit, seed) {
+    currentRound = round;
+    roundTimeLimit = timeLimit || 0;
+    roundEndsAt = roundTimeLimit ? Date.now() + roundTimeLimit * 1000 : 0;
+    roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
+    updateSingle._r1TimeoutDone = false;
+    phase = 'round' + round;
+    $('hud-round').textContent = 'VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + (name || ROUND_NAMES[round] || '');
+    $('hud-drum').textContent = name || ROUND_NAMES[round] || '';
+    hideInterstitial();
+    if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed });
+  }
+  function onRoundEnd(msg) {
+    var st = roundEndStats();
+    var survivors = (msg.survivors !== undefined && msg.survivors !== null) ? msg.survivors : st.survivors;
+    // Server gửi eliminated là [id]; đổi sang tên để hiển thị.
+    var elimNames = (msg.eliminated || []).map(function (id) {
+      var pp = allPersons().find(function (x) { return x.id === id; });
+      return pp ? pp.name : id;
+    });
+    showInterstitial(msg.round, survivors, elimNames.length ? elimNames : st.eliminated,
+      msg.round < TOTAL_ROUNDS ? ROUND_NAMES[msg.round + 1] : null);
+    if (window.Rounds) window.Rounds.endRound();
+    phase = 'interstitial';
+    clearTimeout(interstitialTimer);
+    interstitialTimer = setTimeout(hideInterstitial, 3000);
+  }
+  function onTick(msg) {
+    (msg.players || []).forEach(function (info) {
+      if (info.id === myId) return;
+      var rp = remotePlayers[info.id];
+      if (rp) {
+        rp.x = info.x; rp.z = info.z; rp.alive = info.alive;
+        rp.group.position.set(info.x, 4, info.z);
+      } else {
+        syncRemotePlayers([info]);
+      }
+    });
+    updateAliveHUD();
+  }
+  function showInterstitial(round, survivors, eliminated, nextName) {
+    var el = $('interstitial');
+    el.innerHTML = '<h2>HẾT VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + (ROUND_NAMES[round] || '') + '</h2>' +
+      '<p>Còn sống: <b>' + survivors + '</b> người</p>' +
+      (eliminated && eliminated.length
+        ? '<p>Bị loại: ' + eliminated.map(function (n) { return escapeHtml(n); }).join(', ') + '</p>'
+        : '<p>Không ai bị loại ở vòng này.</p>') +
+      (nextName ? '<p>Vòng tiếp theo: <b>' + escapeHtml(nextName) + '</b></p>'
+        : '<p>Trận đấu kết thúc — xem bảng xếp hạng.</p>');
+    el.classList.remove('hidden');
+  }
+  function hideInterstitial() { var el = $('interstitial'); if (el) el.classList.add('hidden'); }
+  // Kết thúc một vòng ở chế độ chơi đơn: hiện interstitial 3s rồi sang vòng sau.
+  function localRoundEnd(round, survivors, eliminated) {
+    if (window.Rounds) window.Rounds.endRound();
+    showInterstitial(round, survivors, eliminated, round < TOTAL_ROUNDS ? ROUND_NAMES[round + 1] : null);
+    phase = 'interstitial';
+    clearTimeout(interstitialTimer);
+    interstitialTimer = setTimeout(function () {
+      hideInterstitial();
+      if (!player || !player.alive) {
+        // Người chơi đã bị loại: dừng ở bảng xếp hạng những người còn sống.
+        showRanking(allPersons().filter(function (p) { return p.alive; })
+          .map(function (p) { return { name: p.name, time: Date.now() - matchStartAt }; }));
+        return;
+      }
+      if (round === 1) { showTeamScreenSingle(); return; }
+      if (round < TOTAL_ROUNDS) { startRoundLocal(round + 1); return; }
+      showRanking(allPersons().filter(function (p) { return p.alive; })
+        .map(function (p) { return { name: p.name, time: Date.now() - matchStartAt }; }));
+    }, 3000);
+  }
+  function startRoundLocal(round) {
+    var game = ROUND_GAMES[round], name = ROUND_NAMES[round];
+    currentRound = round; roundTimeLimit = ROUND_TIME_LIMITS[game] || 90; roundEndsAt = Date.now() + roundTimeLimit * 1000;
+    roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
+    phase = 'round' + round;
+    $('hud-round').textContent = 'VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + name;
+    $('hud-drum').textContent = name;
+    hideInterstitial();
+    if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now() });
+  }
+  function updateRoundTimer() {
+    var wrap = $('round-timer-wrap'), fill = $('round-timer-fill'), txt = $('hud-round-time');
+    if (!wrap || !fill || !txt) return;
+    if (roundEndsAt && phase.indexOf('round') === 0) {
+      var remain = Math.max(0, (roundEndsAt - Date.now()) / 1000);
+      wrap.classList.remove('hidden'); txt.classList.remove('hidden');
+      txt.textContent = 'Còn ' + fmtTime(remain) + (currentRound === 1 ? ' — về đích trước khi hết giờ!' : ' — ' + (ROUND_NAMES[currentRound] || ''));
+      fill.style.width = (roundTimeLimit ? Math.round(remain / roundTimeLimit * 100) : 0) + '%';
+      txt.classList.toggle('urgent', remain <= 30);
+      fill.classList.toggle('urgent', remain <= 30);
+    } else {
+      wrap.classList.add('hidden'); txt.classList.add('hidden');
+    }
+  }
+
+  // Cầu nối cho rounds.js (và shop.js): chỉ đọc/gọi qua đây, không chạm biến trong IIFE.
+  window.__game = {
+    get mode() { return mode; },
+    get phase() { return phase; },
+    set phase(v) { phase = v; },
+    get myId() { return myId; },
+    get myTeam() { return myTeam; },
+    get player() { return player; },
+    get bots() { return bots; },
+    get scene() { return scene; },
+    get matchStartAt() { return matchStartAt; },
+    allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast,
+    setTag: setTag, clearTag: clearTag, updateAliveHUD: updateAliveHUD,
+    teamColorHex: teamColorHex, TEAM_COLORS: TEAM_COLORS, TEAM_NAMES: TEAM_NAMES,
+    localRoundEnd: localRoundEnd, showInterstitial: showInterstitial, hideInterstitial: hideInterstitial,
+    setHudDrum: function (t) { $('hud-drum').textContent = t; },
+    project: function (x, y, z) {
+      var v = new THREE.Vector3(x, y, z); v.project(camera);
+      return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, behind: v.z > 1 };
+    }
+  };
+
+  // shop.js dùng lại kết nối WebSocket của game qua window.__sendWS (không mở mới).
+  window.__sendWS = sendWS;
+  if (window.__hoiShopQueue && window.__hoiShopQueue.length) {
+    window.__hoiShopQueue.forEach(function (m) { sendWS(m); });
+    window.__hoiShopQueue = [];
+  }
 
   if (window.THREE) { buildWorld(); animate(performance.now()); }
   else { document.addEventListener('DOMContentLoaded', function () { if (window.THREE) { buildWorld(); animate(performance.now()); } }); }

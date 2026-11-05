@@ -82,6 +82,36 @@ Tin nhắn hiện thành bong bóng trên đầu người gửi khoảng 5 giây
 120 ký tự, chống spam 2 giây/tin. Chat multiplayer đi qua server tới mọi người
 trong phòng. Chat của bot trong chế độ chơi đơn luôn ghi rõ `· BOT`.
 
+## Kinh tế trong game (demo)
+
+Lõi trận sinh tồn hoàn toàn **miễn phí**. Tiền trong game là **Hội Xu**,
+chỉ mua đồ trang trí — không mua chỉ số, không pay-to-win, không cá cược,
+không loot box:
+
+- Kiếm xu: +10 xu mỗi vòng sống sót, +50 xu khi thắng trận, +20 xu mỗi
+  nhiệm vụ ngày (chơi 1 trận, sống sót 2 vòng, gửi 5 chat), +5 xu mỗi
+  lượt được cổ vũ.
+- **Shop**: áo bà ba 3 màu (chỉ đổi màu, không đổi chỉ số), nón lá, khăn
+  đóng, cờ team, bong bóng chat, emote, đồ trang trí đảo. Server kiểm tra
+  sở hữu mỗi lần trang bị — chưa mua thì không dùng được.
+- **Hội Làng Pass**: cấp 1–20 theo XP chơi game (100 XP/vòng, 500 XP khi
+  thắng), thưởng track miễn phí và track trả phí toàn đồ trang trí.
+- **Chủ Hội**: tạo giải đấu riêng có tên thương hiệu, giải thưởng trả bằng
+  Hội Xu từ ví chủ hội, người thắng nhận giải bằng xu (không đổi ra tiền
+  mặt). Khán giả cổ vũ miễn phí hoặc tặng sticker bằng xu.
+- **Vé Du Lịch Hạ Long**: mở thêm câu chuyện đảo, tuyến tour cao cấp và
+  huy hiệu lưu niệm cho người bị loại — không ảnh hưởng kết quả trận.
+
+**Thanh toán thật chưa bật: mọi nút tiền thật đều là bản demo có ghi rõ
+"(Demo — chưa thanh toán thật)"**, trả về stub và chỉ mở khóa thử trong
+bản demo, không xử lý tiền thật. Chi tiết: [docs/BRD.md §10](./docs/BRD.md).
+
+> Lưu ý tích hợp (đang chờ workstream khác): `server/economy.js` và
+> `client/js/shop.js` đã viết xong, nhưng `server.js` chưa nối economy
+> vào và `index.html` chưa có các panel shop/pass/giải đấu/quà tặng —
+> kinh tế chưa chạy được trong game cho tới khi hai việc nối đó xong
+> (xem `docs/PLAN.md` M-03, M-04).
+
 ## Kiến trúc
 
 ```
@@ -89,9 +119,16 @@ trong-hoi-cau-khi/
   package.json            # chỉ phụ thuộc ws
   server/server.js        # Node.js + WebSocket, không framework;
                           # vừa phục vụ file client, vừa làm game server
+  server/economy.js       # kinh tế trong game (Hội Xu, shop, Pass,
+                          # giải đấu, quà tặng, Vé Du Lịch) — bản stub,
+                          # lưu JSON data/economy.json; server.js nối qua try-require
   client/index.html       # cấu trúc trang, HUD, panel chat, panel du lịch, minimap
   client/css/style.css    # giao diện voxel: góc vuông, viền dày, chữ Việt rõ
   client/js/game.js       # Three.js qua CDN, thế giới voxel, bot, camera, chat, du lịch
+  client/js/shop.js       # giao diện shop/pass/giải đấu/quà tặng (window.HoiShop)
+  Dockerfile              # node:20-alpine, non-root, cổng 3000
+  docker-compose.yml      # service game, volume giữ data/economy.json
+  .env.example            # PORT, NODE_ENV, ECONOMY_STUB=true, không secret
 ```
 
 Server là nguồn chân lý cho: nhịp trống/chiêng, loại người chơi, chia team,

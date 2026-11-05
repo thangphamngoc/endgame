@@ -54,3 +54,75 @@ h2{margin:0 0 8px}
   #tourism{top:auto;bottom:120px;right:8px;left:8px;width:auto}
   #chat-panel{bottom:140px}
 }
+
+/* ---- Luồng 6 vòng ---- */
+#round-timer-wrap{height:14px;border:3px solid #111;background:#e0e0e0;margin-bottom:6px}
+#round-timer-fill{height:100%;width:100%;background:#1565c0}
+#round-timer-fill.urgent{background:#c62828}
+.round-countdown{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#1a2a33}
+.round-countdown.urgent{color:#c62828}
+#wallet-hud{position:absolute;right:12px;top:284px;z-index:20;font-weight:900;font-size:14px;padding:8px 10px}
+#interstitial{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);z-index:35;text-align:center}
+#interstitial h2{font-size:22px}
+#interstitial p{font-size:15px;line-height:1.5}
+#round-overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;z-index:32;text-align:center}
+#round-overlay h2{font-size:22px}
+#round-overlay .note{text-align:left}
+#blind-overlay{position:absolute;inset:0;z-index:31;pointer-events:none;background:rgba(13,17,38,.88);display:flex;align-items:center;justify-content:center}
+.blind-box{text-align:center;color:#fff;max-width:min(520px,90vw);padding:16px}
+.blind-box h2{color:#ffd600;font-size:22px}
+.blind-box .note{color:#e0e0e0}
+#cue-arrow{font-size:64px;line-height:1;color:#ffd600;transition:transform .3s ease;text-shadow:0 0 12px rgba(255,214,0,.8)}
+#cue-text{font-size:18px;font-weight:800;color:#fff}
+#goat-note{font-size:16px;font-weight:700;color:#fff}
+#goat-marker,#flag-marker{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;pointer-events:none;background:#ffd600;color:#111;font-size:13px;font-weight:900;padding:3px 8px;border:3px solid #111;z-index:22}
+#flag-marker{background:#e53935;color:#fff}
+.beat-ind{font-size:26px;font-weight:900;color:#90a4ae;border:3px solid #90a4ae;padding:10px;margin:10px auto;width:fit-content}
+.beat-ind.on{color:#fff;background:#c62828;border-color:#111;box-shadow:0 0 0 4px #ffcdd2}
+.power-row{display:flex;align-items:center;gap:10px;margin:8px 0;text-align:left}
+.power-bar{flex:1;height:20px;border:3px solid #111;background:#e0e0e0}
+.power-fill{height:100%;width:0%}
+.power-fill.a{background:#1565c0}
+.power-fill.b{background:#e53935}
+.rope-track{position:relative;height:22px;border:3px solid #111;background:#fff8e1;margin:12px 0}
+.rope-marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:20px;color:#111}
+.round-action{min-height:56px;min-width:140px;font-size:18px;padding:14px 20px;margin-top:8px}
+.round-action:focus-visible,.btn:focus-visible{outline:4px solid #1565c0;outline-offset:2px}
+#trace-canvas{border:3px solid #111;background:#fffef5;touch-action:none;max-width:100%;height:auto;display:block;margin:8px auto}
+.oq-board{display:flex;gap:8px;align-items:stretch;justify-content:center;margin:10px 0}
+.oq-rows{flex:1}
+.oq-row{display:flex;gap:6px;margin:4px 0}
+.oq-pit{flex:1;min-height:52px;min-width:44px;font-size:18px}
+.oq-pit:disabled{opacity:.55;cursor:default}
+.oq-quan{border:3px solid #111;background:#fff8e1;padding:8px 4px;font-size:13px;width:76px;display:flex;flex-direction:column;justify-content:center}
+.oq-quan b{font-size:20px}
+.hop-track{position:relative;height:26px;border:3px solid #111;background:#e8f5e9;margin:12px 0}
+.hop-zone{position:absolute;left:42%;width:16%;top:0;bottom:0;background:#ffd600;border-left:3px solid #111;border-right:3px solid #111}
+.hop-marker{position:absolute;left:0;top:-4px;width:6px;height:32px;background:#c62828;transform:translateX(-50%)}
+@keyframes stumble{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px) rotate(-3deg)}75%{transform:translateX(8px) rotate(3deg)}}
+.stumble{animation:stumble .45s ease;background:#c62828!important}
+/* Economy panels: cùng phong cách voxel, panel vuông góc */
+#shop-panel,#pass-panel,#tournament-panel,#gift-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:86vh;overflow:auto;z-index:33}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}
+.shop-item{border:3px solid #111;padding:10px;background:#fff}
+.shop-item-name{font-weight:900}
+.shop-item-desc{font-size:13px;color:#455a64;line-height:1.4}
+.shop-item-price{font-weight:800;margin:6px 0}
+.shop-item button,.sticker-btn,#buy-pass-btn,#tournament-create-btn,#tournament-list-btn,#cheer-btn,#gift-btn,#tour-xu-btn,#tour-stub-btn{border:3px solid #111;background:#fff;color:#111;font-weight:800;cursor:pointer;padding:8px 10px;box-shadow:3px 3px 0 #111;min-height:44px}
+.shop-item button:hover,.sticker-btn:hover{ background:#ffe082}
+.shop-item button:disabled{opacity:.55;cursor:default}
+.sticker-btn.selected{background:#2e7d32;color:#fff}
+.pass-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+.pass-table th,.pass-table td{border:2px solid #111;padding:6px;text-align:left}
+.pass-reached{background:#e8f5e9}
+.shop-error{color:#c62828;font-weight:700}
+.oq-quan-pit{background:#fff8e1;font-weight:900}
+@media (max-width:360px){
+  #hud{width:calc(100vw - 24px);left:12px}
+  #wallet-hud{top:auto;bottom:120px;right:12px}
+  #minimap-box{display:none}
+  .round-countdown{font-size:18px}
+  #round-overlay,#interstitial,#shop-panel,#pass-panel,#tournament-panel,#gift-panel{width:calc(100vw - 16px)}
+  .oq-pit{min-width:36px;min-height:48px;font-size:16px}
+  .oq-quan{width:60px}
+}

@@ -60,8 +60,9 @@ qua server cho tiện).
                     └─────────────────────────────────────────────┘
 ```
 
-**Không có trong hệ thống hiện tại:** không có cơ sở dữ liệu (toàn bộ trạng
-thái phòng nằm trong RAM và mất khi server tắt), không có hệ thống tài khoản /
+**Không có trong hệ thống hiện tại:** không có cơ sở dữ liệu (trạng thái
+phòng nằm trong RAM và mất khi server tắt; riêng dữ liệu kinh tế lưu
+JSON `data/economy.json` — xem §7.5), không có hệ thống tài khoản /
 đăng nhập, không có hàng đợi xử lý nền, không có cache, không có dịch vụ
 phân tích (analytics) hay giám sát.
 
@@ -120,7 +121,7 @@ vòng 1 — xem `docs/PLAN.md`, task P1-02).
 | Client | HTML + CSS + JS thuần, không build step, không bundler | Three.js 0.158.0 tải từ CDN cdnjs — cần Internet; CDN lỗi là game không chạy |
 | Render | Three.js, `MeshLambertMaterial`, hình khối `BoxGeometry` (voxel), sương `Fog(0x9db8c6, 90, 420)` | Không có instancing cho đảo xa (260 silhouette là 260 mesh riêng — xem §7); chưa đo FPS trên máy yếu |
 | Trạng thái | In-memory: `Map` phòng và client trong RAM | Không bền vững (không lưu trữ), không chia sẻ giữa nhiều server, không khôi phục sau restart |
-| Dữ liệu | Không có database | Không có lịch sử trận, bảng xếp hạng lâu dài, tài khoản, hay phân tích |
+| Dữ liệu | Không có database; kinh tế lưu JSON `data/economy.json` (xem §7.5) | Không có lịch sử trận, bảng xếp hạng lâu dài, tài khoản, hay phân tích |
 | Bảo mật | Chặn path traversal khi phục vụ file tĩnh; giới hạn tên 30 ký tự, chat 120 ký tự, spam 2 giây | Không có xác thực, không có giới hạn tốc độ (rate limit) cho pos/join, không có log kiểm toán |
 | Triển khai | `npm install` → `npm start`, cổng mặc định 3000, biến môi trường `PORT` | Không có TLS, reverse proxy, health check, log tập trung, hay giám sát — xem §9 |
 
@@ -198,7 +199,37 @@ bản giao thức, không có số thứ tự message (sequence number) trong b�
 đối nhạy cảm nào khác; không có token hay thông tin tài khoản (vì không có
 tài khoản).
 
-### 5.3. Giao thức dự kiến — chưa có, chỉ dùng khi mở rộng (planned)
+### 5.4. Giao thức economy (đã làm ở module riêng, chưa nối vào server.js)
+
+Message `{type:'economy', action, ...}` do `server/economy.js`
+(`handle(room, player, msg, send, broadcast)`) xử lý và trả về
+`{type:'economy', ok, action, ...}`. Server.js **chưa nối** (workstream
+server sở hữu việc nối — xem PLAN M-03); client `shop.js` gửi qua
+`window.__sendWS` nếu có, không mở kết nối mới.
+
+| `action` (client → server) | Trường | Server làm gì |
+|---|---|---|
+| `getProfile` / `wallet` | — | Trả hồ sơ công khai (ví, inventory, pass, tour, nhiệm vụ) |
+| `shop` | — | Trả catalogue + sticker |
+| `buy` | `itemId` | Trừ xu, thêm vào inventory; từ chối khi thiếu xu / đã có / chỉ nhận qua Pass |
+| `equip` / `unequip` | `itemId` / `slot` | **Kiểm tra sở hữu trước** rồi mới đổi `cosmetics`; chưa mua thì từ chối |
+| `useEmote` | `itemId` | Kiểm tra sở hữu rồi phát `emoteUsed` cho cả phòng |
+| `quest` / `claimQuest` | `questId` | Nhận +20 xu nếu đủ điều kiện, 1 lần/ngày |
+| `quests` | — | Trả danh sách nhiệm vụ + tiến độ hôm nay |
+| `buyPass` | — | **STUB:** trả `{ok:true, stub:true}`, mở khóa thử track trả phí |
+| `pass` | — | Trả cấp/XP/thưởng Pass |
+| `createTournament` | `name`, `brand`, `prizePoolXu` | Kiểm duyệt tên, trừ giải thưởng khỏi ví chủ hội, tạo giải |
+| `listTournaments` | — | Trả các giải đấu |
+| `tournamentWin` | `tournamentId`, `winnerId` | Chỉ chủ hội: chuyển giải (xu) cho người thắng |
+| `cheer` | `toPlayerId` | Người nhận +5 xu (1 lần/60 giây/cặp) |
+| `gift` | `toPlayerId`, `stickerId` | Người gửi trả xu sticker, người nhận +5 xu |
+| `buyTourPass` | `pay`: `xu` \| `stub` | Mua vé tour bằng 500 xu, hoặc **STUB** tiền thật (mở khóa thử) |
+
+Server → client (economy): `economy` trả lời riêng cho người gửi; các
+sự kiện `cosmeticsChanged`, `emoteUsed`, `tournamentCreated`,
+`tournamentFinished`, `cheered`, `giftSent` phát cho cả phòng.
+Client phải chuyển message `economy` vào `window.HoiShop.onMessage(msg)`
+(workstream client sở hữu — PLAN M-04).
 
 | Thêm mới (dự kiến) | Vì sao cần |
 |---|---|
@@ -316,7 +347,36 @@ Tin nhắn **không được lưu trữ**: server phát xong là quên; client g
 sử trong panel chat cho tới khi tải lại trang. Muốn lưu lịch sử hay kiểm
 duyệt sau này thì cần database + bảng `chat_messages` (xem §7.4).
 
-### 7.4. Dữ liệu khi có database (dự kiến, chưa làm)
+### 7.5. Dữ liệu kinh tế — `server/economy.js` + `data/economy.json` (bản stub)
+
+Kinh tế trong game (BRD §10) là module riêng, không nằm trong state trận
+đấu. Toàn bộ nằm trong RAM (`Map` profiles/tournaments) và ghi ra file
+JSON mỗi khi đổi. Đây là bản demo: chưa có database, chưa có tài khoản —
+một `playerId` chỉ là id phiên chơi hiện tại, chưa gắn với người dùng
+lâu dài.
+
+| Thực thể | Trường chính | Ghi chú |
+|---|---|---|
+| Profile (hồ sơ người chơi) | `id`, `name`, `xu`, `inventory:[itemIds]`, `pass:{tier, level, xp, claimedLevels}`, `cosmetics:{skin, hat, banner, bubble}`, `tournamentsCreated:[]`, `giftsReceived:[]`, `tourPass:{owned, via}`, `quests:{date, playMatch, surviveRounds, chats, claimed}` | `xu` = Hội Xu; `inventory` chỉ chứa id món đã mua/nhận thưởng |
+| Shop catalogue | `CATALOGUE` (~16 món + 3 món chỉ nhận qua Pass), `STICKERS` (3 sticker) | Toàn cosmetic; giá bằng xu; `price:null` = chỉ nhận qua Pass, không bán |
+| Pass | `XP_PER_LEVEL=500`, `MAX_PASS_LEVEL=20`, `PASS_REWARDS` (cấp 2/5/8/10/12/15/18/20, mỗi cấp 1 món free + 1 món paid) | XP: 100/vòng sống sót, 500/thắng trận |
+| Tournament (giải đấu Chủ Hội) | `id`, `name`, `brand`, `hostId`, `hostName`, `prizePoolXu`, `status: open\|finished`, `winnerId`, `createdAt` | Giải thưởng bằng xu, trừ khỏi ví chủ hội lúc tạo, chuyển cho người thắng lúc trao giải; không đổi ra tiền mặt |
+| Gift / cheer | `giftsReceived:[{kind: cheer\|sticker, fromId, fromName, xu:5, at}]` | Cheer miễn phí, giới hạn 1 lần/60 giây/cặp; sticker 10/20/30 xu |
+| Tour pass | `tourPass:{owned, via: xu\|stub}` | Vé Du Lịch Hạ Long 500 xu hoặc stub tiền thật; chỉ mở nội dung du lịch |
+
+File lưu: `data/economy.json` (`{savedAt, nextTournamentId, profiles,
+tournaments}`), thư mục `data/` tạo tự động, đã thêm vào `.gitignore`
+(dữ liệu ví người chơi không commit). Docker giữ file này qua volume
+`economy-data` (xem §9.3).
+
+**Điểm kiểm tra (validation points):** mọi mua/trang bị/dùng đều kiểm tra
+ở server trong `economy.js` — đủ xu, đã sở hữu (khi trang bị/dùng),
+tên giải đấu hợp lệ, chỉ chủ hội mới trao giải, cheer đúng cooldown.
+Client không tự quyết số dư hay quyền sở hữu. Giới hạn đã biết: chưa có
+xác thực nên `playerId` có thể bị giả mạo giữa các phiên — chấp nhận được
+ở bản demo, phải sửa bằng tài khoản trước khi mở public (PLAN M-08).
+
+### 7.6. Dữ liệu khi có database (dự kiến, chưa làm)
 
 | Bảng (dự kiến) | Trường chính (dự kiến) |
 |---|---|
@@ -420,7 +480,31 @@ Máy dev / VM của Muse
   không có tự khởi động lại khi crash.
 - Dùng được cho: demo, chơi thử nội bộ, play-test với vài chục người.
 
-### 9.2. Mục tiêu production (dự kiến, chưa làm)
+### 9.3. Triển khai bằng Docker (đã làm — file sẵn, chưa kiểm bằng Docker)
+
+```
+$ docker compose up --build
+  → http://localhost:3000
+```
+
+- `Dockerfile`: `node:20-alpine`, `npm install --omit=dev`, chạy bằng
+  user không phải root, `EXPOSE 3000`, `CMD node server/server.js`.
+- `docker-compose.yml`: service `game`, ports `3000:3000`,
+  `restart: unless-stopped`, env `PORT`/`NODE_ENV`/`ECONOMY_STUB=true`,
+  volume `economy-data` giữ `data/economy.json` khi container khởi động lại.
+- `.env.example`: `PORT=3000`, `NODE_ENV=production`,
+  `ECONOMY_STUB=true`, không có secret. Sao chép thành `.env` khi chạy
+  (file `.env` thật đã có trong `.gitignore`, không commit).
+- `.dockerignore`: loại `node_modules`, `.git`, `.env`, `data/`,
+  `.DS_Store` khỏi context build.
+- Chưa có trong build này: endpoint `/health` (vẫn là task P3-05, do
+  workstream server sở hữu), TLS/reverse proxy, tên miền (vẫn là P3-02,
+  cần Sudo chốt OD-04). File Docker mới chỉ là đóng gói chạy local —
+  chưa kiểm bằng `docker build`/`docker compose up` trong build này
+  (chỉ kiểm `npm start` + `curl /`); cần kiểm trước khi dùng để demo
+  cho người ngoài.
+
+### 9.4. Mục tiêu production (dự kiến, chưa làm)
 
 ```
 Người chơi ──HTTPS/WSS──▶ Reverse proxy (TLS) ──▶ Node.js server (1..n)
@@ -476,6 +560,11 @@ Người chơi ──HTTPS/WSS──▶ Reverse proxy (TLS) ──▶ Node.js se
 | D-07 | CHIA TEAM chỉ để chia lượt, không có team thắng/thua | Quyết định của Sudo (2026-11-04): chia team để đỡ loạn, rớt là loại cá nhân | Luật này ràng buộc mọi thiết kế vòng 2 và xếp hạng sau này — không đổi nếu không có quyết định mới của Sudo |
 | D-08 | Đảo xa chỉ dựng chi tiết đảo đang xem | Giữ máy nhẹ, tránh render hàng trăm đảo chi tiết cùng lúc | Cần giữ nguyên tắc này khi thêm đảo/tour mới |
 | D-09 | Tên phòng 6 ký tự, loại I/O/0/1 | Tránh nhầm lẫn khi đọc mã phòng | Không ảnh hưởng gì khác |
+| D-10 | Kinh tế chỉ bán đồ trang trí (cosmetic-only), tiền thật là stub | Quyết định OD-03 của Sudo (2026-11-05, BRD §10): lõi trận miễn phí, không pay-to-win, không cá cược, không loot box | Tiền thật chưa thu được; mở thật cần cổng thanh toán + tài khoản + database (PLAN M-08) |
+| D-11 | Lưu kinh tế bằng JSON `data/economy.json` thay vì database | Demo cần lưu ví/inventory qua restart mà không kéo database vào | Chưa bền vững cho production (không giao dịch, không xác thực); phải thay bằng database trước khi mở public |
+| D-12 | Đóng gói bằng Docker (node:20-alpine, non-root, compose) | Chạy demo ở máy khác không cần cài Node thủ công | Chưa kiểm bằng Docker trong build này; chưa có `/health`, TLS hay tên miền |
+| D-13 | Luật loại Kéo Co (OD-02): trận ≥ 24 người thì đội thua loại toàn bộ; phòng nhỏ (< 24) chỉ loại 2 người yếu nhất đội thua | Quyết định của Sudo (2026-11-05) | Cần thiết kế chi tiết ở P1-01 và cân bằng lại sau play-test |
+| D-14 | Giới hạn vòng 1 chốt 120 giây (FR-11) | Quyết định cùng OD-02 (2026-11-05); sửa lỗ hổng trận kẹt | Con số 120 giây có thể bị QC lật lại sau play-test; code server.js tại thời điểm viết chưa có giới hạn này |
 
 ---
 *Tài liệu liên quan: [BRD.md](./BRD.md) (yêu cầu nghiệp vụ và tầm nhìn đầy đủ),
