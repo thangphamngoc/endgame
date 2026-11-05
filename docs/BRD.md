@@ -190,7 +190,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-08 | Vòng 1: trống chạy, chiêng đứng yên | HUD hiển thị đúng trạng thái; nhịp random mỗi trận, không lặp pattern cố định | Đã có |
 | FR-09 | Loại người di chuyển lúc chiêng | Di chuyển hoặc nhảy lúc chiêng → bị loại ngay, chuyển khán giả; người đứng yên không bị loại | Đã có |
 | FR-10 | Về đích vòng 1 | Tới vạch đích thì qua vòng, ghi thời gian về đích | Đã có |
-| FR-11 | Giới hạn thời gian vòng 1 (120 giây) | Vòng 1 tự kết thúc khi hết 120 giây dù còn người đứng yên (quy tắc kết thúc rõ) | Đang làm (workstream song song — quyết định 120 giây đã chốt, xem §9.4 OD-02; tại thời điểm viết tài liệu này code server.js chưa có giới hạn 120 giây, chỉ có nhịp trống/chiêng; QC có thể lật lại con số 120 giây sau play-test) |
+| FR-11 | Giới hạn thời gian vòng 1 (120 giây) | Vòng 1 tự kết thúc khi hết 120 giây dù còn người đứng yên (quy tắc kết thúc rõ) | Đã có (server tick endRound timeout; QC có thể lật lại con số 120 giây sau play-test) |
 | FR-12 | CHIA TEAM cân bằng, tối đa 3 team | Người sống sót chia đều theo thứ tự về đích; màu áo/vòng theo team | Đã có |
 | FR-13 | Mỗi team một cầu riêng, ván yếu riêng | Ván yếu random riêng từng cầu, từng trận | Đã có |
 | FR-14 | Chỉ leader được bước cầu | Người chưa tới lượt bị server chặn và báo "Chưa tới lượt" | Đã có |
@@ -357,6 +357,7 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 | OD-06 | Có làm voice chat không? | Voice chat tốn nhiều công sức và rủi ro kiểm duyệt | Phase 4 (hoặc không làm) |
 | OD-07 | Mục tiêu người chơi đồng thời đầu tiên sau khi ra mắt (ví dụ 50 / 200 / 456)? | Quyết định mức độ đầu tư vào scale ở Phase 2 | Phase 2 |
 | OD-08 | Có làm tài khoản / đăng nhập không, hay giữ chơi bằng tên tự chọn? | Ảnh hưởng bảng xếp hạng, lịch sử, chống gian lận | Phase 1–3 |
+| OD-09 | Đếm ngược lượt qua cầu vòng 2 là bao lâu? | **ĐÃ QUYẾT (tạm) 2026-11-05 — Muse chọn theo chỉ đạo "thấy phương án nào hợp lý thì triển khai", QC có thể lật:** 30 giây/lượt — một người qua hết 9 bước cầu. Lý do: 9 bước × ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi; lượt không bắt đầu và lượt đi quá chậm là một (đồng hồ chạy từ lúc lượt bắt đầu, hết giờ thì bị loại, lượt chuyển người tiếp theo). Áp cả 2 chế độ: server ép ở multi (server/server.js, tick kiểm tra turnStartedAt), client ép ở chơi đơn (game.js r2Turn; bot cũng chịu cùng luật, tốc độ bot qua cầu đã tăng lên 2.4–3.7 để qua hết trong ~10–15 giây). Mọi vòng đều hiện đếm ngược trên HUD (ô ĐẾM NGƯỢC cạnh ô VÒNG, đỏ khi ≤ 10 giây); vòng 2 hiện đếm ngược theo lượt, vòng 1/3–6 hiện đếm ngược cả vòng (vòng 1: 120 giây; vòng 2 cả vòng multi: 180 giây; vòng 3–6 theo games.js ROUND_TIME_LIMITS). Panel team vòng 2 thu gọn thành dải 2 dòng ở mép trên (không che giữa màn hình, không chặn bấm ván) sau khi Sudo báo banner "qua cầu 0/0" chắn màn hình. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
 
 ## 10. Kinh tế trong game (MONETIZATION) — ĐÃ QUYẾT 2026-11-05
 

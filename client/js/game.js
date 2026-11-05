@@ -83,8 +83,18 @@
   var myTeam = null, myBridgeStep = 0, myBridge = null, teamQueue = [], teamLeader = null;
   var teamLeaders = {}, brokenSteps = {}, teamAutoTimer = null;
   var teamQueues = {}, teamNames = {}; // multi: thứ tự lượt từng đội + tên theo id (server gửi ở phase 'team')
-  var r2TurnWatch = { active: false, lastMove: 0, lastZ: 0, lastStep: -1 }; // chơi đơn: hết lượt 45s không tiến lên cầu thì bị loại
-  var R2_TURN_IDLE_MS = 45000;
+  // Vòng 2 — đồng hồ LƯỢT 30 giây/người (DECIDED 2026-11-05, tạm, QC lật được;
+  // xem BRD §9.4 OD-09). 9 bước cầu, ~3 giây suy nghĩ mỗi bước: đủ để nghĩ,
+  // không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi. Đồng hồ chạy từ lúc
+  // lượt bắt đầu — lượt không bắt đầu và lượt đi quá chậm là một: hết 30 giây
+  // mà chưa qua hết cầu thì người đó bị loại, lượt chuyển cho người tiếp theo.
+  // Server (multi) là nguồn chuẩn; client (chơi đơn) áp cùng luật.
+  var R2_TURN_LIMIT_S = 30;
+  // Chơi đơn: lượt đang chạy của ai (key 'me' hoặc 'bot:<tên>'), bắt đầu lúc nào.
+  var r2Turn = { key: null, startedAt: 0, endsAt: 0 };
+  // Multi: thời điểm hết lượt từng đội (server gửi kèm tin 'turn').
+  // Đồng hồ lượt 30 giây của đội mình lấy từ đây để hiện đếm ngược trên HUD.
+  var teamTurnEndsAt = {};
   var localBridges = {}, localRanking = [];
   var lastChatAt = 0, hideBubbles = false;
   var labelsEl = document.getElementById('labels');
@@ -96,6 +106,7 @@
     'menu': 'startCard', 'btn-start': 'btnStart', 'btn-jump': 'btnJump',
     'joystick': 'joyBase', 'joy-knob': 'joyKnob',
     'hud-round': 'hudRound', 'hud-time': 'hudTime', 'hud-alive': 'hudAlive',
+    'hud-countdown': 'hudCountdown',
     'hud-drum': 'hudState', 'hud-round-time': 'hud-round-time',
     'progress-fill': 'progressFill',
     'chat-panel': 'chatPanel', 'chat-input': 'chatInput', 'chat-log': 'chatMsgs',
@@ -2491,7 +2502,10 @@
       }
       if (msg.phase === 'round2') {
         var ts3 = $('team-screen'); if (ts3) ts3.classList.add('hidden');
-        startRoundCommon(2, 'cau-khi', 'Cầu Khỉ Sương Mù', 0);
+        // Trước đây truyền timeLimit 0 nên roundEndsAt bị ghi đè thành 0 và
+        // đồng hồ vòng 2 ở multiplayer không bao giờ hiện — server vẫn áp
+        // deadline 180 giây (games.js). Truyền đúng 180 để HUD đếm ngược được.
+        startRoundCommon(2, 'cau-khi', 'Cầu Khỉ Sương Mù', 180);
         scene.fog.near = 16; scene.fog.far = 130;
         scene.background.set(0xe8c39a);
         teleportToBridge();
@@ -2520,6 +2534,10 @@
       // mình thuộc đội nào vẫn phải nhớ, không được ghi đè bằng một biến chung.
       teamLeaders[msg.team] = msg.leaderId;
       teamLeader = msg.leaderId;
+      // Server gửi kèm thời điểm hết lượt (30 giây/lượt) để hiện đếm ngược.
+      if (msg.turnEndsAt) teamTurnEndsAt[msg.team] = msg.turnEndsAt;
+      else if (msg.leaderId) teamTurnEndsAt[msg.team] = Date.now() + R2_TURN_LIMIT_S * 1000;
+      else teamTurnEndsAt[msg.team] = 0;
       if (msg.team === myTeam) {
         setHudDrum(msg.leaderId === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
         updateMultiQueuePanel();
@@ -2624,17 +2642,25 @@
     }
     return n;
   }
-  function teamPanelHTML() {
-    var html = '';
-    teams.forEach(function (t, ti) {
-      html += '<div><span style="display:inline-block;width:12px;height:12px;background:' + TEAM_COLORS[ti] + '"></span> ' + TEAMS[ti].name + ' — qua cầu ' + teamCrossedCount(t) + '/' + t.members.length + (ti === (myTeam || 0) ? ' · ĐỘI CỦA BẠN' : '') + '</div>';
-    });
-    return html;
+  function teamCountsLine() {
+    // "Đỏ 2/5 · Vàng 1/5 · Xanh 0/5" — đội của bạn in đậm vàng.
+    return teams.map(function (t, ti) {
+      var mine = ti === (myTeam || 0);
+      var s = TEAMS[ti].name + ' ' + teamCrossedCount(t) + '/' + t.members.length;
+      return mine ? '<b>★ ' + s + '</b>' : s;
+    }).join(' · ');
+  }
+  function hideTeamPanel() {
+    var tp = $('team-panel'); if (!tp) return;
+    tp.classList.add('hidden'); tp.style.display = 'none';
   }
   var tpLast = 0;
   function updateTeamPanel() {
-    if (currentRound !== 2 || !teams.length || mode !== 'single') return;
     var tp = $('team-panel'); if (!tp) return;
+    // Dải team chỉ hiện trong vòng 2; sang vòng khác thì ẩn hẳn, không được
+    // nấn ná che màn hình (lỗi Sudo báo: banner team chắn màn hình ở vòng 2
+    // là do panel cũ liệt kê cả hàng chờ dài thành nhiều dòng).
+    if (currentRound !== 2 || !teams.length || mode !== 'single') { hideTeamPanel(); return; }
     var nowMs = performance.now();
     if (nowMs - tpLast < 250 && !tp.classList.contains('hidden')) return;
     tpLast = nowMs;
@@ -2642,23 +2668,14 @@
     tp.style.display = 'block'; // CSS #teamPanel mặc định display:none nên chỉ gỡ class hidden là chưa đủ
     var myT = teams[myTeam || 0];
     var act = teamActiveMember(myT);
-    var line = 'Đội của bạn: <b>' + TEAMS[myTeam || 0].name + '</b> · ';
-    if (player.finished) line += 'Bạn đã qua cầu an toàn!';
-    else if (!player.alive) line += 'Bạn đã bị loại — đồng đội vẫn qua cầu theo lượt.';
-    else if (!act) line += 'Cả đội đã qua hết cầu.';
-    else if (act.isPlayer) {
-      line += 'Lượt của <b>BẠN</b> — lên cầu đi!';
-      if (r2TurnWatch.active) {
-        var remainS = Math.max(0, Math.ceil((R2_TURN_IDLE_MS - (Date.now() - r2TurnWatch.lastMove)) / 1000));
-        line += ' Còn <b>' + remainS + 's</b> trước khi hết lượt.';
-      }
-    }
-    else line += 'Đang chờ lượt — người dẫn đầu đội bạn: <b>' + escapeHtml(memberName(act)) + '</b>.';
-    // Thứ tự đi cầu của đội bạn (ngược thứ tự về đích vòng 1) + vị trí của bạn.
-    var queueLine = 'Thứ tự đội bạn: ' + myT.members.map(function (m, i) {
-      return (i + 1) + '. ' + (m.isPlayer ? '★ BẠN' : escapeHtml(memberName(m))) + (memberDone(m) ? ' ✓' : '');
-    }).join(' · ');
-    tp.innerHTML = teamPanelHTML() + '<div>' + line + '</div><div>' + queueLine + '</div>';
+    var turnRemain = r2Turn.endsAt ? Math.max(0, Math.ceil((r2Turn.endsAt - Date.now()) / 1000)) : null;
+    var turnHtml;
+    if (player.finished) turnHtml = 'Bạn đã qua cầu an toàn!';
+    else if (!player.alive) turnHtml = 'Bạn đã bị loại — đồng đội vẫn qua cầu theo lượt.';
+    else if (!act) turnHtml = 'Cả đội đã qua hết cầu.';
+    else if (act.isPlayer) turnHtml = '▶ LƯỢT CỦA <b>BẠN</b> — lên cầu đi!' + (turnRemain !== null ? ' Còn <b class="turnLeft' + (turnRemain <= 10 ? ' urgent' : '') + '">' + turnRemain + 's</b>' : '');
+    else turnHtml = 'Chờ lượt — dẫn đầu: <b>' + escapeHtml(memberName(act)) + '</b>' + (turnRemain !== null ? ' · Còn <b class="turnLeft' + (turnRemain <= 10 ? ' urgent' : '') + '">' + turnRemain + 's</b>' : '') + ' · Bạn vị trí ' + (myT.members.findIndex(function (m) { return m.isPlayer; }) + 1) + '/' + myT.members.length;
+    tp.innerHTML = '<div class="tpLine1">VÒNG 2 · ' + teamCountsLine() + '</div><div class="tpLine2">' + turnHtml + '</div>';
   }
   // Multi: vẽ thứ tự đi cầu của từng đội trên màn chia team (ngược thứ tự
   // về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối).
@@ -2688,23 +2705,43 @@
     });
     return html;
   }
-  // Multi: trong lúc qua cầu, panel team hiện thứ tự lượt còn lại của đội bạn.
+  // Multi: trong lúc qua cầu, dải team gọn 2 dòng ở mép trên (như chơi đơn):
+  // dòng 1 là số người mỗi đội đã qua cầu + đội của bạn, dòng 2 là ai đang
+  // tới lượt + đếm ngược lượt 30 giây + vị trí của bạn. Không liệt kê cả
+  // hàng chờ dài thành nhiều dòng nữa — danh sách thứ tự đầy đủ vẫn có
+  // trên màn CHIA TEAM trước khi vòng bắt đầu.
+  var tpMultiLast = 0;
   function updateMultiQueuePanel() {
-    if (mode !== 'multi' || myTeam === null || !teamQueues[myTeam]) return;
     var tp = $('team-panel'); if (!tp) return;
+    if (mode !== 'multi' || myTeam === null || !teamQueues[myTeam] || currentRound !== 2) { hideTeamPanel(); return; }
+    var nowMs = performance.now();
+    if (nowMs - tpMultiLast < 250 && !tp.classList.contains('hidden')) return;
+    tpMultiLast = nowMs;
     tp.classList.remove('hidden');
     tp.style.display = 'block'; // CSS #teamPanel mặc định display:none nên chỉ gỡ class hidden là chưa đủ
     var q = teamQueues[myTeam];
-    var line = q.map(function (id, i) {
-      var nm = id === myId ? '★ BẠN' : escapeHtml(teamNames[id] || (remotePlayers[id] && remotePlayers[id].name) || id);
-      var done = false;
-      if (id === myId) done = player.finished || !player.alive;
-      else if (remotePlayers[id]) done = remotePlayers[id].finished || !remotePlayers[id].alive;
-      var isLeader = teamLeaders[myTeam] === id;
-      return (i + 1) + '. ' + nm + (isLeader ? ' ▶ lượt' : '') + (done ? ' ✓' : '');
+    var counts = Object.keys(teamQueues).sort().map(function (tk) {
+      var ti = Number(tk), qq = teamQueues[tk];
+      var done = qq.filter(function (id) {
+        if (id === myId) return player.finished || !player.alive;
+        var rp = remotePlayers[id];
+        return rp ? (rp.finished || !rp.alive) : false;
+      }).length;
+      var s = TEAMS[ti].name + ' ' + done + '/' + qq.length;
+      return ti === myTeam ? '<b>★ ' + s + '</b>' : s;
     }).join(' · ');
+    var leaderId = teamLeaders[myTeam];
+    var leaderName = leaderId === myId ? '★ BẠN' : escapeHtml(teamNames[leaderId] || (remotePlayers[leaderId] && remotePlayers[leaderId].name) || '—');
+    var endsAt = teamTurnEndsAt[myTeam] || 0;
+    var remain = endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)) : null;
     var pos = q.indexOf(myId) + 1;
-    tp.innerHTML = '<div class="tpTitle">VÒNG 2 · ĐỘI ' + TEAM_NAMES[myTeam] + ' — bạn ở vị trí ' + pos + '/' + q.length + '</div><div>' + line + '</div><div>Thứ tự ngược với về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối (đi cuối an toàn nhất).</div>';
+    var turnHtml;
+    if (player.finished) turnHtml = 'Bạn đã qua cầu an toàn!';
+    else if (!player.alive) turnHtml = 'Bạn đã bị loại — đồng đội vẫn qua cầu theo lượt.';
+    else if (!leaderId) turnHtml = 'Cả đội đã qua hết cầu.';
+    else if (leaderId === myId) turnHtml = '▶ LƯỢT CỦA <b>BẠN</b> — lên cầu đi!' + (remain !== null ? ' Còn <b class="turnLeft' + (remain <= 10 ? ' urgent' : '') + '">' + remain + 's</b>' : '');
+    else turnHtml = 'Chờ lượt — dẫn đầu: <b>' + leaderName + '</b>' + (remain !== null ? ' · Còn <b class="turnLeft' + (remain <= 10 ? ' urgent' : '') + '">' + remain + 's</b>' : '') + ' · Bạn vị trí ' + pos + '/' + q.length;
+    tp.innerHTML = '<div class="tpLine1">VÒNG 2 · ' + counts + '</div><div class="tpLine2">' + turnHtml + '</div>';
   }
   function updateLeaderArrows() {
     for (var ti = 0; ti < 3; ti++) {
@@ -2767,7 +2804,7 @@
         } else {
           var b = m.bot;
           b.finished = false; b.rank = 0; b.finishTime = null; b.y = 0; b.vy = 0; b.falling = false;
-          b.r2speed = 2.0 + Math.random() * 1.3;
+          b.r2speed = 2.4 + Math.random() * 1.3; // đủ nhanh để qua hết cầu trong 30 giây/lượt (cầu dài ~34 đơn vị)
           b.stepSide = -1; b.crackFor = -1; b.stepSideIdx = -1; b.jumpedForStep = null; b.wantSide = 0;
           b.x = pos.x; b.z = pos.z; b.vx = 0; b.vz = 0; b.face = Math.PI;
           resetFigure(b.group, b.x, b.z);
@@ -2815,7 +2852,12 @@
   function beginRound2Play() {
     clearTimeout(teamAutoTimer);
     var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
+    hideInterstitial();
     phase = 'round2'; currentRound = 2; roundTimeLimit = 0; roundEndsAt = 0;
+    // Vòng 2 chơi đơn không có deadline cả vòng (bot qua cầu lần lượt từng
+    // người nên cả vòng kéo dài 2–3 phút) — đồng hồ có ý nghĩa ở đây là đồng
+    // hồ LƯỢT 30 giây, tính lại từ đầu khi lượt đầu tiên bắt đầu.
+    r2Turn.key = null; r2Turn.startedAt = 0; r2Turn.endsAt = 0;
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     scene.fog.near = 16; scene.fog.far = 130;
     scene.background.set(0xe8c39a);
@@ -3084,26 +3126,30 @@
     // phải kết thúc khi mọi bot đã xong — trước đây hàm này từ chối chạy ở
     // phase 'spectator' nên trận kẹt mãi ở màn hình khán giả, không ai kết thúc vòng.
     if (phase !== 'round2' && !(phase === 'spectator' && currentRound === 2)) return;
-    // Hết lượt chơi đơn: tới lượt bạn mà đứng yên trên bệ quá 45 giây không
-    // tiến lên cầu thì bị loại — không ai được "ngồi chờ" cho cầu lộ hết ván
-    // rồi mới đi, và vòng không kẹt mãi vì một người không chịu bước. Bot luôn
-    // tự bước nên không bao giờ chạm giới hạn này. (Multi đã có deadline 180s
-    // của server nên không cần thêm ở đây.)
-    if (phase === 'round2' && player && player.alive && !player.finished && !player.falling) {
-      if (isPlayerTurn()) {
-        var nowMs = Date.now();
-        if (!r2TurnWatch.active) {
-          r2TurnWatch.active = true; r2TurnWatch.lastMove = nowMs;
-          r2TurnWatch.lastZ = player.z; r2TurnWatch.lastStep = myBridgeStep;
+    // Đồng hồ LƯỢT 30 giây (thay cho đồng hồ "đứng yên 45 giây" cũ): đồng hồ
+    // chạy từ lúc lượt bắt đầu — lượt không bắt đầu và lượt đi quá chậm là
+    // một. Hết 30 giây mà chưa qua hết cầu thì người đó bị loại, lượt chuyển
+    // cho người tiếp theo. Bot cũng chịu cùng luật: bot qua cầu mất ~10–15
+    // giây (tốc độ 2.4–3.7) nên bình thường không chạm giới hạn; bot nào
+    // không qua được trong 30 giây thì bị loại như người chơi.
+    if (phase === 'round2' || (phase === 'spectator' && currentRound === 2)) {
+      var actM = teams[myTeam || 0] ? teamActiveMember(teams[myTeam || 0]) : null;
+      var key = actM ? (actM.isPlayer ? 'me' : 'bot:' + actM.bot.name) : null;
+      if (key && key !== r2Turn.key) {
+        r2Turn.key = key; r2Turn.startedAt = Date.now();
+        r2Turn.endsAt = r2Turn.startedAt + R2_TURN_LIMIT_S * 1000;
+      } else if (!key) { r2Turn.key = null; r2Turn.endsAt = 0; }
+      if (key && Date.now() >= r2Turn.endsAt) {
+        r2Turn.key = null; r2Turn.endsAt = 0;
+        if (actM.isPlayer) {
+          if (player && player.alive && !player.finished && !player.falling) eliminate(player, 'Hết lượt qua cầu (30 giây) — đi chậm quá!');
+        } else if (actM.bot && actM.bot.alive && !actM.bot.finished) {
+          var bb = actM.bot;
+          eliminate(bb, 'Hết lượt qua cầu (30 giây) — đi chậm quá!');
+          if (bb.group) bb.group.visible = false;
+          if (bb.teamRing) bb.teamRing.visible = false;
         }
-        if (player.z < r2TurnWatch.lastZ - 0.5 || myBridgeStep !== r2TurnWatch.lastStep) {
-          r2TurnWatch.lastZ = player.z; r2TurnWatch.lastStep = myBridgeStep; r2TurnWatch.lastMove = nowMs;
-        }
-        if (nowMs - r2TurnWatch.lastMove > R2_TURN_IDLE_MS) {
-          r2TurnWatch.active = false;
-          eliminate(player, 'Hết lượt — đứng chờ quá 45 giây mà không lên cầu!');
-        }
-      } else r2TurnWatch.active = false;
+      }
     }
     var running = 0;
     for (var i = 0; i < bots.length; i++) if (bots[i].alive && !bots[i].finished) running++;
@@ -3816,6 +3862,10 @@
     var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + (name || ROUND_NAMES[round] || '');
     setHudDrum(name || ROUND_NAMES[round] || '');
     hideInterstitial();
+    // An toàn: màn CHIA TEAM và dải team không được nấn ná sang vòng chơi —
+    // bắt đầu vòng nào thì mọi banner của vòng trước phải biến mất hẳn.
+    var tc = $('team-screen'); if (tc) tc.classList.add('hidden');
+    if (round !== 2) hideTeamPanel();
     if (round === 1) {
       matchStartAt = Date.now();
       finishCount = 0;
@@ -3900,19 +3950,48 @@
     hideInterstitial();
     if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now() });
   }
+  // Đồng hồ đếm ngược HIỂN THỊ TRÊN HUD (ô ĐẾM NGƯỢC, cạnh ô VÒNG):
+  // mọi vòng đều có đếm ngược. Vòng 1, 3–6: đếm ngược cả vòng (deadline
+  // server ở multi, timer local ở chơi đơn). Vòng 2: đếm ngược THEO LƯỢT
+  // 30 giây của người đang đi cầu — tới lượt mình thì ô này đếm 30 giây
+  // của mình, lúc chờ thì đếm 30 giây của người dẫn đầu đội mình (multi)
+  // hoặc của người đang đi (chơi đơn). Dưới 10 giây thì đỏ.
   function updateRoundTimer() {
     var wrap = $('round-timer-wrap'), fill = $('round-timer-fill'), txt = $('hud-round-time');
+    var cd = $('hud-countdown');
+    var remain = null, total = 0, isTurn = false;
+    if (currentRound === 2) {
+      if (mode === 'single') {
+        if (r2Turn.endsAt) { remain = Math.max(0, (r2Turn.endsAt - Date.now()) / 1000); total = R2_TURN_LIMIT_S; isTurn = true; }
+      } else {
+        if (teamLeaders[myTeam] === myId && teamTurnEndsAt[myTeam]) {
+          remain = Math.max(0, (teamTurnEndsAt[myTeam] - Date.now()) / 1000); total = R2_TURN_LIMIT_S; isTurn = true;
+        } else if (teamTurnEndsAt[myTeam]) {
+          remain = Math.max(0, (teamTurnEndsAt[myTeam] - Date.now()) / 1000); total = R2_TURN_LIMIT_S; isTurn = true;
+        } else if (roundEndsAt) { remain = Math.max(0, (roundEndsAt - Date.now()) / 1000); total = roundTimeLimit; }
+      }
+    } else if (roundEndsAt && phase.indexOf('round') === 0) {
+      remain = Math.max(0, (roundEndsAt - Date.now()) / 1000); total = roundTimeLimit;
+    }
+    if (cd) {
+      cd.textContent = remain === null ? '—' : fmtTime(remain);
+      cd.classList.toggle('urgent', remain !== null && remain <= 10);
+      cd.title = isTurn ? 'Đếm ngược lượt qua cầu (30 giây/lượt)' : 'Đếm ngược cả vòng';
+    }
     if (!wrap || !fill || !txt) return;
     if (roundEndsAt && phase.indexOf('round') === 0) {
-      var remain = Math.max(0, (roundEndsAt - Date.now()) / 1000);
+      var rRemain = Math.max(0, (roundEndsAt - Date.now()) / 1000);
       wrap.classList.remove('hidden'); txt.classList.remove('hidden');
-      txt.textContent = 'Còn ' + fmtTime(remain) + (currentRound === 1 ? ' — về đích trước khi hết giờ!' : ' — ' + (ROUND_NAMES[currentRound] || ''));
-      fill.style.width = (roundTimeLimit ? Math.round(remain / roundTimeLimit * 100) : 0) + '%';
-      txt.classList.toggle('urgent', remain <= 30);
-      fill.classList.toggle('urgent', remain <= 30);
+      txt.textContent = 'Còn ' + fmtTime(rRemain) + (currentRound === 1 ? ' — về đích trước khi hết giờ!' : ' — ' + (ROUND_NAMES[currentRound] || ''));
+      fill.style.width = (roundTimeLimit ? Math.round(rRemain / roundTimeLimit * 100) : 0) + '%';
+      txt.classList.toggle('urgent', rRemain <= 30);
+      fill.classList.toggle('urgent', rRemain <= 30);
     } else {
       wrap.classList.add('hidden'); txt.classList.add('hidden');
     }
+    // Vòng 2 multi: dải team (kèm đếm ngược lượt) cần tick theo từng khung
+    // hình — updateMultiQueuePanel tự giới hạn 250ms nên gọi mỗi frame vẫn rẻ.
+    if (mode === 'multi' && phase === 'round2') updateMultiQueuePanel();
   }
 
   // Cầu nối cho rounds.js (và shop.js): chỉ đọc/gọi qua đây, không chạm biến trong IIFE.

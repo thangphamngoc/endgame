@@ -235,3 +235,32 @@ và server smoke test (`GET /`, `/health`, các file JS/CSS đều 200):
 - **Còn chờ QC chơi thật trên trình duyệt:** cảm giác camera/flyover, bấm
   đảo xa, bong bóng chat theo nhân vật đang chạy, bố cục mobile, và scale
   456 người (chưa test tải).
+
+## 6. Cập nhật sau đợt sửa Vòng 2 — banner team + đếm ngược (nhánh feat/reverse-team-order, PR #3)
+
+Sudo chơi bản main đã merge và báo 2 lỗi ở vòng 2:
+
+- **Banner team chắn màn hình:** panel `#team-panel` ("qua cầu 0/0") liệt
+  kê cả hàng chờ dài thành nhiều dòng ở góc trái, che mất cầu và ván.
+  Sửa: panel thành **dải gọn 2 dòng gắn sát mép trên** (dưới thanh tiến
+  độ), nền mờ, `pointer-events:none` nên không chặn được cú bấm lên ván;
+  dòng 1 là số người mỗi đội đã qua cầu + đội của bạn, dòng 2 là ai đang
+  tới lượt + đếm ngược lượt + vị trí của bạn. Danh sách thứ tự đầy đủ vẫn
+  có trên màn CHIA TEAM trước khi vòng bắt đầu (lúc đó chưa chơi nên thẻ
+  lớn không sao). Màn CHIA TEAM và dải team bị ẩn hẳn khi vòng chơi bắt
+  đầu (bảo vệ trong `startRoundCommon` + `beginRound2Play`).
+- **Mọi vòng cần đếm ngược, vòng 2 cần đếm ngược theo lượt:** HUD thêm ô
+  **ĐẾM NGƯỢC** cạnh ô VÒNG (đỏ khi ≤ 10 giây). Vòng 1/3–6 hiện đếm ngược
+  cả vòng (vòng 1: 120 giây; vòng 3–6 theo `ROUND_TIME_LIMITS`); vòng 2
+  hiện đếm ngược lượt **30 giây/người** (DECIDED tạm, xem BRD §9.4 OD-09).
+  Sửa kèm: handler `phase: round2` ở multi trước đây truyền `timeLimit 0`
+  nên `roundEndsAt` bị ghi đè thành 0 và đồng hồ vòng 2 không bao giờ hiện
+  — giờ truyền đúng 180 giây của server. Thanh `#round-timer-wrap` thành
+  vạch mỏng 8px dưới thanh tiến độ (chữ đếm ngược đã chuyển sang ô HUD).
+  Kiểm chứng bằng test lái thật (2026-11-05): chơi đơn 26/26
+  (`/tmp/r2-banner-countdown-test.js` — dải team 2 dòng, không che giữa màn
+  hình; đếm ngược vòng 1 hiện 1:59; lượt đứng yên bị loại đúng 30,2 giây),
+  multiplayer 9/9 (`/tmp/r2-turn-timeout-test.js` — leader bước 1 ván chắc
+  rồi dừng thì bị loại ở 29,6 giây, lượt chuyển cho người tiếp theo, người
+  mới bước được ván chắc đầu tiên). Chưa kiểm chứng bằng chơi thật trên
+  trình duyệt: cảm giác banner, 30 giây có vừa tay không, bố cục mobile.

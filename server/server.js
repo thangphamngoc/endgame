@@ -242,7 +242,7 @@ function assignTeams(room) {
       bridges[team] = {
         weak: Array.from({ length: 9 }, () => (rng() < 0.5 ? 0 : 1)),
         broken: Array.from({ length: 9 }, () => false),
-        queue: [], leader: null,
+        queue: [], leader: null, turnStartedAt: 0,
       };
     }
     bridges[team].queue.push(p.id);
@@ -267,7 +267,21 @@ function advanceLeader(room, team) {
     return p && p.alive && !p.round2Finished;
   });
   b.leader = next || null;
-  broadcast(room, { type: 'turn', team, leaderId: b.leader });
+  // Đồng hồ lượt 30 giây chạy từ lúc lượt bắt đầu (kể cả lượt mới sau khi
+  // người trước qua cầu xong hay bị loại). Hết giờ thì tick sẽ loại leader.
+  b.turnStartedAt = b.leader ? Date.now() : 0;
+  sendTurn(room, team);
+}
+// Gửi lượt của một đội kèm thời điểm hết lượt để client hiện đếm ngược.
+function sendTurn(room, team) {
+  const b = room.bridges[team];
+  if (!b) return;
+  broadcast(room, {
+    type: 'turn', team,
+    leaderId: b.leader,
+    turnEndsAt: b.leader ? b.turnStartedAt + games.R2_TURN_TIME_LIMIT * 1000 : null,
+    turnLimit: games.R2_TURN_TIME_LIMIT,
+  });
 }
 function eliminatePlayer(room, player, reason) {
   if (!player.alive) return;
@@ -355,6 +369,12 @@ function startRound(room, n) {
       if (p.alive && !p.spectator && p.team !== null && p.team !== undefined) {
         p.x = [-11, 0, 11][p.team] || 0; p.z = -95; p.gongX = p.x; p.gongZ = p.z;
       }
+    }
+    // Đồng hồ lượt 30 giây chỉ chạy từ khi vòng 2 bắt đầu — 5,5 giây màn
+    // chia team trước đó không được ăn vào thời gian của người đi đầu.
+    for (const team of Object.keys(room.bridges || {})) {
+      const b = room.bridges[team];
+      if (b && b.leader) { b.turnStartedAt = Date.now(); sendTurn(room, Number(team)); }
     }
     state = { bridges: Object.keys(room.bridges || {}).length };
   } else if (plan.game === 'keo-co') {
@@ -560,7 +580,7 @@ function endRound(room, n, reason) {
     // của mình nên không khớp được lượt với đội của mình).
     for (const team of Object.keys(room.bridges)) {
       const b = room.bridges[team];
-      if (b) broadcast(room, { type: 'turn', team: Number(team), leaderId: b.leader });
+      if (b) sendTurn(room, Number(team));
     }
     setTimeout(() => {
       if (room.phase !== 'team') return;
@@ -1127,6 +1147,25 @@ setInterval(() => {
     // 3) Round timers (every round gets a deadline; no round stalls forever).
     if (room.roundDeadline && room.phase !== 'round1' && room.phase !== 'finished' && room.phase !== 'lobby' && room.phase !== 'countdown' && room.phase !== 'team') {
       if (now >= room.roundDeadline) { endRound(room, room.round, 'timeout'); continue; }
+    }
+    // 3b) Round 2 per-turn timer (30s): tới lượt mà không đi, hoặc đi quá
+    // chậm không qua hết cầu trong 30 giây, thì bị loại và lượt chuyển cho
+    // người tiếp theo trong đội. Đồng hồ chạy từ lúc lượt bắt đầu — lượt
+    // không bắt đầu và lượt đi chậm là một. Deadline 180s của cả vòng vẫn
+    // áp song song (mục 3) nên vòng không kẹt dù cả đội đứng yên.
+    if (room.phase === 'round2' && room.roundGame === 'cau-khi') {
+      for (const team of Object.keys(room.bridges || {})) {
+        const b = room.bridges[team];
+        if (!b || !b.leader || !b.turnStartedAt) continue;
+        if (now < b.turnStartedAt + games.R2_TURN_TIME_LIMIT * 1000) continue;
+        const leader = room.players.get(b.leader);
+        if (!leader || !leader.alive || leader.round2Finished) continue;
+        eliminatePlayer(room, leader, 'Hết lượt qua cầu (30 giây) — đi chậm quá');
+        logEvent('turn_timeout', { room: room.code, matchId: room.matchId, team: Number(team), playerId: leader.id, name: leader.name });
+        advanceLeader(room, Number(team));
+        checkRound2End(room);
+        if (room.phase !== 'round2') break;
+      }
     }
     // 4) Per-game tick work.
     if (room.roundGame === 'keo-co') {

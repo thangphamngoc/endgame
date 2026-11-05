@@ -89,6 +89,13 @@ const ROUND_TIME_LIMITS = {
   'nhay-bao-bo': 60,
   'rong-ran': 120,
 };
+// Vòng 2 — Cầu Khỉ: giới hạn MỖI LƯỢT đi cầu (một người qua hết 9 bước),
+// không phải chỉ giới hạn cả vòng. DECIDED 2026-11-05 (tạm, QC lật được):
+// 30 giây/lượt — 9 bước, ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng
+// không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi. Lượt không bắt đầu
+// và lượt đi quá chậm là một: đồng hồ chạy từ lúc lượt bắt đầu, hết giờ
+// thì người đó bị loại và lượt chuyển cho người tiếp theo. Xem BRD §9.4 OD-09.
+const R2_TURN_TIME_LIMIT = 30;
 
 // Tracing targets for Nặn Tò He: points in a 0..100 x 0..100 box.
 const TRACE_SHAPES = {
@@ -104,6 +111,6 @@ const TRACE_SHAPE_KEYS = Object.keys(TRACE_SHAPES);
 module.exports = {
   mulberry32, hashSeed, shuffle, pickRounds,
   ELIMINATION_CURVE, CURVE_RATIOS, scaledTargets,
-  ROUND_POOL, ROUND_NAMES, ROUND_TIME_LIMITS,
+  ROUND_POOL, ROUND_NAMES, ROUND_TIME_LIMITS, R2_TURN_TIME_LIMIT,
   TRACE_SHAPES, TRACE_SHAPE_KEYS,
 };
