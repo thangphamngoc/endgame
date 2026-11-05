@@ -248,6 +248,14 @@ function assignTeams(room) {
     bridges[team].queue.push(p.id);
   });
   room.bridges = bridges;
+  // Thứ tự đi cầu trong mỗi đội là NGƯỢC thứ tự về đích vòng 1: người về
+  // đích chậm nhất đi đầu, nhanh nhất đi cuối. Đi cuối là an toàn nhất
+  // (đã biết ván nào chắc nhờ người đi trước) nên đó là phần thưởng cho
+  // người nhanh nhất vòng 1 — chứ không phải hình phạt như khi đi đầu.
+  // Chỉ đảo thứ tự lượt trong đội; cách chia đội (cân bằng, i % teamCount)
+  // và ván yếu (đã bốc ở trên) không đổi. Mỗi cầu có đúng số lượt bằng số
+  // thành viên của nó — không có lượt thừa, không ai ké cầu đã lộ hết ván.
+  for (const team of Object.keys(bridges)) bridges[team].queue.reverse();
   for (const team of Object.keys(bridges)) advanceLeader(room, Number(team));
   return survivors;
 }
@@ -536,9 +544,15 @@ function endRound(room, n, reason) {
   if (n === 1) {
     room.phase = 'team';
     const teamSurvivors = assignTeams(room);
+    // Gửi kèm thứ tự lượt của từng đội (ngược thứ tự về đích vòng 1) để
+    // client hiển thị được (ai đi đầu, bạn ở vị trí mấy) thay vì chỉ danh
+    // sách theo đội.
+    const teamQueues = {};
+    for (const team of Object.keys(room.bridges)) teamQueues[team] = room.bridges[team].queue.slice();
     broadcast(room, {
       type: 'phase', phase: 'team',
       teams: teamSurvivors.map((p) => ({ id: p.id, name: p.name, team: p.team })),
+      queues: teamQueues,
       players: publicPlayers(room),
     });
     // Gửi lại lượt của từng đội SAU khi client đã biết mình thuộc đội nào

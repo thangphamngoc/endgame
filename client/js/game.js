@@ -82,6 +82,9 @@
   var spectatorView = 'follow', watchedId = null, spectatorList = [];
   var myTeam = null, myBridgeStep = 0, myBridge = null, teamQueue = [], teamLeader = null;
   var teamLeaders = {}, brokenSteps = {}, teamAutoTimer = null;
+  var teamQueues = {}, teamNames = {}; // multi: thứ tự lượt từng đội + tên theo id (server gửi ở phase 'team')
+  var r2TurnWatch = { active: false, lastMove: 0, lastZ: 0, lastStep: -1 }; // chơi đơn: hết lượt 45s không tiến lên cầu thì bị loại
+  var R2_TURN_IDLE_MS = 45000;
   var localBridges = {}, localRanking = [];
   var lastChatAt = 0, hideBubbles = false;
   var labelsEl = document.getElementById('labels');
@@ -2473,12 +2476,14 @@
         // bị che mất 3 giây đầu trong tổng số 5,5 giây của bước chia team.
         hideInterstitial();
         var ts2 = $('team-screen'); if (ts2) ts2.classList.remove('hidden');
-        var tl = $('team-list');
-        if (tl) tl.innerHTML = (msg.teams || []).map(function (t) {
-          return '<div style="color:' + TEAM_COLORS[t.team] + '">Team ' + TEAM_NAMES[t.team] + ': ' + t.name + '</div>';
-        }).join('');
+        // Lưu thứ tự lượt từng đội (server đã đảo ngược thứ tự về đích vòng 1) + tên theo id.
+        teamQueues = msg.queues || {};
+        teamNames = {};
+        (msg.teams || []).forEach(function (t) { teamNames[t.id] = t.name; });
         var me = (msg.teams || []).find(function (t) { return t.id === myId; });
         if (me) { myTeam = me.team; if (player) player.team = me.team; }
+        var tl = $('team-list');
+        if (tl) tl.innerHTML = renderMultiTeamQueues(msg.teams || []);
         // Lượt đội mình có thể đã tới trước tin 'team' — lúc đó mới khớp được.
         if (myTeam !== null && teamLeaders[myTeam] !== undefined) {
           setHudDrum(teamLeaders[myTeam] === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
@@ -2490,6 +2495,7 @@
         scene.fog.near = 16; scene.fog.far = 130;
         scene.background.set(0xe8c39a);
         teleportToBridge();
+        updateMultiQueuePanel();
       }
       if (msg.phase === 'round3' || msg.phase === 'round4' || msg.phase === 'round5' || msg.phase === 'round6') {
         var rn = Number(msg.phase.slice(5));
@@ -2516,6 +2522,7 @@
       teamLeader = msg.leaderId;
       if (msg.team === myTeam) {
         setHudDrum(msg.leaderId === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
+        updateMultiQueuePanel();
       }
       return;
     }
@@ -2542,6 +2549,7 @@
           }
         }
       }
+      updateMultiQueuePanel();
       return;
     }
     if (msg.type === 'eliminated') {
@@ -2631,15 +2639,72 @@
     if (nowMs - tpLast < 250 && !tp.classList.contains('hidden')) return;
     tpLast = nowMs;
     tp.classList.remove('hidden');
+    tp.style.display = 'block'; // CSS #teamPanel mặc định display:none nên chỉ gỡ class hidden là chưa đủ
     var myT = teams[myTeam || 0];
     var act = teamActiveMember(myT);
     var line = 'Đội của bạn: <b>' + TEAMS[myTeam || 0].name + '</b> · ';
     if (player.finished) line += 'Bạn đã qua cầu an toàn!';
     else if (!player.alive) line += 'Bạn đã bị loại — đồng đội vẫn qua cầu theo lượt.';
     else if (!act) line += 'Cả đội đã qua hết cầu.';
-    else if (act.isPlayer) line += 'Lượt của <b>BẠN</b> — lên cầu đi!';
+    else if (act.isPlayer) {
+      line += 'Lượt của <b>BẠN</b> — lên cầu đi!';
+      if (r2TurnWatch.active) {
+        var remainS = Math.max(0, Math.ceil((R2_TURN_IDLE_MS - (Date.now() - r2TurnWatch.lastMove)) / 1000));
+        line += ' Còn <b>' + remainS + 's</b> trước khi hết lượt.';
+      }
+    }
     else line += 'Đang chờ lượt — người dẫn đầu đội bạn: <b>' + escapeHtml(memberName(act)) + '</b>.';
-    tp.innerHTML = teamPanelHTML() + '<div>' + line + '</div>';
+    // Thứ tự đi cầu của đội bạn (ngược thứ tự về đích vòng 1) + vị trí của bạn.
+    var queueLine = 'Thứ tự đội bạn: ' + myT.members.map(function (m, i) {
+      return (i + 1) + '. ' + (m.isPlayer ? '★ BẠN' : escapeHtml(memberName(m))) + (memberDone(m) ? ' ✓' : '');
+    }).join(' · ');
+    tp.innerHTML = teamPanelHTML() + '<div>' + line + '</div><div>' + queueLine + '</div>';
+  }
+  // Multi: vẽ thứ tự đi cầu của từng đội trên màn chia team (ngược thứ tự
+  // về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối).
+  function renderMultiTeamQueues(teamsList) {
+    var byTeam = {};
+    teamsList.forEach(function (t) {
+      if (!byTeam[t.team]) byTeam[t.team] = [];
+      byTeam[t.team].push(t);
+    });
+    var html = '';
+    Object.keys(byTeam).sort().forEach(function (tk) {
+      var ti = Number(tk);
+      var q = teamQueues[tk] || teamQueues[ti] || null;
+      var ordered = q ? q.map(function (id) {
+        return byTeam[ti].find(function (t) { return t.id === id; });
+      }).filter(Boolean) : byTeam[ti];
+      html += '<div><b style="color:' + TEAM_COLORS[ti] + '">' + TEAMS[ti].name + ' · ' + ordered.length + ' người' + (ti === (myTeam || 0) ? ' · ĐỘI CỦA BẠN' : '') + '</b>';
+      ordered.forEach(function (t, i) {
+        var isMe = t.id === myId;
+        html += '<div>' + (i + 1) + '. ' + (isMe ? '★ BẠN' : escapeHtml(t.name)) + (i === 0 ? ' — đi đầu' : (i === ordered.length - 1 ? ' — đi cuối (an toàn nhất)' : '')) + '</div>';
+      });
+      if (ti === (myTeam || 0)) {
+        var pos = ordered.findIndex(function (t) { return t.id === myId; }) + 1;
+        html += '<div>Bạn ở vị trí ' + pos + '/' + ordered.length + ' — thứ tự ngược với về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối.</div>';
+      }
+      html += '</div>';
+    });
+    return html;
+  }
+  // Multi: trong lúc qua cầu, panel team hiện thứ tự lượt còn lại của đội bạn.
+  function updateMultiQueuePanel() {
+    if (mode !== 'multi' || myTeam === null || !teamQueues[myTeam]) return;
+    var tp = $('team-panel'); if (!tp) return;
+    tp.classList.remove('hidden');
+    tp.style.display = 'block'; // CSS #teamPanel mặc định display:none nên chỉ gỡ class hidden là chưa đủ
+    var q = teamQueues[myTeam];
+    var line = q.map(function (id, i) {
+      var nm = id === myId ? '★ BẠN' : escapeHtml(teamNames[id] || (remotePlayers[id] && remotePlayers[id].name) || id);
+      var done = false;
+      if (id === myId) done = player.finished || !player.alive;
+      else if (remotePlayers[id]) done = remotePlayers[id].finished || !remotePlayers[id].alive;
+      var isLeader = teamLeaders[myTeam] === id;
+      return (i + 1) + '. ' + nm + (isLeader ? ' ▶ lượt' : '') + (done ? ' ✓' : '');
+    }).join(' · ');
+    var pos = q.indexOf(myId) + 1;
+    tp.innerHTML = '<div class="tpTitle">VÒNG 2 · ĐỘI ' + TEAM_NAMES[myTeam] + ' — bạn ở vị trí ' + pos + '/' + q.length + '</div><div>' + line + '</div><div>Thứ tự ngược với về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối (đi cuối an toàn nhất).</div>';
   }
   function updateLeaderArrows() {
     for (var ti = 0; ti < 3; ti++) {
@@ -2661,22 +2726,26 @@
       var b0 = bots[i];
       if (!b0.finished || !b0.alive) { b0.alive = false; b0.group.visible = false; b0.finished = false; b0.rank = 0; b0.finishTime = null; }
     }
-    var pool = [{ isPlayer: true, bot: null }];
-    var shuffled = quals.slice();
-    for (var si2 = shuffled.length - 1; si2 > 0; si2--) {
-      var sj = Math.floor(Math.random() * (si2 + 1));
-      var tmp = shuffled[si2]; shuffled[si2] = shuffled[sj]; shuffled[sj] = tmp;
-    }
-    shuffled.forEach(function (b) { pool.push({ isPlayer: false, bot: b }); });
+    // CHIA TEAM: gom người sống sót (bạn + bot qua vòng 1), xếp theo thời gian
+    // về đích vòng 1 (nhanh nhất trước), chia vòng tròn vào tối đa 3 đội cho
+    // cân bằng, rồi ĐẢO NGƯỢC thứ tự trong mỗi đội: người về đích chậm nhất
+    // đi đầu, nhanh nhất đi cuối. Đi cuối an toàn nhất (đã biết ván nào chắc
+    // nhờ người đi trước) nên đó là phần thưởng cho người nhanh nhất vòng 1.
+    // Trước đây bạn luôn đứng đầu pool nên luôn là members[0] của đội 0 và
+    // luôn phải đi đầu tiên. Mỗi cầu có đúng số lượt bằng số thành viên của
+    // nó — không có lượt thừa, không ai ké cầu đã lộ hết ván.
+    var pool = [{ isPlayer: true, bot: null, ft: player.finishTime || 0 }];
+    quals.forEach(function (b) { pool.push({ isPlayer: false, bot: b, ft: b.finishTime || 0 }); });
+    pool.sort(function (a, b) { return a.ft - b.ft; });
     var teamCount = Math.min(3, pool.length);
     teams = [];
     for (var ti0 = 0; ti0 < teamCount; ti0++) teams.push({ members: [] });
-    pool.forEach(function (m) {
-      var best = 0;
-      for (var ti2 = 1; ti2 < teamCount; ti2++) if (teams[ti2].members.length < teams[best].members.length) best = ti2;
-      teams[best].members.push(m);
-      if (m.isPlayer) myTeam = best; else m.bot.team = best;
+    pool.forEach(function (m, mi) {
+      var t = mi % teamCount;
+      teams[t].members.push(m);
+      if (m.isPlayer) myTeam = t; else m.bot.team = t;
     });
+    teams.forEach(function (t) { t.members.reverse(); });
     leaderArrows.forEach(function (a) { scene.remove(a); });
     leaderArrows = [];
     for (var ta = 0; ta < 3; ta++) {
@@ -2724,10 +2793,14 @@
     assignTeamsAndPlace();
     var survivors = allPersons().filter(function (p) { return p.alive; });
     var html = teams.map(function (t, ti) {
-      var list = t.members.map(function (m) {
-        return m.isPlayer ? '<div>★ BẠN</div>' : '<div>' + escapeHtml(m.bot.name) + '</div>';
+      var myPos = -1;
+      t.members.forEach(function (m, i) { if (m.isPlayer) myPos = i + 1; });
+      var list = t.members.map(function (m, i) {
+        return '<div>' + (i + 1) + '. ' + (m.isPlayer ? '★ BẠN' : escapeHtml(m.bot.name)) + (i === 0 ? ' — đi đầu' : (i === t.members.length - 1 ? ' — đi cuối (an toàn nhất)' : '')) + '</div>';
       }).join('');
-      return '<div><b style="color:' + TEAM_COLORS[ti] + '">' + TEAMS[ti].name + ' · ' + t.members.length + ' người' + (ti === (myTeam || 0) ? ' · ĐỘI CỦA BẠN' : '') + '</b>' + list + '</div>';
+      var note = (ti === (myTeam || 0) && myPos > 0)
+        ? '<div>Bạn ở vị trí ' + myPos + '/' + t.members.length + ' — thứ tự ngược với về đích vòng 1: chậm nhất đi đầu, nhanh nhất đi cuối (đi cuối an toàn nhất).</div>' : '';
+      return '<div><b style="color:' + TEAM_COLORS[ti] + '">' + TEAMS[ti].name + ' · ' + t.members.length + ' người' + (ti === (myTeam || 0) ? ' · ĐỘI CỦA BẠN' : '') + '</b>' + list + note + '</div>';
     }).join('');
     var tl = $('team-list'); if (tl) tl.innerHTML = html;
     var ts = $('team-screen'); if (ts) ts.classList.remove('hidden');
@@ -3011,6 +3084,27 @@
     // phải kết thúc khi mọi bot đã xong — trước đây hàm này từ chối chạy ở
     // phase 'spectator' nên trận kẹt mãi ở màn hình khán giả, không ai kết thúc vòng.
     if (phase !== 'round2' && !(phase === 'spectator' && currentRound === 2)) return;
+    // Hết lượt chơi đơn: tới lượt bạn mà đứng yên trên bệ quá 45 giây không
+    // tiến lên cầu thì bị loại — không ai được "ngồi chờ" cho cầu lộ hết ván
+    // rồi mới đi, và vòng không kẹt mãi vì một người không chịu bước. Bot luôn
+    // tự bước nên không bao giờ chạm giới hạn này. (Multi đã có deadline 180s
+    // của server nên không cần thêm ở đây.)
+    if (phase === 'round2' && player && player.alive && !player.finished && !player.falling) {
+      if (isPlayerTurn()) {
+        var nowMs = Date.now();
+        if (!r2TurnWatch.active) {
+          r2TurnWatch.active = true; r2TurnWatch.lastMove = nowMs;
+          r2TurnWatch.lastZ = player.z; r2TurnWatch.lastStep = myBridgeStep;
+        }
+        if (player.z < r2TurnWatch.lastZ - 0.5 || myBridgeStep !== r2TurnWatch.lastStep) {
+          r2TurnWatch.lastZ = player.z; r2TurnWatch.lastStep = myBridgeStep; r2TurnWatch.lastMove = nowMs;
+        }
+        if (nowMs - r2TurnWatch.lastMove > R2_TURN_IDLE_MS) {
+          r2TurnWatch.active = false;
+          eliminate(player, 'Hết lượt — đứng chờ quá 45 giây mà không lên cầu!');
+        }
+      } else r2TurnWatch.active = false;
+    }
     var running = 0;
     for (var i = 0; i < bots.length; i++) if (bots[i].alive && !bots[i].finished) running++;
     var playerDone = !player || !player.alive || player.finished;
