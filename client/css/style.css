@@ -1,56 +1,498 @@
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#87b5d6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2a33}
-#game-wrap{position:relative;width:100%;height:100%}
-#scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.name-tag,.bubble{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;pointer-events:none}
-.name-tag{background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border:2px solid #fff}
-.bubble{background:#fff;color:#111;font-size:14px;font-weight:600;padding:6px 10px;border:3px solid #111;box-shadow:4px 4px 0 rgba(0,0,0,.35);max-width:220px;white-space:normal;word-break:break-word}
-.panel{background:#fffef5;border:3px solid #111;box-shadow:6px 6px 0 rgba(0,0,0,.35);padding:14px}
+
+      :root{
+        --ink:#fff7ea;
+        --plate:rgba(30,18,10,.88);
+        --plate-line:rgba(255,205,120,.35);
+        --edge:#1d0f06;
+        --drum:#e2483a;
+        --gong:#f2b01e;
+        --paper:#fff3d9;
+      }
+      *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+      html,body{height:100%;}
+      body{
+        margin:0; overflow:hidden; background:#f2a65a;
+        font-family:"Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+        color:var(--ink); user-select:none; -webkit-user-select:none;
+        touch-action:none;
+      }
+      #scene{position:fixed; inset:0; display:block;}
+      /* ---------- HUD ---------- */
+      #hud{
+        position:fixed; top:0; left:0; right:0; z-index:5;
+        display:flex; align-items:flex-start; gap:8px;
+        padding:calc(8px + env(safe-area-inset-top)) 10px 0;
+        pointer-events:none;
+      }
+      .plate{
+        background:var(--plate); border:3px solid var(--edge);
+        border-radius:3px; padding:7px 12px;
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.22), inset 0 -6px 0 rgba(0,0,0,.28), 0 4px 0 rgba(0,0,0,.25);
+        background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+        background-size:14px 14px;
+      }
+      #statePlate{display:flex; align-items:center; gap:9px; min-width:158px;}
+      #stateDot{width:16px; height:16px; border-radius:2px; border:2px solid rgba(0,0,0,.45); background:#9a8f80; flex:0 0 auto; box-shadow:0 0 0 2px rgba(255,255,255,.18);}
+      #statePlate.drum #stateDot{background:var(--drum); box-shadow:0 0 14px 3px rgba(226,72,58,.75);}
+      #statePlate.gong #stateDot{background:var(--gong); box-shadow:0 0 14px 3px rgba(242,176,30,.8);}
+      #hudState{font-weight:900; font-size:19px; letter-spacing:.4px; line-height:1;}
+      #stateSub{font-size:11px; font-weight:500; opacity:.85; margin-top:3px; line-height:1;}
+      #hudStats{margin-left:auto; display:flex; gap:8px;}
+      .stat{text-align:center; min-width:74px;}
+      .stat b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05;}
+      .stat span{font-size:10.5px; font-weight:500; opacity:.85; letter-spacing:.4px;}
+      /* progress */
+      #progressWrap{
+        position:fixed; left:50%; transform:translateX(-50%);
+        top:calc(74px + env(safe-area-inset-top)); z-index:5;
+        width:min(520px, 72vw); pointer-events:none;
+      }
+      #progressTrack{height:15px; border-radius:2px; background:#3a2410; border:3px solid var(--edge); overflow:hidden; box-shadow:inset 0 0 0 2px rgba(255,205,120,.18), 0 3px 0 rgba(0,0,0,.25);}
+      #progressFill{height:100%; width:0%; background:repeating-linear-gradient(90deg,#f0642e 0 15px,#7a1d10 15px 18px); transition:width .15s linear;}
+      #progressLabel{display:flex; justify-content:space-between; font-size:11px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,.6); margin-top:3px;}
+      /* center phase banner */
+      #phaseBanner{
+        position:fixed; left:50%; top:24%; transform:translate(-50%,-50%) scale(.9);
+        z-index:6; text-align:center; pointer-events:none;
+        font-weight:900; font-size:clamp(30px,7vw,58px); letter-spacing:1px;
+        color:#fff; text-shadow:0 3px 0 rgba(120,30,10,.55), 0 8px 26px rgba(0,0,0,.45);
+        opacity:0; transition:opacity .18s ease, transform .18s ease;
+      }
+      #phaseBanner.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+      #phaseBanner.gong{color:#ffd34d;}
+      #countdown{
+        position:fixed; left:50%; top:38%; transform:translate(-50%,-50%);
+        z-index:7; font-size:clamp(64px,16vw,120px); font-weight:900; color:#fff;
+        text-shadow:0 4px 0 rgba(120,30,10,.5), 0 10px 30px rgba(0,0,0,.5);
+        pointer-events:none; display:none;
+      }
+      /* spectator banner + camera panel */
+      #specBanner{
+        position:fixed; left:50%; transform:translateX(-50%);
+        bottom:calc(14px + env(safe-area-inset-bottom)); z-index:9;
+        background:rgba(30,18,10,.94); border:3px solid var(--edge);
+        border-radius:4px; padding:10px 12px 12px; font-weight:700; font-size:14px;
+        display:none; text-align:center; width:min(560px,94vw);
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.22), 0 6px 0 rgba(0,0,0,.3);
+        background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+        background-size:14px 14px;
+      }
+      #specBanner .specTitle{font-size:13.5px; line-height:1.35; margin-bottom:8px;}
+      #specBanner .specTitle b{color:#ffd34d;}
+      .specRow{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:6px;}
+      .specBtn{
+        min-height:44px; min-width:44px; padding:8px 12px; border-radius:3px; cursor:pointer;
+        background:#4a2f16; color:#fff7ea; border:3px solid var(--edge);
+        box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px rgba(255,205,120,.2);
+        font-family:inherit; font-weight:800; font-size:13px; line-height:1.15;
+      }
+      .specBtn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--edge), inset 0 0 0 2px rgba(255,205,120,.2);}
+      .specBtn.on{background:#d63c2f; border-color:var(--edge); color:#fff; box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px #ffd34d;}
+      #specTargetName{font-size:14px; font-weight:900; color:#ffd34d; min-width:150px; display:flex; align-items:center; justify-content:center;}
+      .specHint{font-size:11px; font-weight:500; opacity:.75; margin-top:7px; line-height:1.4;}
+      body.spectator #joyBase, body.spectator #btnJump{display:none !important;}
+      /* ---------- touch controls ---------- */
+      #joyBase{
+        position:fixed; left:18px; bottom:calc(20px + env(safe-area-inset-bottom));
+        width:124px; height:124px; border-radius:10px; z-index:8;
+        background:rgba(30,18,10,.55); border:3px solid var(--edge);
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.25), 0 5px 0 rgba(0,0,0,.3);
+        display:none; touch-action:none;
+      }
+      #joyKnob{
+        position:absolute; left:50%; top:50%; width:54px; height:54px; border-radius:8px;
+        transform:translate(-50%,-50%);
+        background:rgba(255,240,210,.92); border:3px solid rgba(90,45,8,.65);
+        box-shadow:0 4px 0 rgba(0,0,0,.35);
+      }
+      #btnJump{
+        position:fixed; right:20px; bottom:calc(30px + env(safe-area-inset-bottom));
+        width:82px; height:82px; border-radius:10px; z-index:8; display:none;
+        background:rgba(226,72,58,.92); border:3px solid #5d1408;
+        color:#fff; font-family:inherit; font-weight:900; font-size:15px;
+        box-shadow:0 6px 0 #5d1408; touch-action:none; cursor:pointer;
+      }
+      #btnJump:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408;}
+      body.playing #joyBase, body.playing #btnJump{display:block;}
+      @media (pointer:coarse){ body.playing #joyBase, body.playing #btnJump{display:block;} }
+      @media (pointer:fine){ body.playing.touch #joyBase, body.playing.touch #btnJump{display:block;} }
+      /* ---------- cards ---------- */
+      .overlay{
+        position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+        background:rgba(20,10,4,.45); padding:14px;
+      }
+      .card{
+        background:var(--paper); color:#33200f; border-radius:4px;
+        border:4px solid #7a2d16; box-shadow:0 10px 0 rgba(60,20,5,.45), 0 24px 50px rgba(0,0,0,.5), inset 0 0 0 3px #ffedb8;
+        max-width:520px; width:100%; max-height:92vh; overflow:auto;
+        padding:20px 22px 22px; text-align:center;
+        background-image:linear-gradient(rgba(150,90,20,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(150,90,20,.06) 1px, transparent 1px);
+        background-size:18px 18px;
+      }
+      .card h1{margin:2px 0 4px; font-size:clamp(30px,7vw,44px); font-weight:900; color:#b5451b; letter-spacing:.5px; line-height:1.05;}
+      .card h2{margin:2px 0 6px; font-size:clamp(24px,6vw,34px); font-weight:900; color:#b5451b; line-height:1.1;}
+      .card p{margin:6px 0; font-size:14.5px; line-height:1.5; font-weight:500;}
+      .rules{
+        text-align:left; background:#ffedb8; border:3px solid #c98a1e; border-radius:3px;
+        box-shadow:inset 0 0 0 2px #fff3d9;
+        padding:10px 14px; margin:12px 0; font-size:13.5px; line-height:1.65; font-weight:500;
+      }
+      .rules b{color:#9c3418;}
+      .bigBtn{
+        display:inline-block; margin-top:12px; cursor:pointer;
+        background:#d63c2f; color:#fff; font-family:inherit;
+        font-weight:900; font-size:20px; letter-spacing:.5px;
+        padding:14px 42px; border-radius:4px; border:3px solid #5d1408;
+        box-shadow:0 6px 0 #5d1408, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,211,77,.5);
+      }
+      .bigBtn:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408, inset 0 0 0 2px rgba(255,211,77,.5);}
+      .ctrls{font-size:12.5px; opacity:.75; margin-top:12px; line-height:1.6;}
+      .resultGrid{display:flex; gap:10px; justify-content:center; margin:14px 0 4px; flex-wrap:wrap;}
+      .resultGrid .cell{background:#ffedb8; border-radius:3px; border:3px solid #c98a1e; box-shadow:inset 0 0 0 2px #fff3d9; padding:10px 16px; min-width:104px;}
+      .resultGrid .cell b{display:block; font-size:26px; font-weight:900; color:#9c3418; font-variant-numeric:tabular-nums;}
+      .resultGrid .cell span{font-size:11.5px; font-weight:700; letter-spacing:.4px; opacity:.8;}
+      #endCard{display:none;}
+      #errBox{
+        position:fixed; left:8px; right:8px; bottom:8px; z-index:99; display:none;
+        background:#7a1010; color:#fff; font-size:12.5px; padding:10px 12px; border-radius:8px;
+        font-family:monospace; white-space:pre-wrap;
+      }
+      #vignette{
+        position:fixed; inset:0; z-index:4; pointer-events:none; opacity:0;
+        box-shadow:inset 0 0 90px 30px rgba(200,20,10,.55); transition:opacity .25s;
+      }
+      body.freeze-danger #vignette{opacity:1;}
+      /* ---------- minimap đảo ---------- */
+      #minimapWrap{
+        position:fixed; right:10px; top:calc(118px + env(safe-area-inset-top)); z-index:6;
+        background:rgba(30,18,10,.88); border:3px solid var(--edge); border-radius:3px;
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.22), 0 5px 0 rgba(0,0,0,.3);
+        padding:6px; pointer-events:none; text-align:center;
+      }
+      #minimapLabel{font-size:10px; font-weight:900; letter-spacing:1.2px; color:#ffd34d; margin-bottom:4px;}
+      #minimap{display:block; width:132px; height:132px; border:2px solid rgba(0,0,0,.5);}
+      #minimapLegend{font-size:10px; font-weight:700; margin-top:4px; display:flex; gap:10px; justify-content:center; align-items:center;}
+      #minimapLegend .lg{display:inline-block; width:9px; height:9px; border:2px solid rgba(0,0,0,.55); margin-right:3px; vertical-align:-1px;}
+      #minimapLegend .you{background:#ffd34d;}
+      #minimapLegend .spec{background:#53e0d4;}
+      /* ---------- tên đảo lúc bay tổng quan ---------- */
+      #islandIntro{
+        position:fixed; inset:0; z-index:15; pointer-events:none;
+        display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        padding-top:15vh; text-align:center;
+        opacity:0; transition:opacity .55s ease;
+      }
+      #islandIntro.show{opacity:1;}
+      #islandIntro .name{
+        font-weight:900; font-size:clamp(38px,9vw,84px); letter-spacing:3px; line-height:1.05; color:#fff;
+        text-shadow:0 5px 0 #7a2d16, 0 10px 0 rgba(0,0,0,.22), 0 18px 36px rgba(0,0,0,.5);
+      }
+      #islandIntro .sub{
+        margin-top:14px; background:rgba(30,18,10,.88); border:3px solid var(--edge); border-radius:3px;
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.25), 0 5px 0 rgba(0,0,0,.3);
+        padding:8px 18px; font-weight:700; font-size:clamp(13px,2.6vw,17px); color:#ffe9b0;
+      }
+      #islandIntro .skip{margin-top:10px; font-size:12px; font-weight:700; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.7); opacity:.85;}
+      /* ---------- du lịch Hạ Long ---------- */
+      #tourPanel{
+        position:fixed; left:50%; transform:translateX(-50%);
+        bottom:calc(14px + env(safe-area-inset-bottom)); z-index:10;
+        background:rgba(16,34,38,.95); border:3px solid var(--edge);
+        border-radius:4px; padding:10px 12px 12px; display:none;
+        width:min(600px,95vw); max-height:52vh; overflow:auto;
+        box-shadow:inset 0 0 0 2px rgba(120,220,200,.25), 0 6px 0 rgba(0,0,0,.3);
+      }
+      #tourPanel .tourTitle{font-weight:900; font-size:16px; color:#aef2dd; letter-spacing:.4px;}
+      #tourPanel .tourNote{font-size:11px; opacity:.8; margin-top:2px; line-height:1.4;}
+      #tourList{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+      .tourBtn{
+        min-height:42px; padding:7px 11px; border-radius:3px; cursor:pointer;
+        background:#173f3a; color:#eafff7; border:3px solid var(--edge);
+        box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px rgba(120,220,200,.18);
+        font-family:inherit; font-weight:800; font-size:12.5px;
+      }
+      .tourBtn.on{background:#0f766e; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
+      .tourBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
+      #tourInfo{background:rgba(255,243,217,.1); border:2px solid rgba(174,242,221,.35); border-radius:3px; padding:8px 11px; margin-top:9px;}
+      #tourInfoName{font-weight:900; font-size:14.5px; color:#ffd34d;}
+      #tourInfoText{font-size:12.5px; line-height:1.5; margin-top:2px;}
+      .tourRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px;}
+      /* ---------- bảng xếp hạng cuối trận ---------- */
+      #endBoard{display:none; text-align:left; margin:12px 0 2px; background:#ffedb8; border:3px solid #c98a1e; border-radius:3px; box-shadow:inset 0 0 0 2px #fff3d9; padding:8px 12px; max-height:220px; overflow:auto;}
+      #endBoard .brow{display:flex; gap:8px; align-items:baseline; padding:4px 2px; border-bottom:1px dashed rgba(150,90,20,.35); font-size:13.5px; font-weight:600;}
+      #endBoard .brow:last-child{border-bottom:none;}
+      #endBoard .brow b.rk{color:#9c3418; font-weight:900; min-width:34px;}
+      #endBoard .brow .bt{margin-left:auto; font-variant-numeric:tabular-nums; opacity:.8; font-size:12.5px;}
+      #endBoard .brow.me{background:#ffe1a1; border-radius:3px; font-weight:900;}
+      /* ---------- panel team vòng 2 + màn hình chia team ---------- */
+      #teamPanel{
+        position:fixed; left:10px; top:calc(118px + env(safe-area-inset-top)); z-index:6;
+        display:none; min-width:196px; pointer-events:none;
+      }
+      #teamPanel .tpTitle{font-size:10px; font-weight:900; letter-spacing:1px; color:#ffd34d; margin-bottom:5px;}
+      .tpRow{display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; padding:2.5px 0;}
+      .tpChip{width:13px; height:13px; border:2px solid rgba(0,0,0,.55); flex:0 0 auto;}
+      .tpRow .tpCount{margin-left:auto; font-variant-numeric:tabular-nums; opacity:.9;}
+      .tpRow.me{color:#ffd34d;}
+      #tpTurn{margin-top:6px; padding-top:6px; border-top:2px dashed rgba(255,205,120,.35); font-size:12.5px; font-weight:800; line-height:1.45;}
+      #tpTurn b{color:#ffd34d;}
+      .teamCols{display:flex; gap:10px; margin:14px 0 4px; text-align:left;}
+      .teamCol{flex:1 1 0; border:3px solid #7a2d16; border-radius:3px; overflow:hidden; background:#fff8e6; min-width:0;}
+      .teamCol .tcHead{padding:7px 9px; font-weight:900; font-size:14px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); letter-spacing:.4px;}
+      .teamCol .tcList{padding:7px 10px; font-size:12.5px; font-weight:600; line-height:1.55; max-height:190px; overflow:auto;}
+      .teamCol .tcList .me{font-weight:900; color:#9c3418;}
+      .teamCol.mine{box-shadow:0 0 0 3px #ffd34d, 0 6px 0 rgba(60,20,5,.35);}
+      .tourBtn{display:flex; align-items:center; gap:9px; text-align:left;}
+      .tourBtn canvas{flex:0 0 auto; border:2px solid rgba(0,0,0,.4); background:#bfe6ef;}
+      .tourBtn .tbName{display:block; font-size:12.5px; font-weight:900; line-height:1.2;}
+      .tourBtn .tbFeat{display:block; font-size:10.5px; font-weight:600; opacity:.85; line-height:1.3; margin-top:1px;}
+      @media (max-width:620px){
+        #teamPanel{top:calc(104px + env(safe-area-inset-top)); left:6px; min-width:160px; padding:5px 8px;}
+        .tpRow{font-size:11px;}
+        #tpTurn{font-size:11px;}
+        .teamCols{flex-direction:column;}
+        .teamCol .tcList{max-height:110px;}
+      }
+      /* ---------- khám phá đảo xa: bấm được trên minimap ---------- */
+      #minimapWrap{pointer-events:auto;}
+      #minimap{cursor:pointer;}
+      #minimapHint{font-size:9.5px; font-weight:700; color:#aef2dd; margin-top:3px; line-height:1.3;}
+      /* ---------- bong bóng chat trên đầu nhân vật ---------- */
+      #bubbles{position:fixed; inset:0; z-index:7; pointer-events:none; overflow:hidden;}
+      .bubble{
+        position:absolute; left:0; top:0; transform:translate(-50%,-100%);
+        max-width:190px; background:#fff7ea; color:#33200f;
+        border:3px solid var(--edge); border-radius:4px;
+        box-shadow:0 3px 0 rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,205,120,.35);
+        padding:5px 9px; font-size:12.5px; font-weight:700; line-height:1.35;
+        text-align:center; word-break:break-word; white-space:normal;
+      }
+      .bubble::after{
+        content:''; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
+        border:5px solid transparent; border-top:6px solid var(--edge); border-bottom:none;
+      }
+      .bubble .bName{display:block; font-size:10px; font-weight:900; letter-spacing:.3px; margin-bottom:1px;}
+      /* ---------- panel chat ---------- */
+      #btnChatToggle{
+        position:fixed; left:10px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:25;
+        min-height:46px; padding:9px 16px; border-radius:4px; cursor:pointer;
+        background:#173f3a; color:#eafff7; border:3px solid var(--edge);
+        box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px rgba(120,220,200,.3);
+        font-family:inherit; font-weight:900; font-size:14px; letter-spacing:.4px;
+      }
+      #btnChatToggle:active{transform:translateY(3px); box-shadow:0 1px 0 var(--edge);}
+      #btnChatToggle .chatDot{display:inline-block; width:9px; height:9px; background:#53e0d4; border:2px solid rgba(0,0,0,.5); margin-right:7px; vertical-align:0;}
+      body.playing #btnChatToggle{bottom:calc(152px + env(safe-area-inset-bottom));}
+      body.spectator #btnChatToggle{bottom:calc(238px + env(safe-area-inset-bottom));}
+      body.spectator #chatPanel{bottom:calc(238px + env(safe-area-inset-bottom));}
+      #chatPanel{
+        position:fixed; left:10px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:26;
+        width:min(330px, calc(100vw - 20px)); max-height:min(52vh, 430px);
+        display:none; flex-direction:column;
+        background:rgba(16,34,38,.96); border:3px solid var(--edge); border-radius:4px;
+        box-shadow:inset 0 0 0 2px rgba(120,220,200,.25), 0 6px 0 rgba(0,0,0,.3);
+        padding:9px 10px 10px;
+      }
+      #chatPanel.open{display:flex;}
+      body.playing #chatPanel{bottom:calc(152px + env(safe-area-inset-bottom));}
+      .chatHead{display:flex; align-items:center; gap:6px;}
+      .chatHead .chatTitle{font-weight:900; font-size:14.5px; color:#aef2dd; letter-spacing:.4px; flex:1 1 auto;}
+      .chatHeadBtn{
+        min-height:36px; min-width:40px; padding:5px 9px; border-radius:3px; cursor:pointer;
+        background:#173f3a; color:#eafff7; border:2px solid var(--edge);
+        box-shadow:0 3px 0 var(--edge); font-family:inherit; font-weight:800; font-size:11.5px;
+      }
+      .chatHeadBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
+      .chatHeadBtn.on{background:#0f766e; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
+      #chatMsgs{
+        margin-top:8px; overflow-y:auto; flex:1 1 auto; min-height:70px;
+        background:rgba(255,243,217,.07); border:2px solid rgba(174,242,221,.3); border-radius:3px;
+        padding:7px 9px; font-size:12.5px; line-height:1.45;
+      }
+      .chatMsg{margin:0 0 6px; word-break:break-word;}
+      .chatMsg:last-child{margin-bottom:0;}
+      .chatMsg .cmName{font-weight:900;}
+      .chatMsg .cmTime{opacity:.55; font-size:10.5px; font-weight:700; margin-left:5px; font-variant-numeric:tabular-nums;}
+      .chatMsg.sys{opacity:.75; font-style:italic; font-size:11.5px;}
+      .chatQuick{display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;}
+      .quickBtn{
+        min-height:38px; padding:6px 10px; border-radius:3px; cursor:pointer;
+        background:#4a2f16; color:#fff7ea; border:2px solid var(--edge);
+        box-shadow:0 3px 0 var(--edge); font-family:inherit; font-weight:800; font-size:12px;
+      }
+      .quickBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
+      .chatInputRow{display:flex; gap:6px; margin-top:8px;}
+      #chatInput{
+        flex:1 1 auto; min-width:0; min-height:42px; padding:8px 10px;
+        background:#fff7ea; color:#33200f; border:3px solid var(--edge); border-radius:3px;
+        font-family:inherit; font-size:13.5px; font-weight:600; outline:none; user-select:text; -webkit-user-select:text;
+      }
+      #chatSend{
+        min-height:42px; padding:8px 14px; border-radius:3px; cursor:pointer;
+        background:#d63c2f; color:#fff; border:3px solid #5d1408;
+        box-shadow:0 4px 0 #5d1408; font-family:inherit; font-weight:900; font-size:13.5px;
+      }
+      #chatSend:active{transform:translateY(3px); box-shadow:0 1px 0 #5d1408;}
+      #chatHint{font-size:10.5px; opacity:.75; margin-top:6px; line-height:1.4; min-height:14px;}
+      #exploreToast{
+        position:fixed; left:50%; transform:translateX(-50%);
+        top:calc(150px + env(safe-area-inset-top)); z-index:27; display:none;
+        background:rgba(30,18,10,.94); border:3px solid var(--edge); border-radius:4px;
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.25), 0 5px 0 rgba(0,0,0,.3);
+        padding:8px 16px; font-weight:800; font-size:13.5px; color:#ffe9b0; text-align:center;
+        max-width:92vw; pointer-events:none;
+      }
+      @media (max-width:620px){
+        #chatPanel{max-height:46vh;}
+        body.playing #btnChatToggle{bottom:calc(150px + env(safe-area-inset-bottom));}
+        body.playing #chatPanel{bottom:calc(150px + env(safe-area-inset-bottom));}
+        #minimapHint{display:none;}
+      }
+      @media (max-width:620px){
+        #hud{gap:6px; padding-left:8px; padding-right:8px;}
+        .plate{padding:6px 9px; border-radius:3px; border-width:2px;}
+        #minimapWrap{top:calc(104px + env(safe-area-inset-top)); right:6px; padding:4px; border-width:2px;}
+        #minimap{width:100px; height:100px;}
+        #minimapLabel{font-size:8.5px; letter-spacing:.8px;}
+        #minimapLegend{display:none;}
+        #statePlate{min-width:0; gap:7px;}
+        #stateDot{width:13px; height:13px;}
+        #hudState{font-size:15px; white-space:nowrap;}
+        #stateSub{font-size:10px; white-space:nowrap;}
+        #hudStats{gap:6px;}
+        .stat{min-width:56px; padding:6px 7px;}
+        .stat b{font-size:16px;}
+        .stat span{font-size:9px; white-space:nowrap;}
+        #progressWrap{top:calc(60px + env(safe-area-inset-top)); width:88vw;}
+      }
+      /* đang du lịch/khám phá: chat dạt lên trên-trái, nhường đáy màn hình cho panel du lịch */
+      body.touring #btnChatToggle{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
+      body.touring #chatPanel{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
+      /* thẻ phủ (bắt đầu / kết thúc / chia team) chừa đệm đáy để nút cuối thẻ không bị nút CHAT đè */
+      #startCard .card, #endCard .card, #teamCard .card{padding-bottom:72px;}
+    
+
+/* ==========================================================================
+   REPO ADDITIONS — hệ 6 vòng + kinh tế Hội Xu (shop / pass / giải đấu / quà)
+   Port từ client/css/style.css cũ, chỉnh theo palette artifact:
+   nền giấy #fff3d9 / plate rgba(30,18,10,.88), viền 3px var(--edge),
+   bóng khối cứng, điểm nhấn #ffd34d, nút chính đỏ #d63c2f, phụ xanh #0f766e.
+   ========================================================================== */
 .hidden{display:none!important}
-.btn{border:3px solid #111;background:#fff;color:#111;font-weight:800;cursor:pointer;padding:10px 12px;box-shadow:4px 4px 0 #111}
-.btn:hover{background:#ffe082}
-.btn.primary{background:#2e7d32;color:#fff}
-.btn.primary:hover{background:#388e3c}
-.btn.small{padding:7px 9px;font-size:13px}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
-input{border:3px solid #111;padding:9px;width:100%;font-size:15px}
-h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px}
-h2{margin:0 0 8px}
-.subtitle{margin:0 0 12px;color:#455a64}
-.note{font-size:13px;color:#455a64;line-height:1.5}
-#menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);max-height:92vh;overflow:auto;z-index:30}
-#hud{position:absolute;left:12px;top:12px;width:min(340px,70vw);z-index:20}
-.hud-row{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:6px}
-#hud-drum{font-weight:900}
-#progress{height:18px;border:3px solid #111;background:#e0e0e0}
-#progress-fill{height:100%;width:0%;background:#2e7d32}
-#team-panel{margin-top:8px;font-size:13px;line-height:1.5}
-#minimap-box{position:absolute;right:12px;top:12px;width:216px;z-index:20;text-align:center}
-#minimap{display:block;margin:6px auto;border:3px solid #111;background:#7fb3d5;cursor:pointer}
-.minimap-title{font-weight:900;font-size:13px}
-.minimap-note{font-size:12px;color:#455a64}
-#team-screen,#spectator{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);z-index:30;text-align:center}
-#tourism{position:absolute;right:12px;top:220px;width:min(360px,88vw);max-height:62vh;overflow:auto;z-index:30}
-.tour-head{display:flex;justify-content:space-between;align-items:center}
-#tour-list button{display:block;width:100%;text-align:left;margin:5px 0}
-#tour-detail{border-top:3px solid #111;margin-top:10px;padding-top:10px;line-height:1.55;font-size:14px}
-#tour-detail .story-label{display:inline-block;background:#111;color:#fff;font-size:12px;padding:2px 7px;margin-bottom:6px}
-#btn-chat-open{position:absolute;right:12px;bottom:12px;z-index:25}
-#chat-panel{position:absolute;left:12px;bottom:12px;width:min(420px,92vw);z-index:26}
-.chat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
-#chat-log{height:150px;overflow:auto;border:3px solid #111;margin:8px 0;padding:8px;background:#fafafa;font-size:14px;line-height:1.5}
-.chat-input-row{display:flex;gap:8px}
-.chat-input-row input{flex:1}
-.quick-row{display:flex;gap:6px;flex-wrap:wrap}
-#joystick{position:absolute;left:16px;bottom:16px;width:110px;height:110px;border:3px solid #111;border-radius:50%;background:rgba(255,255,255,.5);z-index:24}
-#joy-knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border:3px solid #111;border-radius:50%;background:#fff}
-#btn-jump{position:absolute;right:16px;bottom:70px;width:84px;height:84px;border-radius:50%;z-index:24}
-#toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;font-weight:700;z-index:40;display:none}
-@media (max-width:640px){
-  h1{font-size:24px}
-  #minimap-box{width:150px}
-  #minimap{width:130px;height:130px}
-  #tourism{top:auto;bottom:120px;right:8px;left:8px;width:auto}
-  #chat-panel{bottom:140px}
+
+/* --- vùng chứa name-tag / bong bóng chat do game.js tạo trong #labels --- */
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:7}
+.name-tag{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;pointer-events:none;background:rgba(30,18,10,.72);color:#fff7ea;font-size:12px;font-weight:700;padding:2px 7px;border:2px solid var(--edge);border-radius:2px}
+#labels .bubble{position:absolute;transform:translate(-50%,-100%);max-width:190px;background:#fff7ea;color:#33200f;border:3px solid var(--edge);border-radius:4px;box-shadow:0 3px 0 rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,205,120,.35);padding:5px 9px;font-size:12.5px;font-weight:700;line-height:1.35;text-align:center;word-break:break-word;white-space:normal}
+#labels .bubble::after{content:'';position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:5px solid transparent;border-top:6px solid var(--edge);border-bottom:none}
+#labels .bubble .bName{display:block;font-size:10px;font-weight:900;letter-spacing:.3px;margin-bottom:1px}
+
+/* --- toast --- */
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(30,18,10,.94);color:#ffe9b0;border:3px solid var(--edge);border-radius:3px;box-shadow:inset 0 0 0 2px rgba(255,205,120,.22),0 4px 0 rgba(0,0,0,.3);padding:8px 16px;font-weight:800;font-size:13.5px;z-index:40;display:none;text-align:center;max-width:92vw}
+
+/* --- thanh kinh tế Hội Xu --- */
+#econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px}
+#wallet-hud{font-weight:900;font-size:14px;text-align:center}
+#econBtns{display:flex;flex-direction:column;gap:6px}
+#econBtns .specBtn{width:100%;text-align:center}
+#deployNote{position:fixed;left:50%;bottom:3px;transform:translateX(-50%);z-index:4;pointer-events:none;font-size:10px;font-weight:600;color:rgba(255,247,234,.75);text-shadow:0 1px 3px rgba(0,0,0,.7);white-space:nowrap;max-width:96vw;overflow:hidden;text-overflow:ellipsis}
+#deployNote b{color:#ffd34d}
+
+/* --- panel kinh tế (shop.js điền nội dung) --- */
+#shop-panel,#pass-panel,#tournament-panel,#gift-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:86vh;overflow:auto;z-index:33;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px;background-image:linear-gradient(rgba(150,90,20,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(150,90,20,.06) 1px,transparent 1px);background-size:18px 18px}
+#shop-panel h3,#pass-panel h3,#tournament-panel h3,#gift-panel h3{margin:2px 0 8px;font-size:20px;font-weight:900;color:#b5451b}
+#shop-panel h4,#pass-panel h4,#tournament-panel h4,#gift-panel h4{margin:12px 0 6px;font-size:15px;font-weight:900;color:#9c3418}
+#shop-panel p,#pass-panel p,#tournament-panel p,#gift-panel p{font-size:13.5px;line-height:1.55;font-weight:500;margin:6px 0}
+#shop-panel label,#pass-panel label,#tournament-panel label,#gift-panel label{display:block;font-size:13px;font-weight:800;margin:8px 0 2px;text-align:left}
+#shop-panel input,#pass-panel input,#tournament-panel input,#gift-panel input{width:100%;min-height:42px;padding:8px 10px;background:#fff7ea;color:#33200f;border:3px solid var(--edge);border-radius:3px;font-family:inherit;font-size:14px;font-weight:600;outline:none;box-sizing:border-box}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}
+.shop-item{border:3px solid var(--edge);border-radius:3px;padding:10px;background:#fff8e6;box-shadow:inset 0 0 0 2px #ffedb8}
+.shop-item-name{font-weight:900;color:#9c3418}
+.shop-item-desc{font-size:13px;color:#5a4632;line-height:1.4}
+.shop-item-price{font-weight:800;margin:6px 0;color:#33200f}
+.shop-item button,.sticker-btn,#buy-pass-btn,#tournament-create-btn,#tournament-list-btn,#cheer-btn,#gift-btn,#tour-xu-btn,#tour-stub-btn{min-height:44px;border:3px solid var(--edge);background:#fff7ea;color:#33200f;font-family:inherit;font-weight:800;cursor:pointer;padding:8px 10px;border-radius:3px;box-shadow:0 3px 0 var(--edge)}
+.shop-item button:hover,.sticker-btn:hover{background:#ffe1a1}
+.shop-item button:disabled{opacity:.55;cursor:default}
+.sticker-btn.selected{background:#0f766e;color:#eafff7;box-shadow:0 3px 0 var(--edge),inset 0 0 0 2px #aef2dd}
+.sticker-picker{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pass-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+.pass-table th,.pass-table td{border:2px solid #7a2d16;padding:6px;text-align:left}
+.pass-table th{background:#ffedb8;color:#9c3418;font-weight:900}
+.pass-reached{background:#ffe1a1}
+.shop-error{color:#c62828;font-weight:700}
+#tournament-list ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.6}
+#tournament-list li{margin:4px 0}
+
+/* --- nút / ghi chú chung do rounds.js và game.js sinh ra trong overlay --- */
+.btn{display:inline-block;border:3px solid #5d1408;background:#fff7ea;color:#33200f;font-family:inherit;font-weight:800;cursor:pointer;padding:10px 14px;border-radius:4px;box-shadow:0 4px 0 #5d1408}
+.btn:hover{background:#ffe1a1}
+.btn.primary{background:#d63c2f;color:#fff;border-color:#5d1408;box-shadow:0 4px 0 #5d1408,inset 0 0 0 2px rgba(255,211,77,.5)}
+.btn.primary:hover{background:#e2483a}
+.btn.small{padding:7px 10px;font-size:13px;min-height:40px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;justify-content:center}
+.note{font-size:13px;color:#5a4632;line-height:1.5}
+.story-label{display:inline-block;background:#7a2d16;color:#fff7ea;font-size:12px;font-weight:800;padding:2px 8px;margin-bottom:6px;border-radius:2px}
+
+/* --- overlay hệ 6 vòng (rounds.js điền nội dung) --- */
+#round-overlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;z-index:32;text-align:center;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px;background-image:linear-gradient(rgba(150,90,20,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(150,90,20,.06) 1px,transparent 1px);background-size:18px 18px}
+#round-overlay h2{margin:2px 0 8px;font-size:24px;font-weight:900;color:#b5451b;line-height:1.15}
+#round-overlay .note{text-align:left}
+#interstitial{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);z-index:35;text-align:center;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px}
+#interstitial h2{font-size:22px;font-weight:900;color:#b5451b;margin:2px 0 8px}
+#interstitial p{font-size:15px;line-height:1.5;font-weight:500;margin:6px 0}
+
+/* --- đồng hồ vòng (rounds 3–6) --- */
+#round-timer-wrap{height:14px;border:3px solid var(--edge);background:#3a2410;margin-bottom:6px;border-radius:2px;overflow:hidden}
+#round-timer-fill{height:100%;width:100%;background:#53e0d4}
+#round-timer-fill.urgent{background:#e2483a}
+.round-countdown{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#33200f}
+.round-countdown.urgent{color:#c62828}
+
+/* --- vòng Bịt Mắt Bắt Dê --- */
+#blind-overlay{position:fixed;inset:0;z-index:31;pointer-events:none;background:rgba(13,17,38,.88);display:flex;align-items:center;justify-content:center}
+.blind-box{text-align:center;color:#fff;max-width:min(520px,90vw);padding:16px}
+.blind-box h2{color:#ffd34d;font-size:22px;font-weight:900}
+.blind-box .note{color:#e0e0e0}
+#cue-arrow{font-size:64px;line-height:1;color:#ffd34d;transition:transform .3s ease;text-shadow:0 0 12px rgba(255,211,77,.8)}
+#cue-text{font-size:18px;font-weight:800;color:#fff}
+#goat-note{font-size:16px;font-weight:700;color:#fff}
+#goat-marker,#flag-marker{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;pointer-events:none;background:#ffd34d;color:#33200f;font-size:13px;font-weight:900;padding:3px 8px;border:3px solid var(--edge);z-index:22;border-radius:2px}
+#flag-marker{background:#e53935;color:#fff}
+
+/* --- vòng Kéo Co / Nặn Tò He / Ô Ăn Quan / Nhảy Sạp (rounds.js) --- */
+.beat-ind{font-size:26px;font-weight:900;color:#8a7a63;border:3px solid #8a7a63;padding:10px;margin:10px auto;width:fit-content;border-radius:3px}
+.beat-ind.on{color:#fff;background:#c62828;border-color:var(--edge);box-shadow:0 0 0 4px #ffcdd2}
+.power-row{display:flex;align-items:center;gap:10px;margin:8px 0;text-align:left}
+.power-bar{flex:1;height:20px;border:3px solid var(--edge);background:#ffedb8;border-radius:2px;overflow:hidden}
+.power-fill{height:100%;width:0%}
+.power-fill.a{background:#0f766e}
+.power-fill.b{background:#e53935}
+.rope-track{position:relative;height:22px;border:3px solid var(--edge);background:#fff8e1;margin:12px 0;border-radius:2px}
+.rope-marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:20px;color:#33200f}
+.round-action{min-height:56px;min-width:140px;font-size:18px;padding:14px 20px;margin-top:8px}
+.round-action:focus-visible,.btn:focus-visible{outline:4px solid #0f766e;outline-offset:2px}
+#trace-canvas{border:3px solid var(--edge);background:#fffef5;touch-action:none;max-width:100%;height:auto;display:block;margin:8px auto;border-radius:2px}
+.oq-board{display:flex;gap:8px;align-items:stretch;justify-content:center;margin:10px 0}
+.oq-rows{flex:1}
+.oq-row{display:flex;gap:6px;margin:4px 0}
+.oq-pit{flex:1;min-height:52px;min-width:44px;font-size:18px}
+.oq-pit:disabled{opacity:.55;cursor:default}
+.oq-quan{border:3px solid var(--edge);background:#fff8e1;padding:8px 4px;font-size:13px;width:76px;display:flex;flex-direction:column;justify-content:center;color:#33200f}
+.oq-quan b{font-size:20px}
+.oq-quan-pit{background:#fff8e1;font-weight:900}
+.hop-track{position:relative;height:26px;border:3px solid var(--edge);background:#e8f5e9;margin:12px 0;border-radius:2px}
+.hop-zone{position:absolute;left:42%;width:16%;top:0;bottom:0;background:#ffd34d;border-left:3px solid var(--edge);border-right:3px solid var(--edge)}
+.hop-marker{position:absolute;left:0;top:-4px;width:6px;height:32px;background:#c62828;transform:translateX(-50%)}
+@keyframes stumble{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px) rotate(-3deg)}75%{transform:translateX(8px) rotate(3deg)}}
+.stumble{animation:stumble .45s ease;background:#c62828!important}
+
+@media (max-width:620px){
+  #econBar{top:calc(300px + env(safe-area-inset-top));right:6px;width:150px}
+  #wallet-hud{font-size:12.5px}
+  #econBtns .specBtn{font-size:11.5px;min-height:40px;padding:7px 9px}
+  #shop-panel,#pass-panel,#tournament-panel,#gift-panel,#round-overlay,#interstitial{width:calc(100vw - 16px)}
+  .round-countdown{font-size:18px}
+  .oq-pit{min-width:36px;min-height:48px;font-size:16px}
+  .oq-quan{width:60px}
+  #deployNote{display:none}
 }

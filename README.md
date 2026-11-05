@@ -82,6 +82,36 @@ Tin nhắn hiện thành bong bóng trên đầu người gửi khoảng 5 giây
 120 ký tự, chống spam 2 giây/tin. Chat multiplayer đi qua server tới mọi người
 trong phòng. Chat của bot trong chế độ chơi đơn luôn ghi rõ `· BOT`.
 
+## Kinh tế trong game (demo)
+
+Lõi trận sinh tồn hoàn toàn **miễn phí**. Tiền trong game là **Hội Xu**,
+chỉ mua đồ trang trí — không mua chỉ số, không pay-to-win, không cá cược,
+không loot box:
+
+- Kiếm xu: +10 xu mỗi vòng sống sót, +50 xu khi thắng trận, +20 xu mỗi
+  nhiệm vụ ngày (chơi 1 trận, sống sót 2 vòng, gửi 5 chat), +5 xu mỗi
+  lượt được cổ vũ.
+- **Shop**: áo bà ba 3 màu (chỉ đổi màu, không đổi chỉ số), nón lá, khăn
+  đóng, cờ team, bong bóng chat, emote, đồ trang trí đảo. Server kiểm tra
+  sở hữu mỗi lần trang bị — chưa mua thì không dùng được.
+- **Hội Làng Pass**: cấp 1–20 theo XP chơi game (100 XP/vòng, 500 XP khi
+  thắng), thưởng track miễn phí và track trả phí toàn đồ trang trí.
+- **Chủ Hội**: tạo giải đấu riêng có tên thương hiệu, giải thưởng trả bằng
+  Hội Xu từ ví chủ hội, người thắng nhận giải bằng xu (không đổi ra tiền
+  mặt). Khán giả cổ vũ miễn phí hoặc tặng sticker bằng xu.
+- **Vé Du Lịch Hạ Long**: mở thêm câu chuyện đảo, tuyến tour cao cấp và
+  huy hiệu lưu niệm cho người bị loại — không ảnh hưởng kết quả trận.
+
+**Thanh toán thật chưa bật: mọi nút tiền thật đều là bản demo có ghi rõ
+"(Demo — chưa thanh toán thật)"**, trả về stub và chỉ mở khóa thử trong
+bản demo, không xử lý tiền thật. Chi tiết: [docs/BRD.md §10](./docs/BRD.md).
+
+> Kinh tế đã nối xong: `server.js` nối `economy.js` qua try-require và
+> dispatch `msg.type === 'economy'`, `index.html` có đủ các panel
+> shop/pass/giải đấu/quà tặng và `#wallet-hud`, các hook kiếm xu/XP
+> (`recordMatchPlayed`, `awardRoundSurvived`, `awardWin`, `recordChatSent`)
+> đã được gọi từ `server.js` (xem `docs/PLAN.md` M-03, M-04).
+
 ## Kiến trúc
 
 ```
@@ -89,9 +119,16 @@ trong-hoi-cau-khi/
   package.json            # chỉ phụ thuộc ws
   server/server.js        # Node.js + WebSocket, không framework;
                           # vừa phục vụ file client, vừa làm game server
+  server/economy.js       # kinh tế trong game (Hội Xu, shop, Pass,
+                          # giải đấu, quà tặng, Vé Du Lịch) — bản stub,
+                          # lưu JSON data/economy.json; server.js nối qua try-require
   client/index.html       # cấu trúc trang, HUD, panel chat, panel du lịch, minimap
   client/css/style.css    # giao diện voxel: góc vuông, viền dày, chữ Việt rõ
   client/js/game.js       # Three.js qua CDN, thế giới voxel, bot, camera, chat, du lịch
+  client/js/shop.js       # giao diện shop/pass/giải đấu/quà tặng (window.HoiShop)
+  Dockerfile              # node:20-alpine, non-root, cổng 3000
+  docker-compose.yml      # service game, volume giữ data/economy.json
+  .env.example            # PORT, NODE_ENV, ECONOMY_STUB=true, không secret
 ```
 
 Server là nguồn chân lý cho: nhịp trống/chiêng, loại người chơi, chia team,
@@ -117,3 +154,20 @@ hoạch triển khai production — nằm trong ba tài liệu dưới `docs/`:
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — tài liệu kiến trúc: luồng trận, server có thẩm quyền, giao thức WebSocket, máy trạng thái, mô hình dữ liệu, đường mở rộng lên 456 người, triển khai.
 - [docs/BRD.md](./docs/BRD.md) — tài liệu yêu cầu nghiệp vụ: tầm nhìn, mục tiêu và KPI đề xuất, scope IN/OUT, user stories, yêu cầu chức năng FR-01…FR-33, kho thử thách và đường loại dự kiến, quyết định mở cần Sudo chốt.
 - [docs/PLAN.md](./docs/PLAN.md) — kế hoạch task đầy đủ: bảng task theo phase 0–4, checklist play-test thật còn outstanding, Definition of Done, và những gì Sudo phải quyết trước mỗi phase.
+
+## Giao diện lấy từ bản artifact
+
+Giao diện người chơi trong repo được **viết lại (rebuilt) từ bản artifact**
+— file export `prototype-game-3d-1-vong.html` (prototype chơi đơn 2 vòng,
+60 bot, không mạng), **không sao chép mã nguồn artifact**. Đối chiếu chi
+tiết từng phần tử UI (HUD, thẻ bắt đầu/chia team/kết thúc, khán giả, chat,
+du lịch, minimap, joystick, camera, đảo xa, âm thanh) với trạng thái
+Ported / Adapted / Missing và danh sách gap còn mở: xem
+[docs/ARTIFACT-PARITY.md](./docs/ARTIFACT-PARITY.md).
+
+Ngắn gọn: artifact chỉ có 2 vòng chơi đơn; repo giữ giao diện đó và thêm
+toàn bộ hệ thống artifact không có — trận 6 vòng, multiplayer WebSocket
+với server có thẩm quyền, kinh tế trong game (shop/pass/giải đấu/quà tặng,
+stub thanh toán), Docker. Gap lớn nhất còn mở so với artifact là **chưa có
+âm thanh** (trống/chiêng chỉ còn là chữ trên HUD) và **bấm đảo xa trong 3D
+chưa bay tới xem chi tiết** (chỉ 7 đảo đặt tên bấm được).
