@@ -1,0 +1,203 @@
+# Kế hoạch task — Trống Hội & Cầu Khỉ
+
+> Cách đọc bảng task: **Ưu tiên** P0 = chặn đường chính, phải làm trước;
+> P1 = quan trọng, làm ngay sau P0; P2 = làm sau khi P0/P1 xong.
+> **Trạng thái:** `Đã có trong demo` / `Đang làm` / `Dự kiến`.
+> **Cỡ (Size):** S = nhỏ (một buổi làm việc), M = vừa (vài buổi), L = lớn
+> (nhiều buổi, cần chia nhỏ thêm khi bắt đầu). Cỡ là ước tính tương đối,
+> **không phải cam kết số ngày**.
+> Mỗi task có tiêu chí chấp nhận riêng — task chỉ coi là xong khi đạt tiêu
+> chí đó **và** đã qua play-test thật nếu tiêu chí có ghi.
+> Tài liệu này không thay code: khi làm task, đọc `docs/ARCHITECTURE.md`
+> (kiến trúc) và `docs/BRD.md` (yêu cầu) trước.
+
+## Phase 0 — Demo parity và tài liệu (đã xong phần lớn, trừ play-test thật)
+
+Mục tiêu: bản demo trong repo chạy được, tài liệu đầy đủ, và Sudo chơi thử
+thật để xác nhận cảm giác chơi trước khi làm thêm tính năng mới.
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| P0-01 | Repo độc lập: client + server Node.js + `ws`, chạy bằng `npm start`, không build step | P0 | Đã có trong demo | — | — | `npm install && npm start` chạy, mở `localhost:3000` chơi được; `node --check` qua server và client |
+| P0-02 | Vòng 1 Trống Hội + vòng 2 Cầu Khỉ + CHIA TEAM đúng luật đã chốt (team chỉ chia lượt, không team thắng/thua) | P0 | Đã có trong demo | P0-01 | — | Chơi đơn và multiplayer đều qua được 2 vòng; rớt cầu loại cá nhân; xếp hạng cá nhân theo thời gian |
+| P0-03 | Du lịch Hạ Long: 7 đảo chi tiết + 260 silhouette đảo xa, click/zoom ra chi tiết, câu chuyện có nhãn | P0 | Đã có trong demo | P0-01 | — | Bấm đảo trong 3D/minimap/danh sách đều bay tới xem chi tiết; đảo xa không trắng xóa; chỉ đảo đang xem dựng chi tiết |
+| P0-04 | Chat phòng: bong bóng trên đầu ~5 giây + panel, giới hạn 120 ký tự, chống spam 2 giây/tin, câu chat nhanh | P0 | Đã có trong demo | P0-01 | — | 2 người trong phòng thấy tin của nhau cả trên đầu và trong panel; tin 129 ký tự bị từ chối; bot ghi rõ `· BOT` |
+| P0-05 | Khán giả 4 góc nhìn + minimap + HUD + điều khiển mobile | P0 | Đã có trong demo | P0-01 | — | Bị loại chuyển khán giả được; đổi góc/chuyển người được; minimap vẽ đúng đảo và chấm người chơi |
+| P0-06 | Viết `docs/ARCHITECTURE.md` | P0 | Đã có | P0-01 | S | Mô tả đúng stack, giao thức và máy trạng thái của code hiện tại; mục dự kiến ghi rõ là dự kiến |
+| P0-07 | Viết `docs/BRD.md` | P0 | Đã có | P0-01 | S | Có scope IN/OUT, FR có trạng thái, kho trò và đường loại ghi rõ là tầm nhìn chưa triển khai |
+| P0-08 | Viết `docs/PLAN.md` (tài liệu này) + cập nhật README trỏ tới docs | P0 | Đã có | P0-06, P0-07 | S | README ghi rõ chỉ mô tả demo; PLAN có bảng task, checklist play-test, Definition of Done |
+| P0-09 | **Play-test thật toàn bộ bản demo** (checklist ở §3) | P0 | Dự kiến | P0-01..P0-05 | M | Mọi mục trong checklist §3 đã thử bằng tay trên máy thật, có ghi chú kết quả; lỗi tìm được đã ghi thành task mới |
+
+## Phase 1 — Cấu trúc trận đầy đủ (6 vòng, đường loại, kho thử thách)
+
+Mục tiêu: từ demo 2 vòng lên thành trận đầy đủ theo tầm nhìn, nhưng **chưa**
+cần scale 456 người — chơi tốt ở quy mô phòng hiện tại (20 người) trước.
+Không bắt đầu Phase 1 cho tới khi Sudo chốt OD-01 và OD-02 trong BRD §9.4
+(danh sách trò, luật loại ở trò đồng đội).
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| P1-01 | Thiết kế chi tiết 4 trò mới: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê, Rồng Rắn Cướp Cờ (luật, cách chấm, chống học thuộc, biến thể theo người chơi) | P0 | Dự kiến | OD-01, OD-02 | L | Mỗi trò có tài liệu luật 1 trang: mục tiêu, cách chơi, cách loại, biến thể random, trường hợp biên; Sudo duyệt |
+| P1-02 | Giới hạn thời gian vòng 1 + quy tắc kết thúc vòng (sửa lỗ hổng trận kẹt khi có người đứng yên) | P0 | Dự kiến | — | S | Hết giờ vòng 1 thì vòng tự kết thúc theo quy tắc đã công bố; không còn trường hợp trận kẹt vì một người đứng yên |
+| P1-03 | Seed random theo phòng–vòng (thay `Math.random()` rải rác) cho nhịp trống, ván yếu, biến thể trò | P1 | Dự kiến | P1-01 | M | Cùng seed cho cùng kết quả random; trận khác seed thì khác kết quả; seed lưu trong dữ liệu trận |
+| P1-04 | Cài 4 trò mới vào game (client + server), mỗi trò một module riêng | P0 | Dự kiến | P1-01, P1-03 | L | Chơi được cả 4 trò ở chế độ chơi đơn và multiplayer; luật loại đúng tài liệu P1-01 |
+| P1-05 | Đường loại 6 vòng co giãn theo số người thực tế (456 → 280 → 150 → 70 → 24 → 6 → 1 ở phòng đủ người; bảng co giãn cho phòng nhỏ) | P1 | Dự kiến | P1-04 | M | Phòng 20 người có đường loại hợp lý tới 1 người thắng; phòng đủ 456 người theo đúng đường loại tầm nhìn |
+| P1-06 | Chọn 6 trò mỗi trận từ kho (random theo seed, không lặp trận trước) + thứ tự trò random | P1 | Dự kiến | P1-03, P1-04 | M | Hai trận liên tiếp không giống hệt nhau; mỗi trận đủ 6 trò |
+| P1-07 | Timer trận tổng + HUD theo vòng (hiển thị vòng hiện tại/tổng số vòng, trò hiện tại) | P1 | Dự kiến | P1-05 | S | HUD luôn đúng vòng và trò đang chơi; hết giờ tổng thì trận kết thúc có kết quả |
+| P1-08 | Cân bằng lại (play-test + chỉnh số): thời gian mỗi vòng, tỉ lệ loại mỗi vòng, độ khó ván yếu | P1 | Dự kiến | P1-04, P1-05 | M | Sau 5 trận play-test, tỉ lệ loại mỗi vòng gần mục tiêu trong BRD §8.2 (sai lệch ghi rõ lý do nếu chưa đạt) |
+| P1-09 | Bảng xếp hạng trực tiếp trong lúc xem (khán giả thấy ai đang dẫn đầu, ai vừa bị loại) | P2 | Dự kiến | P1-05 | S | Khán giả xem được bảng trực tiếp cập nhật theo sự kiện loại/về đích |
+| P1-10 | Dọn code chết: kiểm tra chat `length > 120` không bao giờ chạy, và các TODO trong code | P2 | Dự kiến | — | S | Không còn nhánh chết đã biết; `node --check` vẫn qua |
+
+## Phase 2 — Scale lên 456 người
+
+Mục tiêu: phòng 456 người chơi được mượt, 1.000 người chờ thì tách trận
+song song. Không bắt đầu trước khi Phase 1 xong và Sudo chốt OD-04, OD-07
+(ngân sách hosting, mục tiêu người chơi đồng thời).
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| P2-01 | Hàng đợi lobby + chia phòng 456 người, 1.000 người chờ → tách trận song song | P0 | Dự kiến | P1-05 | L | 1.000 người chờ được chia đúng thành các phòng ≤ 456 người; phòng đủ 456 tự bắt đầu |
+| P2-02 | Chia nhỏ vòng 1 thành sân con ~57 người, lấy top N mỗi sân rồi gộp lại | P0 | Dự kiến | P2-01 | L | Vòng 1 chạy song song ở các sân con; số người gộp đúng top N mỗi sân; người chơi thấy rõ mình ở sân nào |
+| P2-03 | Vòng lặp tick cố định ~15 Hz (mục tiêu) thay cho xử lý message rời rạc | P0 | Dự kiến | P2-01 | L | Tick chạy ổn định ~15 Hz khi phòng đông (số đo thực tế ghi lại); kết quả trận không đổi so với trước |
+| P2-04 | Đồng bộ theo vùng nhìn thấy (AOI): client chỉ nhận vị trí người chơi gần mình | P0 | Dự kiến | P2-03 | L | Phòng 456 người vẫn chơi được; băng thông mỗi client giảm rõ so với phát toàn bộ (số đo ghi lại) |
+| P2-05 | Client gửi input (hướng + nhảy) thay vì vị trí tuyệt đối; server tính vị trí + giới hạn tốc độ | P1 | Dự kiến | P2-03 | M | Không thể gian lận bằng cách gửi vị trí nhảy thẳng tới đích; di chuyển bình thường không bị giật |
+| P2-06 | Instancing đảo xa + LOD (chi tiết theo khoảng cách) cho cây/chim/đảo | P1 | Dự kiến | — | M | Số draw call giảm rõ so với 260 mesh riêng hiện tại (số đo ghi lại); đảo xa vẫn không trắng xóa |
+| P2-07 | Load test phòng đông (bot mô phỏng nhiều client) + đo FPS / độ trễ / tải server | P0 | Dự kiến | P2-01..P2-04 | L | Có báo cáo số đo: FPS, độ trễ, CPU/RAM server ở 100 / 200 / 456 người (số đo thực tế, không ước tính) |
+| P2-08 | Reconnect: người rớt mạng quay lại đúng nhân vật trong thời gian ân hạn | P1 | Dự kiến | P2-03 | M | Rớt mạng < 30 giây (đề xuất) thì vào lại đúng vị trí/trạng thái; quá hạn thì slot được giải phóng |
+| P2-09 | Self-host Three.js (hết phụ thuộc CDN) + fallback nếu CDN lỗi | P2 | Dự kiến | — | S | Tắt mạng CDN thì game vẫn tải được (kiểm tra bằng cách chặn CDN khi test) |
+
+## Phase 3 — Cứng hóa production và triển khai
+
+Mục tiêu: đưa game lên production an toàn, đo được, xử lý được sự cố.
+Không bắt đầu trước khi Sudo chốt OD-03, OD-04, OD-05 (mô hình kinh doanh,
+ngân sách hosting, chính sách kiểm duyệt).
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| P3-01 | Database: lưu trận, người chơi trong trận, tin nhắn chat, bảng xếp hạng | P0 | Dự kiến | P1-05 | L | Tắt server rồi bật lại vẫn xem được lịch sử trận và bảng xếp hạng |
+| P3-02 | Hosting + tên miền + TLS + reverse proxy (Nginx/Caddy) | P0 | Dự kiến | OD-04 | M | Mở bằng `https://`, WebSocket chạy `wss://`, trang tải được từ mạng ngoài |
+| P3-03 | Chống gian lận: kiểm tra tốc độ di chuyển, kiểm tra input hợp lệ, log hành vi bất thường | P0 | Dự kiến | P2-05 | M | Client gian lận (gửi vị trí/tốc độ bất thường) bị chặn hoặc bị loại; chơi bình thường không bị ảnh hưởng |
+| P3-04 | Kiểm duyệt chat: tố cáo, mute, lọc từ, dashboard kiểm duyệt tối thiểu | P0 | Dự kiến | OD-05 | L | Người chơi tố cáo được; host/mod mute được; từ trong danh sách cấm không hiện cho người khác |
+| P3-05 | Health check `/health` + log có cấu trúc + giám sát + cảnh báo + tự khởi động lại khi crash | P1 | Dự kiến | P3-02 | M | `/health` trả trạng thái + số phòng; server crash thì tự chạy lại; có cảnh báo khi server chết |
+| P3-06 | Analytics tối thiểu: số trận, số người chơi, tỉ lệ hoàn thành, tỉ lệ dùng chat/du lịch (theo KPI trong BRD §2) | P1 | Dự kiến | P3-01 | M | Có số đo thật cho KPI-01..KPI-05 sau 1 tuần chạy (số đo thực tế, không ước tính) |
+| P3-07 | Lọc tên người chơi + giới hạn ký tự đặc biệt | P2 | Dự kiến | — | S | Tên có từ cấm hoặc ký tự đặc biệt quá mức bị từ chối với thông báo rõ |
+| P3-08 | Tài khoản / đăng nhập (chỉ làm nếu Sudo chốt OD-08 là làm) | P2 | Dự kiến | OD-08, P3-01 | L | Đăng nhập được, hồ sơ lưu lịch sử trận; chơi không đăng nhập vẫn được (khách) |
+
+## Phase 4 — Hoàn thiện và tăng trưởng
+
+Mục tiêu: game đẹp hơn, dễ chơi hơn cho người mới, và có thêm nội dung để
+giữ người chơi quay lại. Chỉ làm sau khi Phase 3 xong và game đã chạy ổn
+định trên production.
+
+| ID | Task | Ưu tiên | Trạng thái | Phụ thuộc | Cỡ | Tiêu chí chấp nhận |
+|---|---|---|---|---|---|---|
+| P4-01 | Mở rộng du lịch: thêm đảo mới (từ danh sách tên thật theo hình dáng), thêm câu chuyện có nhãn nguồn | P2 | Dự kiến | — | M | Thêm ít nhất 3 đảo mới, mỗi đảo có hình dáng, cây, chim thú, câu chuyện có nhãn; giữ nguyên tắc chỉ đảo đang xem dựng chi tiết |
+| P4-02 | Onboarding người mới: màn hình hướng dẫn luật trước trận đầu, gợi ý phím | P1 | Dự kiến | P1-04 | M | Người chơi mới đọc xong hướng dẫn thì biết trống/chiêng, cầu, chat; tỉ lệ bỏ trận đầu giảm (đo sau khi có analytics) |
+| P4-03 | Polish mobile: joystick, nút bấm, chữ, hiệu năng trên điện thoại tầm trung | P1 | Dự kiến | P0-09 | M | Chơi trọn một trận trên điện thoại tầm trung không tràn màn hình, ≥ 30 FPS (số đo thực tế) |
+| P4-04 | Accessibility: tương phản, cỡ chữ, không chỉ dùng màu để truyền luật | P2 | Dự kiến | — | S | Mọi luật quan trọng đều có chữ kèm theo, không chỉ màu; nút đủ lớn trên mobile |
+| P4-05 | Voice chat (chỉ làm nếu Sudo chốt OD-06 là làm) | P2 | Dự kiến | OD-06, P3-04 | L | Nói được trong phòng; có nút tắt tiếng từng người; kiểm duyệt voice theo chính sách đã chốt |
+| P4-06 | Sự kiện theo mùa / chủ đề hội làng (ví dụ Tết, lễ hội) | P2 | Dự kiến | P1-06 | M | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game |
+
+## 3. Checklist play-test thật — còn outstanding (chưa làm)
+
+Checklist này lấy từ các mục chưa được kiểm chứng bằng tay trong quá trình
+làm demo. **Không task Phase 1 nào được coi là "đã xong" nếu play-test
+tìm ra lỗi mà lỗi đó chưa được sửa hoặc ghi thành task mới.** Mỗi mục ghi:
+đã thử chưa, kết quả, lỗi (nếu có).
+
+### 3.1. Chơi đơn (1 người + 60 bot)
+
+- [ ] Cảm giác WASD / phím mũi tên: di chuyển mượt, không trễ, không trượt quá đà.
+- [ ] Xoay camera bằng kéo chuột: mượt, không giật, không lộn ngược.
+- [ ] Nhịp trống/chiêng: nghe rõ trống và chiêng, phân biệt được hai trạng thái.
+- [ ] Thời điểm loại lúc chiêng: đứng yên thì không bị loại; nhích nhẹ hoặc nhảy lúc chiêng thì bị loại ngay.
+- [ ] Về đích vòng 1: về đích thì qua vòng, hiện đúng màn hình CHIA TEAM.
+- [ ] CHIA TEAM: team chia đều, màu áo/vòng đúng team, tên team hiện đúng.
+- [ ] Cầu vòng 2: chỉ leader được bước; người chưa tới lượt bị chặn; ván yếu vỡ thì loại đúng người; ván vỡ thành khoảng trống nhảy qua được.
+- [ ] Xếp hạng cuối trận: đúng người, đúng thời gian, không có xếp hạng team.
+- [ ] Chơi lại: bấm Chơi lại thì về vòng 1 bình thường.
+- [ ] Bot: bot di chuyển tự nhiên, không đi xuyên tường/đảo, nhãn `· BOT` luôn hiện.
+
+### 3.2. Multiplayer (2 trình duyệt thật trở lên)
+
+- [ ] Tạo phòng + vào phòng bằng mã 6 ký tự; xem danh sách phòng đang mở.
+- [ ] Host bắt đầu (≥ 2 người); phòng tự bắt đầu khi đủ 20 người.
+- [ ] 2+ người chơi thấy nhau di chuyển theo thời gian thực, không lag nặng.
+- [ ] Chia team nhiều người sống sót: team chia đều, mỗi team một cầu, leader đúng người.
+- [ ] Chặn lượt cùng team: người chưa tới lượt không bước được cầu, nhận thông báo rõ.
+- [ ] Ván yếu trên cầu: ván yếu của team này không ảnh hưởng team khác; ván vỡ hiện đúng cho cả phòng.
+- [ ] Người vào giữa trận: chỉ làm khán giả, không chơi được.
+- [ ] Host rời phòng: host chuyển cho người còn lại, trận không kẹt.
+- [ ] Người chơi rớt mạng: ghi rõ chuyện gì xảy ra (hiện tại là mất slot — cần ghi nhận để làm P2-08).
+
+### 3.3. Chat
+
+- [ ] Mở chat bằng Enter, gửi bằng Enter, đóng bằng Esc; đang gõ thì WASD không di chuyển nhân vật.
+- [ ] Bong bóng chat hiện trên đầu người gửi ~5 giây và **đi theo nhân vật đang di chuyển** (chưa kiểm chứng bằng tay — mục quan trọng nhất của chat).
+- [ ] Tin nhắn hiện trong panel kèm đúng tên, màu team, giờ gửi.
+- [ ] Tin 129 ký tự bị từ chối (đã kiểm bằng test tự động, cần thử lại bằng tay).
+- [ ] Gửi 2 tin cách nhau dưới 2 giây thì tin thứ hai bị chặn với thông báo rõ.
+- [ ] Câu chat nhanh bấm là gửi; nút ẩn bong bóng và ẩn panel hoạt động.
+- [ ] Chat dùng được ở sảnh, trong trận, khán giả và du lịch.
+
+### 3.4. Du lịch và đảo xa
+
+- [ ] Đảo xa không còn trắng xóa (đá xám, cây xanh, sương xanh xám).
+- [ ] Bấm đảo xa trong 3D → camera bay mượt tới đảo, đảo hiện chi tiết đầy đủ (cây, chim thú, bãi cát, cầu tàu, biển tên, câu chuyện).
+- [ ] Bấm chấm đảo trên minimap và bấm đảo trong danh sách du lịch cũng bay tới đúng đảo.
+- [ ] Chỉ đảo đang xem dựng chi tiết; đảo trước quay lại dạng nhẹ.
+- [ ] Zoom bằng cuộn chuột, nút +/−, bấm đúp zoom nhanh; nút Quay lại toàn cảnh và Quay lại trận hoạt động.
+- [ ] Panel câu chuyện từng đảo đọc rõ, nhãn (truyền thuyết / lịch sử thật / chuyện trong game) đúng.
+- [ ] Chim bay, bướm, cá nhảy, cua, khỉ ở Đảo Khỉ có chuyển động thật, không đứng yên như tượng.
+- [ ] Số liệu 1.969 đảo / 1.553 km² hiển thị đúng, không tuyên bố dựng chi tiết cả 1.969 đảo.
+
+### 3.5. Mobile và mạng
+
+- [ ] Joystick ảo + nút NHẢY dùng được trên điện thoại thật; không tràn màn hình ngang.
+- [ ] Chữ tiếng Việt có dấu đọc rõ trên điện thoại (HUD, panel, bong bóng chat).
+- [ ] Chơi trọn một trận trên điện thoại tầm trung, ghi FPS cảm nhận và tình trạng giật (nếu có).
+- [ ] Three.js tải được qua CDN trên mạng của Sudo (mở game ở mạng nhà/mạng 4G, không chỉ mạng dev).
+
+## 4. Definition of Done (định nghĩa "xong" cho toàn bộ dự án)
+
+Dự án chỉ coi là **xong** khi tất cả các điều sau đúng cùng lúc:
+
+1. **Trận đầy đủ:** chơi được trận 6 vòng theo đường loại trong BRD §8.2,
+   từ lobby tới 1 người thắng, ở cả phòng nhỏ và phòng đủ 456 người.
+2. **Đúng luật đã chốt:** CHIA TEAM chỉ chia lượt, không team thắng/thua;
+   xếp hạng cá nhân theo thời gian; bot luôn ghi rõ là bot.
+3. **Scale:** phòng 456 người chơi được với số đo load test (P2-07) đạt mục
+   tiêu FPS/độ trễ đã chốt với Sudo.
+4. **Ổn định:** tỉ lệ trận kẹt/không kết thúc do lỗi < 5% (KPI-07); rớt mạng
+   có reconnect; server crash tự chạy lại.
+5. **An toàn:** chat có tố cáo/mute/lọc; tên người chơi được lọc; không còn
+   lỗ hổng gian lận vị trí đã biết.
+6. **Production:** chạy trên tên miền thật với TLS, có health check, log,
+   giám sát và analytics cho KPI-01..KPI-05.
+7. **Tài liệu:** ARCHITECTURE, BRD và PLAN đều cập nhật theo code thực tế
+   (không còn mục nào ghi "đã có" nhưng code chưa có, hay ngược lại).
+8. **Play-test:** checklist §3 và checklist tương tự cho các tính năng mới
+   đều đã thử bằng tay và không còn lỗi P0/P1 mở.
+
+**Definition of Done cho bản demo (hiện tại):** chỉ gồm P0-01..P0-08
+(code demo + 3 tài liệu này). P0-09 (play-test thật) **chưa xong**, nên
+bản demo chưa được coi là xong hoàn toàn — xem §3.
+
+## 5. Sudo phải quyết trước khi các phase sau bắt đầu
+
+| Quyết định (mã trong BRD §9.4) | Cần trước phase | Nếu chưa quyết thì sao |
+|---|---|---|
+| OD-01: danh sách 18–20 trò trong kho | Phase 1 | Không thiết kế được trò mới (P1-01, P1-04 chặn) |
+| OD-02: luật loại ở trò đồng đội | Phase 1 | Không làm được Kéo Co Nhịp và đường loại vòng 3 (P1-01, P1-05 chặn) |
+| OD-03: mô hình kinh doanh / giải thưởng | Phase 1 (thiết kế) và Phase 3 (triển khai) | Làm game không có thu tiền/giải thưởng; thêm sau sẽ tốn công sửa lại tài khoản và chống gian lận |
+| OD-04: ngân sách hosting + mức chịu tải | Phase 2–3 | Không chọn được kiến trúc production (một server hay nhiều server) |
+| OD-05: chính sách kiểm duyệt chat | Phase 3 | Không mở public được (rủi ro nội dung xấu) |
+| OD-06: có làm voice chat không | Phase 4 | Mặc định là **không làm**; chỉ làm nếu Sudo chốt làm |
+| OD-07: mục tiêu người chơi đồng thời đầu tiên | Phase 2 | Mặc định làm theo mục tiêu 456 người/phòng; nếu Sudo chỉ cần 50–100 người thì Phase 2 nhẹ đi nhiều |
+| OD-08: có làm tài khoản / đăng nhập không | Phase 1–3 | Mặc định giữ chơi bằng tên tự chọn, không tài khoản; bảng xếp hạng chỉ lưu theo trận, không lưu theo người |
+
+---
+*Tài liệu liên quan: [ARCHITECTURE.md](./ARCHITECTURE.md) (kiến trúc và đường
+mở rộng kỹ thuật), [BRD.md](./BRD.md) (yêu cầu nghiệp vụ và tầm nhìn đầy đủ),
+[README.md](../README.md) (mô tả bản demo — README chỉ mô tả demo, tầm nhìn
+đầy đủ nằm ở BRD và PLAN).*

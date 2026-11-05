@@ -1,0 +1,56 @@
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#87b5d6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1a2a33}
+#game-wrap{position:relative;width:100%;height:100%}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.name-tag,.bubble{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;pointer-events:none}
+.name-tag{background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border:2px solid #fff}
+.bubble{background:#fff;color:#111;font-size:14px;font-weight:600;padding:6px 10px;border:3px solid #111;box-shadow:4px 4px 0 rgba(0,0,0,.35);max-width:220px;white-space:normal;word-break:break-word}
+.panel{background:#fffef5;border:3px solid #111;box-shadow:6px 6px 0 rgba(0,0,0,.35);padding:14px}
+.hidden{display:none!important}
+.btn{border:3px solid #111;background:#fff;color:#111;font-weight:800;cursor:pointer;padding:10px 12px;box-shadow:4px 4px 0 #111}
+.btn:hover{background:#ffe082}
+.btn.primary{background:#2e7d32;color:#fff}
+.btn.primary:hover{background:#388e3c}
+.btn.small{padding:7px 9px;font-size:13px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+input{border:3px solid #111;padding:9px;width:100%;font-size:15px}
+h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px}
+h2{margin:0 0 8px}
+.subtitle{margin:0 0 12px;color:#455a64}
+.note{font-size:13px;color:#455a64;line-height:1.5}
+#menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);max-height:92vh;overflow:auto;z-index:30}
+#hud{position:absolute;left:12px;top:12px;width:min(340px,70vw);z-index:20}
+.hud-row{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:6px}
+#hud-drum{font-weight:900}
+#progress{height:18px;border:3px solid #111;background:#e0e0e0}
+#progress-fill{height:100%;width:0%;background:#2e7d32}
+#team-panel{margin-top:8px;font-size:13px;line-height:1.5}
+#minimap-box{position:absolute;right:12px;top:12px;width:216px;z-index:20;text-align:center}
+#minimap{display:block;margin:6px auto;border:3px solid #111;background:#7fb3d5;cursor:pointer}
+.minimap-title{font-weight:900;font-size:13px}
+.minimap-note{font-size:12px;color:#455a64}
+#team-screen,#spectator{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);z-index:30;text-align:center}
+#tourism{position:absolute;right:12px;top:220px;width:min(360px,88vw);max-height:62vh;overflow:auto;z-index:30}
+.tour-head{display:flex;justify-content:space-between;align-items:center}
+#tour-list button{display:block;width:100%;text-align:left;margin:5px 0}
+#tour-detail{border-top:3px solid #111;margin-top:10px;padding-top:10px;line-height:1.55;font-size:14px}
+#tour-detail .story-label{display:inline-block;background:#111;color:#fff;font-size:12px;padding:2px 7px;margin-bottom:6px}
+#btn-chat-open{position:absolute;right:12px;bottom:12px;z-index:25}
+#chat-panel{position:absolute;left:12px;bottom:12px;width:min(420px,92vw);z-index:26}
+.chat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#chat-log{height:150px;overflow:auto;border:3px solid #111;margin:8px 0;padding:8px;background:#fafafa;font-size:14px;line-height:1.5}
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row input{flex:1}
+.quick-row{display:flex;gap:6px;flex-wrap:wrap}
+#joystick{position:absolute;left:16px;bottom:16px;width:110px;height:110px;border:3px solid #111;border-radius:50%;background:rgba(255,255,255,.5);z-index:24}
+#joy-knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border:3px solid #111;border-radius:50%;background:#fff}
+#btn-jump{position:absolute;right:16px;bottom:70px;width:84px;height:84px;border-radius:50%;z-index:24}
+#toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;font-weight:700;z-index:40;display:none}
+@media (max-width:640px){
+  h1{font-size:24px}
+  #minimap-box{width:150px}
+  #minimap{width:130px;height:130px}
+  #tourism{top:auto;bottom:120px;right:8px;left:8px;width:auto}
+  #chat-panel{bottom:140px}
+}

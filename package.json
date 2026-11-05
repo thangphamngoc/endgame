@@ -1,0 +1,1 @@
+{"dependencies":{"ws":"^8.18.0"},"description":"Trống Hội & Cầu Khỉ — trò chơi sinh tồn dân gian Việt Nam, chơi trên trình duyệt, có chế độ chơi đơn với bot và multiplayer thật qua WebSocket.","engines":{"node":">=18"},"main":"server/server.js","name":"trong-hoi-cau-khi","scripts":{"start":"node server/server.js"},"version":"1.0.0"}
