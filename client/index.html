@@ -4,152 +4,222 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Trống Hội &amp; Cầu Khỉ — Trò chơi dân gian Việt Nam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
 </head>
 <body>
-<div id="game-wrap">
-  <canvas id="scene"></canvas>
-  <div id="labels"></div>
 
-  <!-- HUD -->
-  <div id="hud" class="panel hidden">
-    <div class="hud-row"><span id="hud-round">VÒNG 1/6</span><span id="hud-drum">TRỐNG ĐÁNH — Chạy đi!</span></div>
-    <div class="hud-row"><span>Thời gian trận: <b id="hud-time">0:00</b></span><span>Còn sống: <b id="hud-alive">—</b></span></div>
-    <div id="round-timer-wrap" class="hidden"><div id="round-timer-fill"></div></div>
-    <div id="hud-round-time" class="round-countdown hidden"></div>
-    <div id="progress"><div id="progress-fill"></div></div>
-    <div id="team-panel" class="hidden"></div>
-  </div>
+    <canvas id="scene"></canvas>
 
-  <!-- Wallet Hội Xu (shop.js cập nhật qua window.HoiWallet.set) -->
-  <div id="wallet-hud" class="panel">Hội Xu: —</div>
-
-  <!-- Minimap -->
-  <div id="minimap-box" class="panel hidden">
-    <div class="minimap-title">VỊNH HẠ LONG · 1.969 ĐẢO</div>
-    <canvas id="minimap" width="190" height="190"></canvas>
-    <div class="minimap-note">Bấm chấm đảo để bay tới xem chi tiết</div>
-  </div>
-
-  <!-- Lobby / menu -->
-  <div id="menu" class="panel">
-    <h1>TRỐNG HỘI &amp; CẦU KHỈ</h1>
-    <p class="subtitle">Hội làng Việt Nam · 6 vòng: Trống Hội · Cầu Khỉ Sương Mù · Kéo Co Nhịp · Nặn Tò He · Bịt Mắt Bắt Dê · Rồng Rắn Cướp Cờ</p>
-    <label>Tên của bạn <input id="player-name" maxlength="30" placeholder="Ví dụ: Thang" value="Người chơi"></label>
-    <div class="btn-row">
-      <button id="btn-single" class="btn primary">CHƠI ĐƠN (60 BOT)</button>
-      <button id="btn-multi" class="btn">MULTIPLAYER THẬT</button>
-    </div>
-    <div id="multi-box" class="hidden">
-      <div class="btn-row">
-        <button id="btn-create" class="btn primary">TẠO PHÒNG</button>
-        <input id="room-code" maxlength="6" placeholder="Mã phòng, ví dụ: AB12CD">
-        <button id="btn-join" class="btn">VÀO PHÒNG</button>
+    <div id="hud">
+      <div class="plate" id="statePlate">
+        <div id="stateDot"></div>
+        <div>
+          <div id="hudState">CHUẨN BỊ</div>
+          <div id="stateSub">Chờ bắt đầu</div>
+        </div>
       </div>
-      <button id="btn-list" class="btn small">Xem phòng đang mở</button>
-      <div id="room-list"></div>
-      <div id="lobby-info"></div>
-      <button id="btn-start" class="btn primary hidden">BẮT ĐẦU (cần ≥ 2 người)</button>
+      <div id="hudStats">
+        <div class="plate stat"><b id="hudRound">1/6</b><span>VÒNG</span></div>
+        <div class="plate stat"><b id="hudTime">0:00</b><span>THỜI GIAN</span></div>
+        <div class="plate stat"><b id="hudAlive">61</b><span>CÒN LẠI</span></div>
+        <div class="plate stat"><b id="hudDist">0m</b><span>ĐÃ ĐI</span></div>
+      </div>
     </div>
-    <p class="note">Chia team chỉ để chia lượt, không có team thắng/thua. Rớt cầu là loại cá nhân, xếp hạng theo thời gian về đích.</p>
-    <button id="btn-tour-lobby" class="btn small">Du lịch Hạ Long trước khi chơi</button>
-    <div class="btn-row">
-      <button id="btn-shop" class="btn small">CỬA HÀNG</button>
-      <button id="btn-pass" class="btn small">VÉ MÙA (PASS)</button>
-      <button id="btn-tournament" class="btn small">GIẢI ĐẤU</button>
-    </div>
-  </div>
 
-  <!-- Team intermission -->
-  <div id="team-screen" class="panel hidden">
-    <h2>CHIA TEAM</h2>
-    <p>Chia team chỉ để đỡ loạn và phối hợp — không có team thắng/thua.</p>
-    <div id="team-list"></div>
-    <button id="btn-to-bridge" class="btn primary">Vào cầu ngay</button>
-  </div>
+    <div id="round-timer-wrap" class="hidden" style="max-width:520px;margin:8px auto 0;padding:6px 10px;background:#fff3d9;border:3px solid #1f2937;box-shadow:4px 4px 0 #1f2937;">
+      <div id="round-timer-fill" style="height:10px;background:#d63c2f;width:100%;"></div>
+      <div id="hud-round-time" style="font-weight:800;text-align:center;"></div>
+    </div>
+    <div id="progressWrap">
+      <div id="progressTrack"><div id="progressFill"></div></div>
+      <div id="progressLabel"><span id="progStartLabel">VẠCH XUẤT PHÁT</span><span id="progEndLabel">ĐÍCH — SÂN ĐÌNH</span></div>
+    </div>
 
-  <!-- Spectator -->
-  <div id="spectator" class="panel hidden">
-    <div class="spec-title">Bạn đã bị loại — đang xem tiếp trận</div>
-    <div id="watched-name">Đang xem: —</div>
-    <div class="btn-row">
-      <button class="btn small spec-view" data-view="panorama">Toàn cảnh</button>
-      <button class="btn small spec-view" data-view="follow">Theo dõi</button>
-      <button class="btn small spec-view" data-view="shoulder">Sát vai</button>
-      <button class="btn small spec-view" data-view="free">Tự do</button>
+    <div class="plate" id="teamPanel">
+      <div class="tpTitle">VÒNG 2 · CÁC ĐỘI QUA CẦU</div>
+      <div id="tpRows"></div>
+      <div id="tpTurn">Đội của bạn: —</div>
     </div>
-    <div class="btn-row">
-      <button id="btn-prev-person" class="btn small">‹ Người trước</button>
-      <button id="btn-next-person" class="btn small">Người sau ›</button>
-      <button id="btn-zoom-out" class="btn small">− Zoom</button>
-      <button id="btn-zoom-in" class="btn small">+ Zoom</button>
-    </div>
-    <div class="btn-row">
-      <button id="btn-tour" class="btn primary">Du lịch Hạ Long</button>
-      <button id="btn-replay" class="btn">Chơi lại từ vòng 1</button>
-    </div>
-  </div>
 
-  <!-- Tourism -->
-  <div id="tourism" class="panel hidden">
-    <div class="tour-head">
-      <h2>DU LỊCH HẠ LONG</h2>
-      <button id="btn-close-tour" class="btn small">Đóng</button>
-    </div>
-    <p class="note">Vịnh Hạ Long thật có <b>1.969 hòn đảo đá vôi trên khoảng 1.553 km²</b>.
-      Trong game chỉ một số đảo được dựng chi tiết, còn lại là hàng trăm silhouette đảo xa tới chân trời.</p>
-    <div id="tour-list"></div>
-    <div id="tour-detail"></div>
-    <div class="btn-row">
-      <button id="btn-panorama" class="btn">Quay lại toàn cảnh</button>
-      <button id="btn-back-match" class="btn primary">Quay lại trận</button>
-    </div>
-  </div>
+    <div id="phaseBanner"></div>
+    <div id="countdown"></div>
+    <div id="vignette"></div>
 
-  <!-- Chat -->
-  <button id="btn-chat-open" class="btn small">CHAT</button>
-  <div id="chat-panel" class="panel hidden">
-    <div class="chat-head">
-      <b>CHAT PHÒNG</b>
-      <span>
-        <button id="btn-hide-bubbles" class="btn small">ẨN BONG BÓNG</button>
-        <button id="btn-close-chat" class="btn small">ĐÓNG</button>
-      </span>
+    <div id="minimapWrap" aria-hidden="true">
+      <div id="minimapLabel">BẢN ĐỒ · ĐẢO HỘI LÀNG</div>
+      <canvas id="minimap" width="168" height="168"></canvas>
+      <div id="minimapLegend"><span><span class="lg you"></span>Bạn</span><span><span class="lg spec"></span>Đang xem</span></div>
+      <div id="minimapHint">Bấm vào một đảo trên bản đồ<br />để bay tới xem chi tiết</div>
     </div>
-    <div id="chat-log"></div>
-    <div class="quick-row">
-      <button class="btn small quick" data-text="Cố lên!">Cố lên!</button>
-      <button class="btn small quick" data-text="Nhanh lên!">Nhanh lên!</button>
-      <button class="btn small quick" data-text="Hay quá!">Hay quá!</button>
-      <button class="btn small quick" data-text="Chờ mình với!">Chờ mình với!</button>
+    <div id="bubbles" aria-hidden="true"></div>
+    <div id="exploreToast"></div>
+
+    <div id="islandIntro">
+      <div class="name">ĐẢO HỘI LÀNG</div>
+      <div class="sub">Vòng 1 · Trống Hội — làng quê giữa biển khơi, bốn bề là nước</div>
+      <div class="skip">Chạm màn hình để vào trận ngay</div>
     </div>
-    <div class="chat-input-row">
-      <input id="chat-input" maxlength="120" placeholder="Nhập tin nhắn, tối đa 120 ký tự… (Enter để gửi, Esc để đóng)">
-      <button id="btn-send-chat" class="btn primary">GỬI</button>
+    <div id="specBanner">
+      <div class="specTitle">Bạn đã bị loại — <b>chế độ khán giả</b>. Trận đấu vẫn tiếp tục!</div>
+      <div class="specRow" role="group" aria-label="Góc camera khán giả">
+        <button class="specBtn" type="button" data-specmode="overview">1 · Toàn cảnh</button>
+        <button class="specBtn on" type="button" data-specmode="follow">2 · Theo dõi</button>
+        <button class="specBtn" type="button" data-specmode="shoulder">3 · Sát vai</button>
+        <button class="specBtn" type="button" data-specmode="free">4 · Tự do</button>
+      </div>
+      <div class="specRow">
+        <button class="specBtn" type="button" id="btnSpecPrev" aria-label="Người trước">◀ Trước</button>
+        <div id="specTargetName">Đang xem: —</div>
+        <button class="specBtn" type="button" id="btnSpecNext" aria-label="Người sau">Sau ▶</button>
+        <button class="specBtn" type="button" id="btnZoomOut" aria-label="Thu nhỏ">−</button>
+        <button class="specBtn" type="button" id="btnZoomIn" aria-label="Phóng to">+</button>
+      </div>
+      <div class="specRow">
+        <button class="specBtn" type="button" id="btnTour" style="background:#0f766e;">DU LỊCH HẠ LONG</button>
+      </div>
+      <div class="specHint">Phím 1–4 hoặc C: đổi góc · Tab / ◀ ▶: đổi người · kéo chuột: xoay · cuộn chuột: zoom<br />Hoặc bấm Du lịch Hạ Long để bay quanh vịnh trong lúc trận vẫn chạy tiếp.</div>
     </div>
-    <div class="note">Enter mở/gửi, Esc đóng. Đang gõ thì WASD không di chuyển. Giới hạn 2 giây/tin.</div>
-  </div>
 
-  <!-- Economy panels (shop.js điền nội dung; ẩn mặc định) -->
-  <div id="shop-panel" class="panel hidden"></div>
-  <div id="pass-panel" class="panel hidden"></div>
-  <div id="tournament-panel" class="panel hidden"></div>
-  <div id="gift-panel" class="panel hidden"></div>
+    <div id="tourPanel">
+      <div class="tourTitle">DU LỊCH HẠ LONG — CHẾ ĐỘ THAM QUAN</div>
+      <div class="tourNote">Vịnh Hạ Long thật có tới <b>1.969 hòn đảo đá vôi</b> trên khoảng <b>1.553 km²</b> — lớp đảo xa mờ dần tới chân trời trong game gợi đúng quy mô đó. Mỗi đảo dưới đây có một câu chuyện riêng, ghi rõ đâu là truyền thuyết dân gian / tư liệu thật, đâu là chuyện trong thế giới game. Trận đấu vẫn chạy nền trong lúc bạn tham quan.</div>
+      <div id="tourList"></div>
+      <div id="tourInfo">
+        <div id="tourInfoName">—</div>
+        <div id="tourInfoText">Chọn một điểm đến để bay tới.</div>
+      </div>
+      <div class="tourRow">
+        <button class="tourBtn" type="button" id="btnTourOverview" style="background:#173f3a;">QUAY LẠI TOÀN CẢNH</button>
+        <button class="tourBtn" type="button" id="btnTourZoomOut" aria-label="Thu nhỏ">−</button>
+        <button class="tourBtn" type="button" id="btnTourZoomIn" aria-label="Phóng to">+</button>
+      </div>
+      <div class="tourRow">
+        <button class="tourBtn" type="button" id="btnTourBack" style="background:#d63c2f;">QUAY LẠI TRẬN</button>
+        <button class="tourBtn" type="button" id="btnTourAgain">CHƠI LẠI — XẾP HÀNG TRẬN SAU</button>
+      </div>
+      <div class="tourNote" style="margin-top:7px;">Kéo chuột / vuốt: xoay quanh điểm đến · cuộn chuột hoặc nút + / −: zoom · bấm đúp: zoom nhanh · WASD: dời điểm ngắm.<br />Mẹo: bấm thẳng vào một đảo xa trong thế giới 3D, hoặc bấm chấm đảo trên bản đồ nhỏ, là camera bay tới và đảo hiện chi tiết đầy đủ.</div>
+    </div>
 
-  <!-- Round overlay (vòng 3-6 + vòng dự phòng, do rounds.js điền) -->
-  <div id="round-overlay" class="panel hidden"></div>
-  <!-- Fog overlay cho vòng Bịt Mắt Bắt Dê -->
-  <div id="blind-overlay" class="hidden"></div>
-  <!-- Interstitial giữa các vòng -->
-  <div id="interstitial" class="panel hidden"></div>
+    <button id="btnChatToggle" type="button" aria-label="Mở chat"><span class="chatDot"></span>CHAT</button>
+    <div id="chatPanel" aria-label="Panel chat">
+      <div class="chatHead">
+        <div class="chatTitle">CHAT PHÒNG</div>
+        <button class="chatHeadBtn" type="button" id="btnChatBubbles" title="Ẩn / hiện bong bóng chat trên đầu nhân vật">ẨN BONG BÓNG</button>
+        <button class="chatHeadBtn" type="button" id="btnChatClose" title="Đóng panel chat (Esc)">ĐÓNG ✕</button>
+      </div>
+      <div id="chatMsgs"></div>
+      <div class="chatQuick">
+        <button class="quickBtn" type="button" data-quick="Cố lên!">Cố lên!</button>
+        <button class="quickBtn" type="button" data-quick="Nhanh lên!">Nhanh lên!</button>
+        <button class="quickBtn" type="button" data-quick="Hay quá!">Hay quá!</button>
+        <button class="quickBtn" type="button" data-quick="Đứng yên, chiêng kìa!">Đứng yên, chiêng kìa!</button>
+      </div>
+      <div class="chatInputRow">
+        <input id="chatInput" type="text" maxlength="120" autocomplete="off" placeholder="Gõ tin nhắn rồi Enter để gửi…" />
+        <button id="chatSend" type="button">GỬI</button>
+      </div>
+      <div id="chatHint">Enter: mở chat / gửi · Esc: đóng · tối đa 120 ký tự · mỗi tin cách nhau ít nhất 2 giây.</div>
+    </div>
 
-  <!-- Mobile controls -->
-  <div id="joystick" class="hidden"><div id="joy-knob"></div></div>
-  <button id="btn-jump" class="btn hidden">NHẢY</button>
+    <div id="joyBase"><div id="joyKnob"></div></div>
+    <button id="btnJump" type="button">NHẢY</button>
 
-  <div id="toast"></div>
-</div>
+    <div class="overlay" id="startCard">
+      <div class="card">
+        <h1>TRỐNG HỘI</h1>
+        <p><b>Sáu vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng 3–6: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê và chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
+        <div class="rules">
+          <b>VÒNG 1 · TRỐNG ĐÁNH</b> — được chạy thoải mái. <b>CHIÊNG VANG</b> — phải <b>đứng yên tuyệt đối</b>, cử động là bị loại!<br />
+          <b>VÒNG 2 · CẦU KHỈ</b> — trước vòng 2 có bước <b>CHIA TEAM</b>: tối đa 3 đội (Đỏ / Vàng / Xanh lá), mỗi đội một cầu riêng, <b>đi theo lượt</b> — chỉ người dẫn đầu của đội được lên cầu, người sau chờ trên bệ an toàn, không chen lấn nhảy vượt. Mỗi bước có 2 tấm ván: một chắc, một yếu, <b>ngẫu nhiên riêng cho từng cầu mỗi trận</b>. Giẫm ván yếu là rơi xuống biển và <b>bị loại cá nhân</b>. Ván đã vỡ thành khoảng trống — phải <b>nhảy (Space)</b> qua.<br />
+          Bị loại ở vòng nào cũng xem tiếp được như khán giả, hoặc bấm <b>Du lịch Hạ Long</b> để bay tham quan vịnh trong lúc trận vẫn chạy.
+        </div>
+        <button class="bigBtn" id="btnStart" type="button">BẮT ĐẦU CHƠI</button>
+        <button class="bigBtn" id="btnStartTour" type="button" style="background:#0f766e;border-color:#083f3a;box-shadow:0 6px 0 #083f3a, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(174,242,221,.5);font-size:16px;padding:11px 26px;">DU LỊCH HẠ LONG TRƯỚC</button>
+        <div class="rules" style="margin-top:12px;">
+          <input id="player-name" type="text" maxlength="24" placeholder="Tên của bạn (mặc định: Người chơi)" style="width:100%;padding:10px 12px;font:inherit;border:3px solid var(--edge,#1f2937);border-radius:0;background:#fffdf4;" />
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <button class="bigBtn" id="btn-single" type="button" style="flex:1;font-size:15px;padding:10px 12px;">CHƠI ĐƠN (60 BOT)</button>
+            <button class="bigBtn" id="btn-multi" type="button" style="flex:1;font-size:15px;padding:10px 12px;background:#0f766e;border-color:#083f3a;box-shadow:0 6px 0 #083f3a;">CHƠI NHIỀU NGƯỜI</button>
+          </div>
+          <div id="multi-box" class="hidden" style="margin-top:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="bigBtn" id="btn-create" type="button" style="flex:1;font-size:14px;padding:9px 10px;">TẠO PHÒNG</button>
+              <input id="room-code" type="text" maxlength="6" placeholder="MÃ PHÒNG" style="flex:1;min-width:110px;padding:9px 10px;font:inherit;text-transform:uppercase;border:3px solid var(--edge,#1f2937);border-radius:0;background:#fffdf4;" />
+              <button class="bigBtn" id="btn-join" type="button" style="flex:1;font-size:14px;padding:9px 10px;">VÀO PHÒNG</button>
+              <button class="bigBtn" id="btn-list" type="button" style="font-size:14px;padding:9px 10px;">DANH SÁCH PHÒNG</button>
+            </div>
+            <div id="room-list" style="margin-top:8px;"></div>
+            <div id="lobby-info" style="margin-top:6px;font-weight:700;"></div>
+          </div>
+          <button class="bigBtn" id="btn-tour-lobby" type="button" style="width:100%;margin-top:8px;font-size:14px;padding:9px 10px;background:#173f3a;border-color:#0b2622;box-shadow:0 6px 0 #0b2622;">DU LỊCH TỪ SẢNH CHỜ</button>
+        </div>
+        <div class="ctrls">Máy tính: WASD / phím mũi tên để chạy · kéo chuột xoay camera · Space nhảy<br />Điện thoại: joystick ảo bên trái · nút NHẢY bên phải · vuốt màn hình xoay camera<br />Bị loại thành khán giả: nút trên màn hình hoặc phím 1–4 đổi góc camera (toàn cảnh / theo dõi / sát vai / tự do), Tab đổi người xem<br />Chat: phím Enter mở ô chat và gửi tin, Esc đóng — tin nhắn hiện thành bong bóng trên đầu nhân vật và trong panel CHAT (kể cả ở sảnh chờ, khán giả và du lịch).<br />Khám phá đảo: bấm thẳng vào đảo xa trong thế giới 3D, hoặc bấm đảo trên bản đồ nhỏ, camera sẽ bay tới và đảo hiện chi tiết đầy đủ.</div>
+      </div>
+    </div>
+
+    <div class="overlay" id="endCard">
+      <div class="card">
+        <h2 id="endTitle">VỀ ĐÍCH!</h2>
+        <p id="endText"></p>
+        <div id="endBoard"></div>
+        <div class="resultGrid">
+          <div class="cell"><b id="endRank">—</b><span>HẠNG CỦA BẠN</span></div>
+          <div class="cell"><b id="endAlive">—</b><span>NGƯỜI CÒN LẠI</span></div>
+          <div class="cell"><b id="endTime">—</b><span>THỜI GIAN</span></div>
+        </div>
+        <button class="bigBtn" id="btnAgain" type="button">CHƠI LẠI</button>
+        <div class="ctrls">Mỗi lần chơi lại, nhịp trống / chiêng được bốc ngẫu nhiên mới hoàn toàn.</div>
+      </div>
+    </div>
+
+    <div class="overlay" id="teamCard" style="display:none;">
+      <div class="card" style="max-width:640px;">
+        <h2>CHIA TEAM — VÒNG 2</h2>
+        <p>Người sống sót được chia tự động, cân bằng số lượng, thành tối đa 3 đội. <b>Mỗi đội qua cầu riêng của mình và đi theo lượt</b> — chỉ người dẫn đầu được bước lên cầu, người sau chờ trên bệ an toàn. Chia đội chỉ để qua cầu có trật tự: <b>rớt cầu là loại cá nhân đó</b>, qua được cầu là sống sót cá nhân, xếp hạng chung cuộc vẫn tính theo từng người.</p>
+        <div class="teamCols" id="teamCols"></div>
+        <button class="bigBtn" id="btnTeamGo" type="button">VÀO CẦU NGAY</button>
+        <div class="ctrls">Màn hình này tự chuyển sang vòng 2 sau vài giây.</div>
+      </div>
+    </div>
+
+    <div id="errBox"></div>
+
+    
+
+    <!-- ================= REPO SYSTEM ADDITIONS (không có trong artifact) ================= -->
+    <!-- Vùng chứa name-tag / bong bóng chat do game.js tạo (id bắt buộc: labels) -->
+    <div id="labels"></div>
+    <!-- Toast thông báo nhanh do game.js dùng -->
+    <div id="toast"></div>
+
+    <!-- Kinh tế Hội Xu: số dư ví + nút mở các panel (id khớp shop.js / game.js) -->
+    <div id="econBar">
+      <div id="wallet-hud" class="plate">Hội Xu: —</div>
+      <div id="econBtns">
+        <button id="btn-shop" class="specBtn" type="button">CỬA HÀNG</button>
+        <button id="btn-pass" class="specBtn" type="button">VÉ MÙA</button>
+        <button id="btn-tournament" class="specBtn" type="button">GIẢI ĐẤU</button>
+        <button id="btn-gift" class="specBtn" type="button">QUÀ TẶNG</button>
+      </div>
+    </div>
+
+    <!-- Panel kinh tế (shop.js điền nội dung; ẩn mặc định) -->
+    <div id="shop-panel" class="hidden"></div>
+    <div id="pass-panel" class="hidden"></div>
+    <div id="tournament-panel" class="hidden"></div>
+    <div id="gift-panel" class="hidden"></div>
+
+    <!-- Overlay hệ 6 vòng (rounds.js / game.js điền nội dung; ẩn mặc định) -->
+    <div id="round-overlay" class="hidden"></div>
+    <div id="blind-overlay" class="hidden"></div>
+    <div id="interstitial" class="hidden"></div>
+
+    <!-- Ghi chú vận hành / deploy: server chạy bằng npm start, kiểm tra sống qua /health -->
+    <div id="deployNote">Server: <b>npm start</b> · http://localhost:3000 (đổi cổng bằng biến môi trường PORT) · Kiểm tra sống: <b>GET /health</b> → {ok, rooms, players, uptime}</div>
 <script src="js/game.js"></script>
 <script src="js/rounds.js"></script>
 <script src="js/shop.js"></script>

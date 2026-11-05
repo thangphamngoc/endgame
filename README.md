@@ -106,11 +106,11 @@ không loot box:
 "(Demo — chưa thanh toán thật)"**, trả về stub và chỉ mở khóa thử trong
 bản demo, không xử lý tiền thật. Chi tiết: [docs/BRD.md §10](./docs/BRD.md).
 
-> Lưu ý tích hợp (đang chờ workstream khác): `server/economy.js` và
-> `client/js/shop.js` đã viết xong, nhưng `server.js` chưa nối economy
-> vào và `index.html` chưa có các panel shop/pass/giải đấu/quà tặng —
-> kinh tế chưa chạy được trong game cho tới khi hai việc nối đó xong
-> (xem `docs/PLAN.md` M-03, M-04).
+> Kinh tế đã nối xong: `server.js` nối `economy.js` qua try-require và
+> dispatch `msg.type === 'economy'`, `index.html` có đủ các panel
+> shop/pass/giải đấu/quà tặng và `#wallet-hud`, các hook kiếm xu/XP
+> (`recordMatchPlayed`, `awardRoundSurvived`, `awardWin`, `recordChatSent`)
+> đã được gọi từ `server.js` (xem `docs/PLAN.md` M-03, M-04).
 
 ## Kiến trúc
 
@@ -154,3 +154,20 @@ hoạch triển khai production — nằm trong ba tài liệu dưới `docs/`:
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — tài liệu kiến trúc: luồng trận, server có thẩm quyền, giao thức WebSocket, máy trạng thái, mô hình dữ liệu, đường mở rộng lên 456 người, triển khai.
 - [docs/BRD.md](./docs/BRD.md) — tài liệu yêu cầu nghiệp vụ: tầm nhìn, mục tiêu và KPI đề xuất, scope IN/OUT, user stories, yêu cầu chức năng FR-01…FR-33, kho thử thách và đường loại dự kiến, quyết định mở cần Sudo chốt.
 - [docs/PLAN.md](./docs/PLAN.md) — kế hoạch task đầy đủ: bảng task theo phase 0–4, checklist play-test thật còn outstanding, Definition of Done, và những gì Sudo phải quyết trước mỗi phase.
+
+## Giao diện lấy từ bản artifact
+
+Giao diện người chơi trong repo được **viết lại (rebuilt) từ bản artifact**
+— file export `prototype-game-3d-1-vong.html` (prototype chơi đơn 2 vòng,
+60 bot, không mạng), **không sao chép mã nguồn artifact**. Đối chiếu chi
+tiết từng phần tử UI (HUD, thẻ bắt đầu/chia team/kết thúc, khán giả, chat,
+du lịch, minimap, joystick, camera, đảo xa, âm thanh) với trạng thái
+Ported / Adapted / Missing và danh sách gap còn mở: xem
+[docs/ARTIFACT-PARITY.md](./docs/ARTIFACT-PARITY.md).
+
+Ngắn gọn: artifact chỉ có 2 vòng chơi đơn; repo giữ giao diện đó và thêm
+toàn bộ hệ thống artifact không có — trận 6 vòng, multiplayer WebSocket
+với server có thẩm quyền, kinh tế trong game (shop/pass/giải đấu/quà tặng,
+stub thanh toán), Docker. Gap lớn nhất còn mở so với artifact là **chưa có
+âm thanh** (trống/chiêng chỉ còn là chữ trên HUD) và **bấm đảo xa trong 3D
+chưa bay tới xem chi tiết** (chỉ 7 đảo đặt tên bấm được).

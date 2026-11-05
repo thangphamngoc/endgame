@@ -585,7 +585,7 @@
             var fx = (goat.x - nearest.x) / (nd || 1), fz = (goat.z - nearest.z) / (nd || 1);
             goat.x = clamp(goat.x + fx * 6.5 * dt, -28, 28);
             goat.z = clamp(goat.z + fz * 6.5 * dt, -48, 38);
-            goat.group.position.set(goat.x, 4, goat.z);
+            goat.group.position.set(goat.x, 0, goat.z);
           }
         }
         // Bot tìm dê: chạy về phía dê, có nhiễu.
@@ -595,7 +595,7 @@
           var dd = Math.hypot(ddx, ddz) || 1;
           p.x = clamp(p.x + (ddx / dd + rand(-0.3, 0.3)) * 7 * dt, -28, 28);
           p.z = clamp(p.z + (ddz / dd + rand(-0.3, 0.3)) * 7 * dt, -48, 38);
-          p.group.position.set(p.x, 4, p.z);
+          p.group.position.set(p.x, 0, p.z);
           if (dd < 2.5 && Date.now() - (st.state.startedAt || 0) > 2000) {
             // Bắt được dê! (2 giây đầu không bắt được để mọi người kịp tản ra)
             var elim = [];
@@ -756,7 +756,7 @@
           flag.position.set(1.4, 8, 0); g.add(flag);
           var base = new THREE.Mesh(new THREE.BoxGeometry(3, 0.6, 3), new THREE.MeshLambertMaterial({ color: 0xffe0a3 }));
           base.position.y = 0.3; g.add(base);
-          g.position.set(0, 4, 0);
+          g.position.set(0, 0, 0);
           b.scene.add(g);
           st.state.mesh = g;
         }
@@ -800,7 +800,7 @@
             var dd = Math.hypot(ddx, ddz) || 1;
             p.x = clamp(p.x + ddx / dd * 8 * dt, -28, 28);
             p.z = clamp(p.z + ddz / dd * 8 * dt, -48, 38);
-            p.group.position.set(p.x, 4, p.z);
+            p.group.position.set(p.x, 0, p.z);
             if (dd < 2.5) {
               s.touched = true; s.hasFlag = true;
               st.state.holderId = p.id;
@@ -813,7 +813,7 @@
         if (holder) {
           if (st.local && holder.isBot) {
             holder.z = clamp(holder.z + 8 * dt, -48, 38);
-            holder.group.position.set(holder.x, 4, holder.z);
+            holder.group.position.set(holder.x, 0, holder.z);
           }
           var fs = $('flag-status');
           if (fs) fs.textContent = 'Người cầm cờ: ' + holder.name + (holder === b.player ? ' (bạn)' : '') + ' — chạy về vạch xuất phát!';

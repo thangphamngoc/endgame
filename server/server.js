@@ -66,6 +66,7 @@ const games = require('./games');
 
 let economy = null;
 try { economy = require('./economy'); } catch (e) { economy = null; }
+function econSafe(fn) { if (!economy) return; try { fn(economy); } catch (e) { logEvent('error', { kind: 'economy_hook', message: String(e && e.message) }); } }
 
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_DIR = path.join(__dirname, '..', 'client');
@@ -306,6 +307,7 @@ function startMatch(room) {
     p.x = (rng() * 16 - 8); p.z = START_Z; p.gongX = p.x; p.gongZ = p.z;
   }
   logEvent('match_start', { room: room.code, matchId: room.matchId, players: starters.length, targets: room.targets, plan: room.roundPlan.map((r) => r.game) });
+  starters.forEach((pl) => econSafe((ec) => ec.recordMatchPlayed(pl.id, pl.name)));
   broadcast(room, { type: 'phase', phase: 'countdown', players: publicPlayers(room) });
   setTimeout(() => {
     if (room.phase !== 'countdown') return;
@@ -517,6 +519,7 @@ function endRound(room, n, reason) {
     }
   }
   const survivors = survivorsOf(room).map((p) => p.id);
+  survivorsOf(room).forEach((pl) => econSafe((ec) => ec.awardRoundSurvived(pl.id, pl.name)));
   logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length });
   broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated });
   broadcast(room, { type: 'players', players: publicPlayers(room) });
@@ -552,6 +555,7 @@ function endMatch(room) {
   if (winner && !room.ranking.some((r) => r.id === winner.id)) {
     room.ranking.unshift({ id: winner.id, name: winner.name, team: winner.team, time: Date.now() - room.matchStart });
   }
+  if (winner) econSafe((ec) => ec.awardWin(winner.id, winner.name));
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length });
   broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null });
   broadcastLobbyList();
@@ -841,6 +845,7 @@ wss.on('connection', (ws) => {
       const now = Date.now();
       if (now - player.lastChat < 2000) { send(ws, { type: 'error', message: 'Gửi chậm lại một chút (2 giây/tin).' }); return; }
       player.lastChat = now;
+      econSafe((ec) => ec.recordChatSent(player.id, player.name));
       broadcast(room, {
         type: 'chat', senderId: player.id, name: player.name,
         team: player.team, text: rawText, time: new Date(now).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
