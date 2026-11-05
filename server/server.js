@@ -32,6 +32,16 @@
  *     reconnect {token}           : quay lại đúng slot trong 30 giây ân hạn.
  *     economy {action, ...}       : ủy quyền cho server/economy.js nếu có,
  *                                   chưa có thì trả lỗi 'Economy chưa sẵn sàng.'
+ *     QC — Client -> Server (FR-46, chỉ phòng QC):
+ *     create {qc:true, startRound:1-6, noElim:bool} : tạo phòng QC, bốc
+ *                                   plan vòng 3-5 ngay lúc tạo và giữ nguyên.
+ *     qcSkip {round:1-6}            : host nhảy thẳng tới vòng đó giữa trận
+ *                                   (vòng 2 đi qua CHIA TEAM, lượt xáo theo
+ *                                   seed vì không có thời gian về đích V1).
+ *     QC — Server -> Client: joined/phase 'team' kèm {qc, startRound,
+ *     noElim, plan:[{round,game,name,timeLimit}]}; phòng QC không thưởng
+ *     Hội Xu / XP (recordMatchPlayed / awardRoundSurvived / awardWin /
+ *     recordChatSent đều bị chặn) và economy bị từ chối trong phòng QC.
  *   MỚI — Server -> Client:
  *     reconnectToken {token}      : gửi kèm `joined`, dùng để reconnect.
  *     roundStart {round, game, name, timeLimit, seed}
@@ -177,7 +187,7 @@ function publicPlayers(room) {
   }));
 }
 function roomSummary(room) {
-  return { code: room.code, count: room.players.size, phase: room.phase };
+  return { code: room.code, count: room.players.size, phase: room.phase, qc: !!room.qc };
 }
 function broadcastLobbyList() {
   const list = [...rooms.values()].filter((r) => r.phase === 'lobby').map(roomSummary);
@@ -191,6 +201,9 @@ function makeRoom() {
     drumState: 'drum', phaseEnd: 0, startedAt: 0, matchStart: 0,
     bridges: {}, ranking: [], matchId: 0, round: 0, roundPlan: [],
     roundGame: null, roundName: null, roundSeed: '', roundSeedNum: 0,
+    // CHẾ ĐỘ QC (test-only, xem BRD FR-46): phòng QC cho phép nhảy thẳng tới
+    // vòng bất kỳ; trận QC không thưởng Hội Xu / XP và không tính vào BXH.
+    qc: false, qcStartRound: 1, qcNoElim: false,
     roundDeadline: 0, roundTimeLimit: 0, roundState: null, roundStartCount: 0,
     subArenas: [], targets: [], inputQueue: [],
   };
@@ -285,6 +298,12 @@ function sendTurn(room, team) {
 }
 function eliminatePlayer(room, player, reason) {
   if (!player.alive) return;
+  // QC "Không loại (chỉ test giao diện)": chặn mọi lần loại do server gọi.
+  // Vòng vẫn kết thúc được nhờ deadline từng vòng; chỉ là không ai chết.
+  if (room.qc && room.qcNoElim) {
+    logEvent('qc_noelim_blocked', { room: room.code, matchId: room.matchId, playerId: player.id, name: player.name, reason });
+    return;
+  }
   player.alive = false; player.spectator = true;
   logEvent('elimination', { room: room.code, matchId: room.matchId, round: room.round, playerId: player.id, name: player.name, reason });
   broadcast(room, { type: 'eliminated', id: player.id, reason });
@@ -299,15 +318,10 @@ function finishRound2Player(room, player) {
   if (!anyoneLeft) endRound(room, 2, 'all-finished');
 }
 
-function startMatch(room) {
-  room.phase = 'countdown';
-  room.matchId = nextMatchId++;
-  room.matchStart = Date.now();
-  room.ranking = [];
-  room.targets = games.scaledTargets([...room.players.values()].filter((p) => !p.spectator).length || 1);
-  buildRoundPlan(room);
+// Chia sân con vòng 1 (~57 người/sân). Tách riêng để QC nhảy lại vòng 1
+// giữa trận cũng dựng lại được sân con, không chỉ lúc bắt đầu trận.
+function buildSubArenas(room) {
   const starters = [...room.players.values()].filter((p) => !p.spectator);
-  // Shard Round 1 into sub-arenas of ~57 players.
   room.subArenas = [];
   const seedNum = games.hashSeed(room.code + ':' + room.matchId + ':R1');
   const rng = games.mulberry32(seedNum);
@@ -320,6 +334,74 @@ function startMatch(room) {
     });
   }
   if (room.subArenas.length === 0) room.subArenas.push({ id: 0, playerIds: [], drumState: 'drum', phaseEnd: Date.now() + 4000, rng: games.mulberry32(seedNum) });
+  return rng;
+}
+
+// QC: nhảy thẳng tới vòng n (1-6) giữa trận hoặc lúc bắt đầu trận.
+// - Vòng 2 đi qua bước CHIA TEAM như thường (assignTeams + 5,5 giây màn
+//   team rồi mới startRound(2)); vì không có thời gian về đích vòng 1 nên
+//   thứ tự lượt được xáo trộn theo seed của trận (finishTime giả bốc từ
+//   seeded RNG), assignTeams đảo ngược như thường — thứ tự cuối cùng vẫn là
+//   một thứ tự xáo trộn theo seed, client ghi rõ điều này trên màn team.
+// - Vòng 3-6: startRound(n) tự khởi tạo trạng thái riêng của vòng đó
+//   (Kéo Co chia đội, Tò He chọn hình, Bịt Mắt rải vị trí + chia nhóm,
+//   Ô Ăn Quan dựng bàn, chung kết đặt cờ) nên không còn trạng thái vòng 1.
+// - Người đã bị loại trước đó vẫn là khán giả (không hồi sinh); người còn
+//   sống được reset trạng thái theo vòng (hết finished/bridgeStep/điểm).
+function qcJumpToRound(room, n) {
+  n = Math.max(1, Math.min(6, Number(n) || 1));
+  if (room.phase === 'finished' || room.phase === 'lobby') return false;
+  for (const p of room.players.values()) {
+    p.finished = false; p.bridgeStep = 0; p.round2Finished = false;
+    p.tugSide = null; p.tugPower = 0; p.traceScore = null;
+    p.hopProgress = 0; p.hopStumbles = 0; p.hopFinished = false; p.hopFinishTime = null;
+    p.oanquanScore = 0; p.inputQueue = [];
+  }
+  room.bridges = {};
+  room.roundState = null;
+  if (n === 1) { buildSubArenas(room); startRound(room, 1); return true; }
+  if (n === 2) {
+    const rng = games.mulberry32(games.hashSeed(room.code + ':' + room.matchId + ':qc'));
+    const alive = survivorsOf(room);
+    alive.forEach((p) => { p.finished = true; p.finishTime = Math.floor(rng() * 100000); });
+    room.roundSeed = roundSeedStr(room, 2);
+    room.roundSeedNum = games.hashSeed(room.roundSeed);
+    room.phase = 'team';
+    const teamSurvivors = assignTeams(room);
+    const teamQueues = {};
+    for (const team of Object.keys(room.bridges)) teamQueues[team] = room.bridges[team].queue.slice();
+    broadcast(room, {
+      type: 'phase', phase: 'team',
+      teams: teamSurvivors.map((p) => ({ id: p.id, name: p.name, team: p.team })),
+      queues: teamQueues, players: publicPlayers(room), qc: true,
+    });
+    for (const team of Object.keys(room.bridges)) {
+      const b = room.bridges[team];
+      if (b) sendTurn(room, Number(team));
+    }
+    setTimeout(() => {
+      if (room.phase !== 'team') return;
+      startRound(room, 2);
+    }, 5500);
+    logEvent('qc_jump', { room: room.code, matchId: room.matchId, toRound: 2 });
+    return true;
+  }
+  startRound(room, n);
+  logEvent('qc_jump', { room: room.code, matchId: room.matchId, toRound: n });
+  return true;
+}
+
+function startMatch(room) {
+  room.phase = 'countdown';
+  // Phòng QC: matchId + roundPlan đã chốt lúc tạo phòng (để host thấy đúng
+  // tên các vòng 3-5 đã bốc trước khi bắt đầu) — không bốc lại ở đây.
+  if (!room.qc) { room.matchId = nextMatchId++; buildRoundPlan(room); }
+  room.matchStart = Date.now();
+  room.ranking = [];
+  room.targets = games.scaledTargets([...room.players.values()].filter((p) => !p.spectator).length || 1);
+  const starters = [...room.players.values()].filter((p) => !p.spectator);
+  // Shard Round 1 into sub-arenas of ~57 players.
+  const rng = buildSubArenas(room);
   for (const p of room.players.values()) {
     p.alive = true; p.finished = false; p.finishTime = null; p.spectator = false;
     p.team = null; p.bridgeStep = 0; p.round2Finished = false;
@@ -328,11 +410,14 @@ function startMatch(room) {
     p.oanquanScore = 0; p.flags = 0; p.inputQueue = [];
     p.x = (rng() * 16 - 8); p.z = START_Z; p.gongX = p.x; p.gongZ = p.z;
   }
-  logEvent('match_start', { room: room.code, matchId: room.matchId, players: starters.length, targets: room.targets, plan: room.roundPlan.map((r) => r.game) });
-  starters.forEach((pl) => econSafe((ec) => ec.recordMatchPlayed(pl.id, pl.name)));
+  logEvent('match_start', { room: room.code, matchId: room.matchId, players: starters.length, targets: room.targets, plan: room.roundPlan.map((r) => r.game), qc: !!room.qc, qcStartRound: room.qcStartRound });
+  // Trận QC không ghi "đã chơi trận" vào kinh tế (không thưởng, không XP).
+  if (!room.qc) starters.forEach((pl) => econSafe((ec) => ec.recordMatchPlayed(pl.id, pl.name)));
   broadcast(room, { type: 'phase', phase: 'countdown', players: publicPlayers(room) });
   setTimeout(() => {
     if (room.phase !== 'countdown') return;
+    // Phòng QC bắt đầu ở vòng đã chọn thay vì vòng 1.
+    if (room.qc && room.qcStartRound > 1) { qcJumpToRound(room, room.qcStartRound); broadcastLobbyList(); return; }
     startRound(room, 1);
     broadcastLobbyList();
   }, 3200);
@@ -555,7 +640,8 @@ function endRound(room, n, reason) {
     }
   }
   const survivors = survivorsOf(room).map((p) => p.id);
-  survivorsOf(room).forEach((pl) => econSafe((ec) => ec.awardRoundSurvived(pl.id, pl.name)));
+  // Trận QC không thưởng Hội Xu / XP cho việc sống sót qua vòng.
+  if (!room.qc) survivorsOf(room).forEach((pl) => econSafe((ec) => ec.awardRoundSurvived(pl.id, pl.name)));
   logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length });
   broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated });
   broadcast(room, { type: 'players', players: publicPlayers(room) });
@@ -604,7 +690,7 @@ function endMatch(room) {
   if (winner && !room.ranking.some((r) => r.id === winner.id)) {
     room.ranking.unshift({ id: winner.id, name: winner.name, team: winner.team, time: Date.now() - room.matchStart });
   }
-  if (winner) econSafe((ec) => ec.awardWin(winner.id, winner.name));
+  if (winner && !room.qc) econSafe((ec) => ec.awardWin(winner.id, winner.name));
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length });
   broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null });
   broadcastLobbyList();
@@ -782,13 +868,22 @@ wss.on('connection', (ws) => {
       const v = validateName(msg.name);
       if (!v.ok) { send(ws, { type: 'error', message: v.reason }); return; }
       const room = makeRoom();
+      // CHẾ ĐỘ QC (FR-46): host chọn vòng bắt đầu (1-6) + có/không loại.
+      // Plan vòng 3-5 bốc NGAY lúc tạo phòng và giữ nguyên cả trận để host
+      // thấy đúng tên trò đã bốc trước khi bắt đầu (startMatch không bốc lại).
+      room.qc = msg.qc === true;
+      room.qcStartRound = room.qc ? Math.max(1, Math.min(6, Number(msg.startRound) || 1)) : 1;
+      room.qcNoElim = room.qc && msg.noElim === true;
+      if (room.qc) { room.matchId = nextMatchId++; buildRoundPlan(room); }
       info.name = v.name; info.roomCode = room.code;
       const player = makePlayer(id, v.name, ws, true);
       player.reconnectToken = makeReconnectToken();
       reconnectTokens.set(player.reconnectToken, { roomCode: room.code, playerId: id, expiresAt: Date.now() + RECONNECT_GRACE_MS, timeout: null });
       room.players.set(id, player);
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
-      send(ws, { type: 'joined', code: room.code, isHost: true, players: publicPlayers(room) });
+      send(ws, { type: 'joined', code: room.code, isHost: true, players: publicPlayers(room),
+        qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim,
+        plan: room.qc ? room.roundPlan : undefined });
       broadcastLobbyList();
       return;
     }
@@ -812,13 +907,15 @@ wss.on('connection', (ws) => {
         player.alive = false; player.spectator = true;
         room.players.set(id, player);
         send(ws, { type: 'reconnectToken', token: player.reconnectToken });
-        send(ws, { type: 'joined', code: room.code, isHost: false, spectator: true, players: publicPlayers(room), phase: room.phase });
+        send(ws, { type: 'joined', code: room.code, isHost: false, spectator: true, players: publicPlayers(room), phase: room.phase,
+          qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined });
         return;
       }
       room.players.set(id, player);
       broadcast(room, { type: 'players', players: publicPlayers(room) });
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
-      send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room) });
+      send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room),
+        qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined });
       if (room.players.size >= MAX_PLAYERS_PER_ROOM) startMatch(room);
       broadcastLobbyList();
       return;
@@ -838,6 +935,8 @@ wss.on('connection', (ws) => {
       return;
     }
     if (msg.type === 'economy') {
+      // Phòng QC không dùng Hội Xu (không mua/bán/trang bị bằng xu test).
+      if (room.qc) { send(ws, { type: 'error', message: 'Chế độ QC: không dùng Hội Xu trong trận test.' }); return; }
       if (economy && typeof economy.handle === 'function') {
         try { economy.handle(room, player, msg, (o) => send(ws, o), (o) => broadcast(room, o)); }
         catch (e) { logEvent('error', { kind: 'economy', message: String(e && e.message) }); send(ws, { type: 'error', message: 'Economy lỗi, thử lại sau.' }); }
@@ -903,7 +1002,7 @@ wss.on('connection', (ws) => {
       const now = Date.now();
       if (now - player.lastChat < 2000) { send(ws, { type: 'error', message: 'Gửi chậm lại một chút (2 giây/tin).' }); return; }
       player.lastChat = now;
-      econSafe((ec) => ec.recordChatSent(player.id, player.name));
+      if (!room.qc) econSafe((ec) => ec.recordChatSent(player.id, player.name));
       broadcast(room, {
         type: 'chat', senderId: player.id, name: player.name,
         team: player.team, text: rawText, time: new Date(now).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
@@ -1055,6 +1154,14 @@ wss.on('connection', (ws) => {
       }
       return;
     }
+    if (msg.type === 'qcSkip') {
+      // Nhảy vòng giữa trận trong chế độ QC (host bấm trên thanh QC).
+      if (!room.qc) { send(ws, { type: 'error', message: 'Chỉ phòng QC mới nhảy vòng được.' }); return; }
+      if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới nhảy vòng trong chế độ QC.' }); return; }
+      const n = Math.max(1, Math.min(6, Number(msg.round) || 1));
+      if (!qcJumpToRound(room, n)) { send(ws, { type: 'error', message: 'Chưa nhảy vòng được (trận đã kết thúc hoặc đang ở sảnh).' }); return; }
+      return;
+    }
     if (msg.type === 'replay') {
       if (room.phase !== 'finished') return;
       room.phase = 'lobby'; room.ranking = []; room.bridges = {}; room.round = 0; room.roundPlan = [];
@@ -1160,6 +1267,13 @@ setInterval(() => {
         if (now < b.turnStartedAt + games.R2_TURN_TIME_LIMIT * 1000) continue;
         const leader = room.players.get(b.leader);
         if (!leader || !leader.alive || leader.round2Finished) continue;
+        if (room.qc && room.qcNoElim) {
+          // Không loại thì chỉ chuyển lượt cho người tiếp theo (tránh kẹt
+          // ở một leader đứng yên mãi vì eliminatePlayer đã chặn loại).
+          logEvent('turn_timeout_qc', { room: room.code, matchId: room.matchId, team: Number(team), playerId: leader.id, name: leader.name });
+          advanceLeader(room, Number(team));
+          continue;
+        }
         eliminatePlayer(room, leader, 'Hết lượt qua cầu (30 giây) — đi chậm quá');
         logEvent('turn_timeout', { room: room.code, matchId: room.matchId, team: Number(team), playerId: leader.id, name: leader.name });
         advanceLeader(room, Number(team));

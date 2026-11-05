@@ -522,3 +522,11 @@
   .oq-quan{width:60px}
   #deployNote{display:none}
 }
+
+/* ---- CHẾ ĐỘ QC (FR-46, chỉ test) ---- */
+#qcBar{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:30;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:96vw;background:rgba(124,45,18,.92);color:#ffedd5;border:3px solid #431407;border-radius:3px;box-shadow:0 4px 0 rgba(0,0,0,.35);padding:6px 10px;font-size:12px;font-weight:700}
+#qcBar .specBtn{background:#b45309;border-color:#431407;box-shadow:0 3px 0 #431407;color:#fff7ed}
+#qcBarRounds{display:flex;gap:4px;flex-wrap:wrap}
+.qcRoundBtn{border:3px solid #431407;background:#fff7ed;color:#7c2d12;font:inherit;font-weight:800;font-size:12px;padding:4px 8px;border-radius:0;cursor:pointer}
+.qcRoundBtn.on{background:#f59e0b;color:#431407}
+#qc-round-btns .qcRoundBtn{font-size:13px;padding:7px 9px}

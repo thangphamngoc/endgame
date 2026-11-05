@@ -96,6 +96,125 @@
   // Đồng hồ lượt 30 giây của đội mình lấy từ đây để hiện đếm ngược trên HUD.
   var teamTurnEndsAt = {};
   var localBridges = {}, localRanking = [];
+  // ---- CHẾ ĐỘ QC (FR-46, chỉ test) ----
+  // QC cho phép nhảy thẳng tới vòng bất kỳ để test nhanh (qua mỗi vòng thật
+  // rất khó nên test hết 6 vòng sẽ rất lâu). TẮT mặc định, không ảnh hưởng
+  // trận thường: trận QC không thưởng Hội Xu / XP Pass, không tính BXH.
+  var qcMode = false, qcNoElim = false, qcStartRound = 1, qcPlan = null, qcJumpedRound = 0;
+  // Số người còn sống khi vào thẳng từng vòng ở chơi đơn (61 người): đường
+  // loại co giãn từ 456→280→150→70→24→6→1 (games.scaledTargets(61) =
+  // [37, 20, 9, 3, 1, 1]); V6 lấy tối thiểu 2 người để còn test được cờ.
+  var QC_START_ALIVE = { 1: 61, 2: 37, 3: 20, 4: 9, 5: 3, 6: 2 };
+  // RNG có seed (mulberry32) để xáo thứ tự lượt vòng 2 khi nhảy thẳng mà
+  // không có thời gian về đích vòng 1 — seed là thời điểm bắt đầu trận.
+  function qcRng() {
+    var a = (matchStartAt || Date.now()) >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function qcRoundName(r) {
+    if (qcPlan && qcPlan[r - 1] && qcPlan[r - 1].name) return qcPlan[r - 1].name;
+    return ROUND_NAMES[r] || ('Vòng ' + r);
+  }
+  function renderQcButtons() {
+    var box = $('qc-round-btns'); if (!box) return;
+    var html = '';
+    for (var r = 1; r <= 6; r++) {
+      var name = (mode === 'multi' && !qcPlan && r >= 3 && r <= 5)
+        ? 'Vòng ' + r + ' · bốc từ kho' : qcRoundName(r);
+      html += '<button type="button" class="qcRoundBtn' + (r === qcStartRound ? ' on' : '') +
+        '" data-qc-round="' + r + '">V' + r + ' · ' + escapeHtml(name) +
+        (mode === 'multi' ? '' : ' · ' + QC_START_ALIVE[r] + ' người') + '</button>';
+    }
+    box.innerHTML = html;
+    var btns = box.querySelectorAll('[data-qc-round]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function () { qcStartRound = Number(this.getAttribute('data-qc-round')); renderQcButtons(); };
+    }
+  }
+  function renderQcBarButtons() {
+    var box = $('qcBarRounds'); if (!box) return;
+    var html = '';
+    for (var r = 1; r <= 6; r++) {
+      html += '<button type="button" class="qcRoundBtn" data-qc-bar-round="' + r + '">V' + r + '</button>';
+    }
+    box.innerHTML = html;
+    var btns = box.querySelectorAll('[data-qc-bar-round]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function () { qcSkipTo(Number(this.getAttribute('data-qc-bar-round'))); };
+    }
+  }
+  function syncQcBar() {
+    var bar = $('qcBar'); if (!bar) return;
+    var show = qcMode && mode && (phase.indexOf('round') === 0 || phase === 'team' || phase === 'interstitial' || phase === 'spectator');
+    bar.classList.toggle('hidden', !show);
+    var br = $('qcBarRound');
+    if (br) br.textContent = currentRound ? ('Vòng ' + currentRound + '/6 — ' + (ROUND_NAMES[currentRound] || '')) : '—';
+  }
+  function qcSkipTo(n) {
+    n = Math.max(1, Math.min(6, Number(n) || 1));
+    // Chặn ở tầng hàm, không chỉ tầng giao diện: trận thường không bao giờ
+    // nhảy vòng được, kể cả khi ai đó gọi hàm này trực tiếp.
+    if (!qcMode) { toast('Chế độ QC chưa bật — không nhảy vòng được.'); return; }
+    if (mode === 'single') { qcJumpSingle(n); return; }
+    if (mode === 'multi') {
+      if (!isHost) { toast('Chỉ chủ phòng mới nhảy vòng trong chế độ QC.'); return; }
+      sendWS({ type: 'qcSkip', round: n }); return;
+    }
+    toast('Vào trận QC rồi mới nhảy vòng được.');
+  }
+  // Chuẩn bị đội hình chơi đơn cho vòng n: đúng số người còn sống theo
+  // đường loại (QC_START_ALIVE), người chơi luôn còn sống, bot thừa ẩn đi.
+  function qcSetupSingle(n) {
+    var alive = QC_START_ALIVE[n] || 61;
+    var shuffled = bots.slice();
+    for (var i = shuffled.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = t;
+    }
+    var keep = Math.max(0, alive - 1);
+    bots.forEach(function (b) {
+      var k = shuffled.indexOf(b) < keep;
+      b.alive = k; b.finished = false; b.finishTime = null; b.falling = false;
+      b.group.visible = k;
+      if (k) { b.x = -13.5 + Math.random() * 27; b.z = START_Z - Math.random() * 8; b.group.position.set(b.x, 0, b.z); }
+    });
+    player.alive = true; player.spectator = false; player.finished = false;
+    player.finishTime = null; player.falling = false; player.dist = 0;
+    player.x = 0; player.z = START_Z; player.group.position.set(0, 0, START_Z);
+    player.group.visible = true;
+    exitSpectator();
+    var sp = $('spectator'); if (sp) sp.classList.add('hidden');
+    myTeam = null; myBridgeStep = 0; localBridges = {}; localRanking = [];
+    brokenSteps = {}; teams = [];
+    leaderArrows.forEach(function (a) { a.visible = false; });
+    updateAliveHUD();
+  }
+  // Nhảy thẳng tới vòng n ở chơi đơn (bắt đầu trận QC hoặc nút nhảy giữa trận).
+  function qcJumpSingle(n) {
+    if (mode !== 'single' || !player) return;
+    if (window.Rounds && window.Rounds.currentRound && window.Rounds.currentRound()) window.Rounds.endRound();
+    hideInterstitial(); hideTeamPanel();
+    var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
+    qcJumpedRound = n;
+    matchStartAt = Date.now();
+    qcSetupSingle(n);
+    if (n === 1) { startRoundCommon(1, 'trong-hoi', 'Trống Hội', 120); }
+    else if (n === 2) {
+      // Không có thời gian về đích vòng 1: gán finishTime giả từ seeded RNG
+      // để assignTeamsAndPlace xáo thứ tự lượt (team screen ghi rõ điều này).
+      var rng = qcRng();
+      randomizeBridge();
+      allPersons().filter(function (p) { return p.alive; }).forEach(function (p) { p.finished = true; p.finishTime = rng() * 1000; });
+      showTeamScreenSingle();
+    } else { startRoundLocal(n); }
+    syncQcBar();
+  }
   var lastChatAt = 0, hideBubbles = false;
   var labelsEl = document.getElementById('labels');
   var tagEls = {};
@@ -1591,6 +1710,8 @@
   }
   function eliminate(person, reason) {
     if (!person || !person.alive) return;
+    // QC "Không loại (chỉ test giao diện)": người chơi không bị loại.
+    if (qcMode && qcNoElim && person === player) { toast('QC: Không loại — bạn vẫn tiếp tục (chỉ test giao diện).'); return; }
     person.alive = false; person.spectator = true;
     if (person.isBot) person.fallAnim = 0.0001;
     if (person === player) {
@@ -2397,7 +2518,7 @@
       var bj = $('btn-jump'); if (bj) bj.classList.toggle('hidden', !show);
     }
   }
-  function startSingle() {
+  function startSingle(qcRound) {
     ensureAudio();
     mode = 'single';
     var menu = $('menu'); if (menu) menu.classList.add('hidden');
@@ -2421,6 +2542,12 @@
     showHUD(true); updateAliveHUD();
     updateSingleR1._teamTimer = 0; updateSingleR1._r1TimeoutDone = false;
     startAmbient();
+    // QC: vào thẳng vòng đã chọn, bỏ qua flyover + vòng trước.
+    if (qcMode && (qcRound || qcStartRound) > 1) {
+      matchStartAt = Date.now();
+      qcJumpSingle(qcRound || qcStartRound);
+      return;
+    }
     // Flyover ~3.4s rồi đếm ngược, rồi mới vào vòng 1.
     phase = 'flyover'; flyT = 0; introBlend = 0;
     ensureFlyoverEls();
@@ -2451,12 +2578,17 @@
     if (msg.type === 'rooms') {
       var rl = $('room-list'); if (!rl) return;
       rl.innerHTML = msg.rooms.map(function (r) {
-        return '<button class="btn small" onclick="window.__joinRoom(\'' + r.code + '\')">' + r.code + ' — ' + r.count + ' người</button>';
+        return '<button class="btn small" onclick="window.__joinRoom(\'' + r.code + '\')">' + r.code + ' — ' + r.count + ' người' + (r.qc ? ' · [QC]' : '') + '</button>';
       }).join('') || '<div class="note">Chưa có phòng nào đang mở.</div>';
       return;
     }
     if (msg.type === 'joined') {
       roomCode = msg.code; isHost = !!msg.isHost; mode = 'multi';
+      // Phòng QC (server gửi kèm qc/startRound/noElim/plan): bật chế độ QC
+      // ở client để hiện thanh QC; phòng thường thì qcMode = false.
+      qcMode = !!msg.qc; qcStartRound = msg.startRound || 1; qcNoElim = !!msg.noElim;
+      qcPlan = msg.plan || null; renderQcButtons();
+      if (qcMode) toast('Phòng QC — trận test, không thưởng Hội Xu / XP.');
       var menu = $('menu'); if (menu) menu.classList.add('hidden');
       showHUD(true);
       var li = $('lobby-info'); if (li) li.textContent = 'Phòng ' + msg.code + (msg.spectator ? ' — bạn vào làm khán giả.' : '');
@@ -2495,6 +2627,9 @@
         if (me) { myTeam = me.team; if (player) player.team = me.team; }
         var tl = $('team-list');
         if (tl) tl.innerHTML = renderMultiTeamQueues(msg.teams || []);
+        if (qcMode && tl) {
+          tl.innerHTML += '<div><b>QC — NHẢY THẲNG VÒNG 2:</b> không có thời gian về đích Vòng 1 nên thứ tự lượt xáo trộn theo seed của trận (không phải ngược thứ tự về đích). Đồng hồ lượt 30 giây vẫn áp dụng.</div>';
+        }
         // Lượt đội mình có thể đã tới trước tin 'team' — lúc đó mới khớp được.
         if (myTeam !== null && teamLeaders[myTeam] !== undefined) {
           setHudDrum(teamLeaders[myTeam] === myId ? 'TỚI LƯỢT BẠN — chọn ván!' : 'Chờ tới lượt của bạn…');
@@ -2840,6 +2975,11 @@
       return '<div><b style="color:' + TEAM_COLORS[ti] + '">' + TEAMS[ti].name + ' · ' + t.members.length + ' người' + (ti === (myTeam || 0) ? ' · ĐỘI CỦA BẠN' : '') + '</b>' + list + note + '</div>';
     }).join('');
     var tl = $('team-list'); if (tl) tl.innerHTML = html;
+    // QC nhảy thẳng vòng 2: thứ tự lượt xáo theo seed, không phải ngược
+    // thứ tự về đích vòng 1 (vì không có vòng 1).
+    if (qcMode && qcJumpedRound === 2 && tl) {
+      tl.innerHTML = '<div><b>QC — NHẢY THẲNG VÒNG 2:</b> không có thời gian về đích Vòng 1 nên thứ tự lượt xáo trộn theo seed ' + matchStartAt + ' (không phải ngược thứ tự về đích). Đồng hồ lượt 30 giây vẫn áp dụng.</div>' + tl.innerHTML;
+    }
     var ts = $('team-screen'); if (ts) ts.classList.remove('hidden');
     var btb = $('btn-to-bridge'); if (btb) btb.textContent = 'Vào cầu ngay';
     // Tự chuyển sang vòng 2 sau vài giây như dòng chữ trên màn hình đã hứa —
@@ -2864,6 +3004,7 @@
     setHudDrum('VÒNG 2/6 — Cầu Khỉ Sương Mù');
     toast('VÒNG 2 — CẦU KHỈ · ĐI THEO LƯỢT THEO ĐỘI');
     updateTeamPanel();
+    syncQcBar();
   }
   function teleportToBridge() {
     if (player && player.alive && myTeam !== null) {
@@ -3733,11 +3874,11 @@
 
   // ---- Nút bấm ----
   var btnSingle = $('btn-single');
-  if (btnSingle) btnSingle.onclick = function () { if (!window.THREE) { toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); return; } startSingle(); };
+  if (btnSingle) btnSingle.onclick = function () { if (!window.THREE) { toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); return; } startSingle(qcMode ? qcStartRound : 1); };
   var btnMulti = $('btn-multi');
   if (btnMulti) btnMulti.onclick = startMultiUI;
   var btnCreate = $('btn-create');
-  if (btnCreate) btnCreate.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'create', name: ($('player-name') && $('player-name').value) || 'Người chơi' }); }, 300); };
+  if (btnCreate) btnCreate.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'create', name: ($('player-name') && $('player-name').value) || 'Người chơi', qc: qcMode, startRound: qcStartRound, noElim: qcNoElim }); }, 300); };
   var btnJoin = $('btn-join');
   if (btnJoin) btnJoin.onclick = function () {
     var code = ($('room-code') && $('room-code').value || '').trim().toUpperCase();
@@ -3747,8 +3888,30 @@
   var btnList = $('btn-list');
   if (btnList) btnList.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'list' }); }, 300); };
   var btnStart = $('btn-start');
-  if (btnStart) btnStart.onclick = function () { if (mode === 'multi' || (ws && ws.readyState === WebSocket.OPEN)) sendWS({ type: 'start' }); else if (!window.THREE) toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); else startSingle(); };
+  if (btnStart) btnStart.onclick = function () { if (mode === 'multi' || (ws && ws.readyState === WebSocket.OPEN)) sendWS({ type: 'start' }); else if (!window.THREE) toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); else startSingle(qcMode ? qcStartRound : 1); };
   var btnTourLobby = $('btn-tour-lobby');
+  // ---- CHẾ ĐỘ QC: bật/tắt panel, ?qc=1, thanh nhảy vòng trong lúc chơi ----
+  var qcTgl = $('btnQcToggle');
+  if (qcTgl) qcTgl.onclick = function () {
+    qcMode = !qcMode;
+    var qp = $('qcPanel'); if (qp) qp.classList.toggle('hidden', !qcMode);
+    qcTgl.textContent = qcMode ? 'CHẾ ĐỘ QC — ĐANG BẬT (BẤM ĐỂ TẮT)' : 'CHẾ ĐỘ QC — TEST NHANH (CHỈ TEST)';
+    renderQcButtons();
+  };
+  var qcNe = $('qcNoElim');
+  if (qcNe) qcNe.onchange = function () { qcNoElim = !!qcNe.checked; };
+  try {
+    if (new URLSearchParams(location.search).get('qc') === '1') {
+      qcMode = true;
+      var qp2 = $('qcPanel'); if (qp2) qp2.classList.remove('hidden');
+      if (qcTgl) qcTgl.textContent = 'CHẾ ĐỘ QC — ĐANG BẬT (BẤM ĐỂ TẮT)';
+    }
+  } catch (e) { /* URLSearchParams không có thì thôi, QC vẫn bật được bằng nút */ }
+  renderQcButtons(); renderQcBarButtons();
+  var qcNext = $('qcNextBtn');
+  if (qcNext) qcNext.onclick = function () { qcSkipTo(currentRound >= TOTAL_ROUNDS ? TOTAL_ROUNDS : (currentRound || 1) + 1); };
+  var qcRe = $('qcRestartBtn');
+  if (qcRe) qcRe.onclick = function () { qcSkipTo(currentRound || 1); };
   if (btnTourLobby) btnTourLobby.onclick = function () { ensureAudio(); startAmbient(); focusIsland(1, true); };
   var btnTour = $('btn-tour');
   if (btnTour) btnTour.onclick = function () { ensureAudio(); startAmbient(); var sp = $('spectator'); if (sp) sp.classList.add('hidden'); focusIsland(1, true); };
@@ -3879,6 +4042,7 @@
       brokenSteps = {};
     }
     if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed });
+    syncQcBar();
   }
   function onRoundEnd(msg) {
     var st = roundEndStats();
@@ -3992,6 +4156,7 @@
     // Vòng 2 multi: dải team (kèm đếm ngược lượt) cần tick theo từng khung
     // hình — updateMultiQueuePanel tự giới hạn 250ms nên gọi mỗi frame vẫn rẻ.
     if (mode === 'multi' && phase === 'round2') updateMultiQueuePanel();
+    syncQcBar();
   }
 
   // Cầu nối cho rounds.js (và shop.js): chỉ đọc/gọi qua đây, không chạm biến trong IIFE.

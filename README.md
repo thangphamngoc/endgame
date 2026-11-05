@@ -21,6 +21,31 @@ Mở trình duyệt tại `http://localhost:3000` (cổng mặc định, đổi 
   Chủ phòng bấm bắt đầu khi có ít nhất 2 người, hoặc phòng tự bắt đầu khi đủ 20 người.
   Server là nơi quyết định nhịp trống/chiêng, ai bị loại, ván yếu và lượt đi.
 
+## Chế độ QC — test nhanh, nhảy thẳng tới vòng bất kỳ (chỉ test)
+
+Qua mỗi vòng thật rất khó nên test hết 6 vòng sẽ rất lâu. Chế độ QC cho
+phép nhảy thẳng tới vòng bất kỳ, không cần qua các vòng trước:
+
+- Mở bằng nút **CHẾ ĐỘ QC — TEST NHANH** trên thẻ bắt đầu, hoặc mở nhanh
+  bằng đường dẫn `http://localhost:3000/?qc=1`.
+- Chọn vòng 1–6 rồi bấm **CHƠI ĐƠN** (60 bot) hoặc **TẠO PHÒNG** (nhiều
+  người, cả phòng cùng bắt đầu ở vòng đã chọn; tên các vòng 3–5 đã bốc
+  hiện sau khi tạo phòng). Phòng QC hiện dấu `[QC]` trong danh sách phòng.
+- Chơi đơn: số người còn sống khi vào vòng theo đường loại co giãn từ
+  61 người — V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 (V6 lấy tối
+  thiểu 2 người để còn test được cờ).
+- Nhảy thẳng Vòng 2 vẫn qua bước CHIA TEAM: thứ tự lượt xáo trộn theo
+  seed của trận (không có thời gian về đích Vòng 1), đồng hồ lượt 30 giây
+  vẫn áp dụng. Mỗi cầu có đúng số lượt bằng số thành viên của nó.
+- Trong lúc chơi, thanh **QC — CHỈ TEST** ở dưới màn hình cho nhảy tới
+  vòng khác (V1–V6), sang vòng sau, hoặc chơi lại vòng đang chơi. Ở chế
+  độ nhiều người chỉ chủ phòng mới nhảy vòng được.
+- Tuỳ chọn **Không loại (chỉ test giao diện)** — tắt mặc định; bật thì
+  người chơi không bị loại, chỉ dùng để xem giao diện từng vòng.
+- **Trận QC không thưởng Hội Xu / XP Pass, không tính vào bảng xếp hạng
+  và không ảnh hưởng trận thường.** Người chơi vẫn bị loại bình thường
+  trong vòng đã chọn (trừ khi bật “Không loại”).
+
 ## Điều khiển
 
 - Di chuyển: `WASD` hoặc phím mũi tên. Xoay camera: kéo chuột.

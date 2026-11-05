@@ -158,6 +158,17 @@
           </div>
           <button class="bigBtn" id="btn-tour-lobby" type="button" style="width:100%;margin-top:8px;font-size:14px;padding:9px 10px;background:#173f3a;border-color:#0b2622;box-shadow:0 6px 0 #0b2622;">DU LỊCH TỪ SẢNH CHỜ</button>
         </div>
+        <!-- CHẾ ĐỘ QC (FR-46, chỉ test): chọn vòng để vào thẳng, không cần qua các vòng trước. -->
+        <div class="rules" id="qcSection" style="margin-top:12px;border:3px dashed #b45309;background:#fff7ed;">
+          <button class="bigBtn" id="btnQcToggle" type="button" style="width:100%;font-size:14px;padding:9px 10px;background:#b45309;border-color:#7c2d12;box-shadow:0 6px 0 #7c2d12;">CHẾ ĐỘ QC — TEST NHANH (CHỈ TEST)</button>
+          <div id="qcPanel" class="hidden" style="margin-top:8px;">
+            <div><b>Chế độ QC — chỉ để test, không phải chơi thường.</b> Chọn vòng để vào thẳng, không cần qua các vòng trước. Trận QC <b>không thưởng Hội Xu / XP Pass</b>, không tính vào bảng xếp hạng, không ảnh hưởng trận thường. Mở nhanh bằng đường dẫn <b>?qc=1</b>.</div>
+            <div id="qc-round-btns" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            <div id="qc-round-note" style="margin-top:6px;">Chơi đơn: số người còn sống khi vào vòng theo đường loại co giãn từ 61 người — V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 (V6 lấy tối thiểu 2 người để còn test được cờ). Nhiều người: cả phòng cùng bắt đầu ở vòng đã chọn; tên các vòng 3–5 đã bốc hiện sau khi tạo phòng.</div>
+            <label style="display:block;margin-top:8px;"><input type="checkbox" id="qcNoElim" /> Không loại (chỉ test giao diện) — tắt mặc định; bật thì người chơi không bị loại, chỉ dùng để xem giao diện từng vòng.</label>
+            <div style="margin-top:6px;">Nhảy thẳng Vòng 2 sẽ qua bước CHIA TEAM: thứ tự lượt xáo trộn theo seed (không có thời gian về đích Vòng 1), đồng hồ lượt 30 giây vẫn áp dụng. Người chơi vẫn bị loại bình thường trong vòng đã chọn, trừ khi bật “Không loại”.</div>
+          </div>
+        </div>
         <div class="ctrls">Máy tính: WASD / phím mũi tên để chạy · kéo chuột xoay camera · Space nhảy<br />Điện thoại: joystick ảo bên trái · nút NHẢY bên phải · vuốt màn hình xoay camera<br />Bị loại thành khán giả: nút trên màn hình hoặc phím 1–4 đổi góc camera (toàn cảnh / theo dõi / sát vai / tự do), Tab đổi người xem<br />Chat: phím Enter mở ô chat và gửi tin, Esc đóng — tin nhắn hiện thành bong bóng trên đầu nhân vật và trong panel CHAT (kể cả ở sảnh chờ, khán giả và du lịch).<br />Khám phá đảo: bấm thẳng vào đảo xa trong thế giới 3D, hoặc bấm đảo trên bản đồ nhỏ, camera sẽ bay tới và đảo hiện chi tiết đầy đủ.</div>
       </div>
     </div>
@@ -206,6 +217,14 @@
         <button id="btn-tournament" class="specBtn" type="button">GIẢI ĐẤU</button>
         <button id="btn-gift" class="specBtn" type="button">QUÀ TẶNG</button>
       </div>
+    </div>
+
+    <!-- Thanh QC trong lúc chơi (FR-46, chỉ hiện ở chế độ QC): nhảy vòng / chơi lại vòng này. -->
+    <div id="qcBar" class="hidden">
+      <span><b>QC — CHỈ TEST</b> · <span id="qcBarRound">—</span> · không thưởng xu/XP</span>
+      <span id="qcBarRounds"></span>
+      <button class="specBtn" id="qcNextBtn" type="button">VÒNG SAU ▶</button>
+      <button class="specBtn" id="qcRestartBtn" type="button">CHƠI LẠI VÒNG NÀY</button>
     </div>
 
     <!-- Panel kinh tế (shop.js điền nội dung; ẩn mặc định) -->
