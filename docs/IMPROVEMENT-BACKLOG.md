@@ -27,7 +27,7 @@
 | 3 | Ô Ăn Quan: siết luật chỉ được bấm ô của mình (server + overlay cùng lúc); viền vàng ô 0–5 là luật thật, không còn là gợi ý | Ghi chú worker sim 2026-11-06 | S | ✅ Xong — cycle 3, 2026-11-06 ~13:47 |
 | 4 | Nhảy Bao Bố multi: server broadcast `hopState` theo thời gian thực để thanh tiến độ hiện đúng, không còn đếm nhảy local | Ghi chú worker sim 2026-11-06 | S | ✅ Xong — cycle 4, 2026-11-06 ~14:15 |
 | 5 | Xung đột fog: fog sân làng 150/720 ở `startRoundCommon`/`startRoundLocal` vs sim Bịt Mắt tự lưu/khôi phục fog; fog Vòng 2 (16/130) bị sim Nhảy Bao Bố nới 60/420 rồi trả lại — chuẩn hoá 1 nơi duy nhất quản fog theo vòng | Ghi chú worker sim 2026-11-06 | S | ✅ Xong — cycle 6, 2026-11-06 ~16:00 |
-| 6 | Dọn code chết P1-10: nhánh chat `length > 120` không bao giờ chạy + TODO trong code | PLAN P1-10 | S | Chờ |
+| 6 | Dọn code chết P1-10: nhánh chat `length > 120` không bao giờ chạy + TODO trong code | PLAN P1-10 | S | ✅ Xong — cycle 7 (làm lại tay, 2026-11-06 ~17:15) |
 | 7 | Bảng xếp hạng trực tiếp cho khán giả (P1-09): ai đang dẫn đầu, ai vừa bị loại, cập nhật theo sự kiện | PLAN P1-09 | S | Chờ |
 | 8 | Timer trận tổng + HUD (P1-07): HUD hiện đúng vòng/trò đang chơi (không "/6" nữa — OD-11), hết giờ tổng thì trận kết thúc có kết quả | PLAN P1-07 | S | Chờ |
 | 9 | Onboarding người mới (P4-02): màn hình hướng dẫn luật trước trận đầu, gợi ý phím | PLAN P4-02 | M | Chờ |

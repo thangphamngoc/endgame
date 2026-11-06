@@ -2195,7 +2195,7 @@
 
   // ================= CHAT PHÒNG (port từ prototype, map sang DOM của repo) =================
   var CHAT_MAX_LEN = 120, CHAT_MIN_GAP = 2000, BUBBLE_MS = 5000;
-  var lastPlayerChatAt = 0, bubblesHidden = false, chatBubbles = [];
+  var lastPlayerChatAt = 0, chatBubbles = [];
   var BOT_LINES = [
     'Chào cả nhà! Mình là bot mẫu của bản chơi đơn đây.',
     'Cố lên mọi người ơi!',
@@ -2253,7 +2253,9 @@
     log.scrollTop = log.scrollHeight;
   }
   function showBubble(fig, name, colorCss, text) {
-    if (bubblesHidden || !fig || !labelsEl) return;
+    // hideBubbles là cờ thật do nút ẨN BONG BÓNG bật/tắt (biến cũ
+    // bubblesHidden không bao giờ được gán true — code chết, cycle 7 đã xoá).
+    if (hideBubbles || !fig || !labelsEl) return;
     var key = fig.uuid;
     for (var i = 0; i < chatBubbles.length; i++) {
       if (chatBubbles[i].key === key) { // người này chat tiếp: thay nội dung, đếm lại 5 giây
@@ -2326,7 +2328,11 @@
   function sendChat(text) {
     text = (text || '').trim();
     if (!text) return;
-    if (text.length > 120) { toast('Tin nhắn tối đa 120 ký tự.'); return; }
+    // Không kiểm length > 120 ở đây nữa: mọi đường gọi đều đã bị chặn ở 120 ký
+    // tự (input #chatInput có maxlength="120", nút quick phrase ngắn hơn nhiều)
+    // nên nhánh đó không bao giờ chạy — code chết (P1-10, cycle 7, đã xoá).
+    // Giới hạn thật nằm ở sendPlayerChat (.slice(0, 120), chơi đơn) và server
+    // (từ chối tin > 120 ký tự, multi).
     var now = Date.now();
     if (now - lastChatAt < 2000) { toast('Gửi chậm lại một chút (2 giây/tin).'); return; }
     lastChatAt = now;

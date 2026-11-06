@@ -342,6 +342,17 @@ vòng mới. Giá trị hiệu dụng giữ nguyên như trước. Chưa đo b�
 giác sương/tối ở Bịt Mắt và tầm nhìn ở Nhảy Bao Bố trên trình duyệt thật,
 mobile thật.
 
+**Dọn code chết — ĐÃ QUYẾT (cycle 7, 2026-11-06):** xoá 2 nhánh chết trong
+`client/js/game.js`, không đổi hành vi: (1) nhánh kiểm `length > 120`
+trong `sendChat()` — mọi đường gọi đều đã bị chặn ở 120 ký tự từ trước
+(input `#chatInput` có `maxlength="120"`, câu nhanh ngắn hơn nhiều),
+giới hạn thật nằm ở `sendPlayerChat` (`.slice(0, 120)`, chơi đơn) và
+server (từ chối tin > 120 ký tự, multi); (2) biến `bubblesHidden` trong
+`showBubble()` — không bao giờ được gán `true`, cờ thật là `hideBubbles`
+(nút ẨN/HIỆN BONG BÓNG bật/tắt). Quét toàn repo không còn TODO/FIXME/XXX/
+HACK trong code JS. Chưa đo bằng tay: xác nhận không đổi hành vi chat
+(gửi tin, bong bóng, nút ẩn/hiện) khi chơi thật.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
