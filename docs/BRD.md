@@ -307,6 +307,18 @@ hợp lệ thì lượt tự bỏ qua; không ai còn nước đi thì vòng k�
 (`no-legal-moves`). Chưa đo bằng tay: cảm giác rải khi chỉ còn ô bên
 mình, mobile thật.
 
+**Nhảy Bao Bố — ĐÃ QUYẾT (cycle 4, 2026-11-06):** multiplayer chấm hoàn
+toàn ở server; server broadcast tin `hopState` {progress: {playerId:
+nhịp}, beatPhase} sau MỖI cú nhảy (kể cả vấp làm tụt 0,5 nhịp) và tick
+500ms trong lúc vòng chạy, để thanh tiến độ + vạch nhịp của mọi người
+hiện đúng theo số server chấm. Client không đếm nhảy local nữa: `#hop-fill`
++ `#hop-info` + `st.state.progress` lấy từ `hopState`; vạch nhịp nội suy
+từ beatPhase của tin cuối (mốc thời gian nhận tin) để trôi mượt giữa các
+tin; sim 3D hiện hạng theo `hopProgress` và nhảy theo tiến độ server.
+Người chơi khác vẫn nhảy theo chuyển động x/z thật (sim không ghi đè z
+theo tiến độ vì tick 15Hz sẽ ghi đè lại, gây giật hình). Chưa đo bằng
+tay: cảm giác nhịp khi vạch nội suy, mobile thật.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết

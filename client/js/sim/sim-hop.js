@@ -13,10 +13,14 @@
  * - Bot chơi đơn: game.js không chạm vào group của bot ở các vòng 3–6, nên
  *   sim được di chuyển group của bot dọc đường đua theo st.state.botProg.
  *   Vị trí logic (bot.x/bot.z) không đổi — chỉ là hình ảnh.
- * - Multiplayer: server chỉ broadcast hopState khi có người về đích, nên sim
- *   không có tiến độ từng người theo thời gian thực. Cú nhảy của người chơi
- *   lấy từ phím Space / nút NHẢY (sự kiện bấm, không phải điểm số); người
- *   chơi khác nhảy theo chuyển động x/z thật của họ.
+ * - Multiplayer: server broadcast hopState sau mỗi cú nhảy + tick 500ms
+ *   (cycle 4, 2026-11-06), nên sim có tiến độ từng người theo thời gian
+ *   thực trong st.state.hopProgress: strip HUD hiện số nhịp server chấm +
+ *   hạng, cú nhảy của người chơi lấy từ st.state.progress (server chấm),
+ *   không đếm số lần bấm local nữa. Người chơi khác vẫn nhảy theo chuyển
+ *   động x/z thật của họ — sim không ghi đè z theo tiến độ vì vị trí
+ *   đường đua do server giữ ở sân làng và tick 15Hz sẽ ghi đè lại,
+ *   gây giật hình.
  * - Đường đua đặt ở vạch xuất phát chuẩn của sân (z = 33 → -27, START_Z của
  *   game.js). Sau vòng 2 người chơi đứng ở cuối cầu (z ≈ -131), nên dải HUD
  *   hiện khoảng cách về vạch xuất phát cho tới khi họ chạy về tới sân.
@@ -322,6 +326,8 @@
 
   function progOf(st, api, p) {
     if (p === api.player) return (st.state.progress || 0);
+    // Multiplayer: tiến độ thật từng người từ hopState của server.
+    if (!st.local && st.state.hopProgress && st.state.hopProgress[p.id] !== undefined) return st.state.hopProgress[p.id];
     if (st.state.botProg) return st.state.botProg[p.id] || 0;
     return 0;
   }
@@ -341,7 +347,9 @@
 
     var p = api.player;
     var txt;
-    if (st.local) {
+    if (st.local || st.state.hopProgress) {
+      // Chơi đơn: tiến độ local + botProg. Multiplayer: tiến độ server
+      // chấm (hopState) — hiện số nhịp + hạng thật thay vì đếm lần bấm.
       var prog = st.state.progress || 0;
       var alive = api.allPersons().filter(function (x) { return x.alive; });
       var scored = alive.map(function (x) { return { p: x, s: progOf(st, api, x) }; })
@@ -349,7 +357,7 @@
       var rank = 1;
       for (var i = 0; i < scored.length; i++) if (scored[i].p === p) { rank = i + 1; break; }
       txt = 'Đã nhảy ' + prog + '/' + target + ' nhịp · Hạng ' + rank + '/' + scored.length;
-      if (st.state.lockout > 0) txt += ' · <span class="bad">VẤP! Chờ nhịp…</span>';
+      if (st.local && st.state.lockout > 0) txt += ' · <span class="bad">VẤP! Chờ nhịp…</span>';
     } else {
       txt = 'Đã bấm ' + S.tapCount + ' nhịp · chờ server chấm điểm';
     }

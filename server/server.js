@@ -502,6 +502,22 @@ function oanquanStateMsg(room) {
   };
 }
 
+// ---- Nhảy Bao Bố: tin tiến độ thời gian thực (ĐÃ QUYẾT, cycle 4, 2026-11-06) ----
+// Server là nguồn chuẩn duy nhất của tiến độ nhảy: broadcast hopState sau
+// MỖI cú nhảy (kể cả vấp) + tick 500ms trong lúc vòng chạy, để thanh tiến
+// độ + vạch nhịp của mọi người hiện đúng theo số server chấm. Trước đây
+// chỉ broadcast khi có người về đích nên thanh đứng yên cả vòng.
+function hopStateMsg(room) {
+  const st = room.roundState || {};
+  const beatInterval = st.beatInterval || 1000;
+  const phase = (Date.now() - (st.beatStart || Date.now())) % beatInterval;
+  return {
+    type: 'hopState',
+    progress: Object.fromEntries(survivorsOf(room).map((p) => [p.id, p.hopProgress || 0])),
+    beatPhase: phase,
+  };
+}
+
 function startRound(room, n) {
   const aliveAtStart = survivorsOf(room).length;
   const plan = roundEntryFor(room, n, aliveAtStart);
@@ -1330,7 +1346,10 @@ wss.on('connection', (ws) => {
         player.hopFinishTime = Date.now() - room.matchStart;
         st.finishOrder = st.finishOrder || [];
         st.finishOrder.push(player.id);
-        broadcast(room, { type: 'hopState', progress: Object.fromEntries(survivorsOf(room).map((p) => [p.id, p.hopProgress])), beatPhase: phase });
+      }
+      // Broadcast sau MỖI cú nhảy (kể cả vấp, kể cả về đích) — xem hopStateMsg.
+      broadcast(room, hopStateMsg(room));
+      if (player.hopFinished) {
         const target = room.targets[room.round - 1] || 1;
         if (st.finishOrder.length >= target) endRound(room, room.round, 'hop-target-reached');
       }
@@ -1469,6 +1488,15 @@ setInterval(() => {
       if (st && now - (st.lastBroadcast || 0) >= 500) {
         st.lastBroadcast = now;
         broadcast(room, { type: 'tugState', sidePower: st.sidePower, threshold: st.threshold, timeLeft: Math.max(0, Math.ceil((room.roundDeadline - now) / 1000)) });
+      }
+    }
+    if (room.roundGame === 'nhay-bao-bo' && room.phase.startsWith('round')) {
+      // Vạch nhịp + tiến độ vẫn trôi đều ngay cả khi không ai bấm NHẢY
+      // (cùng nhịp 500ms như tugState) — xem hopStateMsg.
+      const st = room.roundState;
+      if (st && now - (st.lastHopBroadcast || 0) >= 500) {
+        st.lastHopBroadcast = now;
+        broadcast(room, hopStateMsg(room));
       }
     }
     if (room.roundGame === 'bit-mat' && room.phase.startsWith('round')) {

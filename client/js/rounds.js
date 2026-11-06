@@ -836,7 +836,19 @@
       },
       update: function (dt, st) {
         if (st.state.lockout > 0) st.state.lockout -= dt;
-        if (!st.local) return; // multiplayer: vạch nhịp theo beatPhase của server
+        if (!st.local) {
+          // Multiplayer: vạch nhịp chạy theo beatPhase của server; nội suy
+          // từ mốc nhận tin cuối để vạch trôi mượt thay vì nhảy cục mỗi
+          // lần có tin hopState (tick 500ms). beatPhase là phase modulo
+          // 1000ms nên lệch đồng hồ client/server không ảnh hưởng.
+          if (st.state.beatPhase !== undefined && st.state.beatPhaseAt) {
+            var ph = (st.state.beatPhase + (Date.now() - st.state.beatPhaseAt)) % 1000;
+            st.state.marker = ph / 1000;
+            var mk2 = $('hop-marker');
+            if (mk2) mk2.style.left = (st.state.marker * 100) + '%';
+          }
+          return;
+        }
         st.state.marker += st.state.mdir * dt * 1.1;
         if (st.state.marker >= 1) { st.state.marker = 1; st.state.mdir = -1; }
         if (st.state.marker <= 0) { st.state.marker = 0; st.state.mdir = 1; }
@@ -858,13 +870,24 @@
         if (msg.type === 'hopState') {
           if (msg.beatPhase !== undefined && msg.beatPhase !== null) {
             st.state.marker = (msg.beatPhase % 1000) / 1000;
+            // Mốc thời gian nhận tin để update() nội suy vạch nhịp trôi
+            // mượt giữa các tin hopState (tick 500ms của server).
+            st.state.beatPhase = msg.beatPhase % 1000;
+            st.state.beatPhaseAt = Date.now();
             var mk = $('hop-marker');
             if (mk) mk.style.left = (st.state.marker * 100) + '%';
           }
           if (msg.progress) {
+            // Tiến độ = số server chấm, KHÔNG đếm nhảy local nữa: ghi vào
+            // st.state.progress để sim 3D cũng nhảy theo điểm server,
+            // và giữ nguyên bản đồ tiến độ mọi người để hiện hạng.
+            st.state.hopProgress = msg.progress;
+            var mine = msg.progress[B().myId];
+            st.state.progress = mine || 0;
+            var bar = $('hop-fill');
+            if (bar) bar.style.width = Math.min(100, Math.round((mine || 0) / st.state.target * 1000) / 10) + '%';
             var info = $('hop-info');
             if (info) {
-              var mine = msg.progress[B().myId];
               info.textContent = 'Bạn đã nhảy ' + (mine || 0) + '/' + st.state.target + ' nhịp.';
             }
           }
