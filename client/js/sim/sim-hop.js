@@ -293,7 +293,7 @@
       flags: [], textures: [], styleEl: null, stripEl: null, meterEl: null,
       markerEl: null, textEl: null, lastPlayerProg: 0, lastLockout: 0,
       lastMarkerPct: -1, lastText: '', tapCount: 0, playerWasAir: false,
-      stumbleT: 0, t: 0, fogSaved: null
+      stumbleT: 0, t: 0
     };
     if (st && st.state) {
       S.lastPlayerProg = st.state.progress || 0;
@@ -313,13 +313,13 @@
     }
     ensureSacks(api);
     if (st && st.local) placeBotsSingle(api);
-    // Sương vòng 2 (near 16 / far 130) che mất đường đua khi nhìn từ xa:
-    // nới ra trong lúc vòng này chạy, teardown trả lại như cũ.
-    if (api.scene.fog) {
-      S.fogSaved = { near: api.scene.fog.near, far: api.scene.fog.far };
-      api.scene.fog.near = 60;
-      api.scene.fog.far = 420;
-    }
+    // Nhảy Bao Bố chơi ở sân làng (vòng 3+): fog sân làng 150/720 không che
+    // đường đua, nhưng nới tầm nhìn ra 60/420 để tập trung vào đường đua thay
+    // vì đảo xa — xin override 'hop' từ game.js (chủ sở hữu duy nhất của fog,
+    // cycle 6 #5), teardown gỡ qua clearFogOverride, không tự sửa scene.fog.
+    // (Ghi chú cũ nói "sương vòng 2 16/130" là sai: trò này không bao giờ chạy
+    // ở vòng 2 — vòng 2 luôn là Cầu Khỉ.)
+    if (api.setFogOverride) api.setFogOverride('hop');
     window.addEventListener('keydown', onKeyDown);
     document.addEventListener('click', onDocClick);
   }
@@ -502,10 +502,9 @@
       });
     }
     S.textures.forEach(function (tx) { tx.dispose(); });
-    if (S.fogSaved && a && a.scene && a.scene.fog) {
-      a.scene.fog.near = S.fogSaved.near;
-      a.scene.fog.far = S.fogSaved.far;
-    }
+    // Gỡ override fog 'hop': clearFogOverride chỉ gỡ khi 'hop' vẫn đang giữ,
+    // nên teardown trễ sau khi đã đổi vòng không đè fog vòng mới.
+    if (a && a.clearFogOverride) a.clearFogOverride('hop');
     if (S.stripEl && S.stripEl.parentNode) S.stripEl.parentNode.removeChild(S.stripEl);
     if (S.styleEl && S.styleEl.parentNode) S.styleEl.parentNode.removeChild(S.styleEl);
     // Người chơi: trả lại tư thế đứng thẳng (y/vy để game.js tự xử lý).

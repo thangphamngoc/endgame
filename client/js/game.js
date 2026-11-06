@@ -715,6 +715,42 @@
     }
   }
 
+  // ---- Sương (fog) + màu nền: MỘT NƠI DUY NHẤT quản lý — ĐÃ QUYẾT cycle 6, 2026-11-06 (#5).
+  // Trước đây fog bị set rải rác ở startSingle / beginRound2Play /
+  // startRoundCommon / startRoundLocal / btn-replay VÀ sim Bịt Mắt + Nhảy Bao
+  // Bố tự lưu/khôi phục (savedFog), nên một lần khôi phục trễ (QC nhảy vòng,
+  // teardown chạy sau khi vòng mới đã set fog) là đè fog sai lên vòng đang
+  // chơi. Nay chỉ game.js sở hữu fog: preset theo vòng (sân làng / cầu) +
+  // override theo trò (sim xin qua setFogOverride, gỡ qua clearFogOverride,
+  // chỉ gỡ đúng tên đang giữ); đổi vòng luôn xoá override. Giá trị hiệu dụng
+  // giữ nguyên như trước — không đổi cảm giác chơi.
+  var FOG_PRESETS = {
+    yard:   { near: 150, far: 720, color: 0xa9bfba, bg: 0xffc98a }, // sân làng: vòng 1 + vòng 3 trở đi
+    bridge: { near: 16,  far: 130, color: 0xa9bfba, bg: 0xe8c39a }, // vòng 2 cầu sương mù
+    blind:  { near: 4,   far: 26,  color: 0x1a2340, bg: 0x141b33 }, // Bịt Mắt: tối + sương dày
+    hop:    { near: 60,  far: 420, color: null,     bg: null }     // Nhảy Bao Bố: chỉ nới tầm nhìn, giữ màu/bg của vòng
+  };
+  var fogOverride = null; // tên preset đang ghi đè fog vòng, null = fog theo vòng
+  function applyFogPreset(name) {
+    var p = FOG_PRESETS[name]; if (!p || !scene || !scene.fog) return false;
+    scene.fog.near = p.near; scene.fog.far = p.far;
+    if (p.color !== null && p.color !== undefined && scene.fog.color) scene.fog.color.setHex(p.color);
+    if (p.bg !== null && p.bg !== undefined && scene.background && scene.background.set) scene.background.set(p.bg);
+    return true;
+  }
+  function fogPresetForRound(round) { return round === 2 ? 'bridge' : 'yard'; }
+  function refreshFog() { return applyFogPreset(fogOverride || fogPresetForRound(currentRound)); }
+  function setFogOverride(name) {
+    if (!FOG_PRESETS[name]) return false;
+    fogOverride = name; return applyFogPreset(name);
+  }
+  function clearFogOverride(name) {
+    // Chỉ gỡ đúng override đang giữ: lệnh gỡ cũ (teardown trễ sau khi đã đổi
+    // vòng / sim khác đã ghi đè) không được đè fog của vòng đang chơi.
+    if (name && fogOverride !== name) return false;
+    fogOverride = null; return refreshFog();
+  }
+
   // ---- Thế giới ----
   function buildWorld() {
     scene = new THREE.Scene();
@@ -2181,17 +2217,18 @@
   }
   function openChat() {
     var p = $('chat-panel'); if (!p) return;
-    p.classList.remove('hidden');
+    p.classList.add('open'); // CSS hiện panel qua #chatPanel.open{display:flex}
+    p.classList.remove('hidden'); // .hidden{display:none!important} sẽ thắng .open nếu còn sót
     for (var k in keys) keys[k] = false; // đang gõ thì nhân vật đứng yên, WASD không lọt vào điều khiển
     setTimeout(function () { var ci = $('chat-input'); if (ci) { try { ci.focus({ preventScroll: true }); } catch (e) { ci.focus(); } } }, 30);
   }
   function closeChat(blur) {
-    var p = $('chat-panel'); if (p) p.classList.add('hidden');
+    var p = $('chat-panel'); if (p) { p.classList.remove('open'); p.classList.add('hidden'); }
     if (blur && chatTyping()) { var ci = $('chat-input'); if (ci) ci.blur(); }
   }
   function toggleChat() {
     var p = $('chat-panel'); if (!p) return;
-    if (p.classList.contains('hidden')) openChat(); else closeChat(true);
+    if (p.classList.contains('open')) closeChat(true); else openChat();
   }
   function addChatMessage(name, colorCss, text, isBot) {
     var log = $('chat-log'); if (!log) return;
@@ -2596,8 +2633,7 @@
     drumState = 'drum'; drumTimer = 2.5;
     r1Phase = 'drum'; r1PhaseT = 0; r1DrumBeatT = 0; r1GongAge = 0;
     randomizeBridge();
-    scene.fog.near = 150; scene.fog.far = 720;
-    scene.background.set(0xffc98a);
+    fogOverride = null; applyFogPreset('yard');
     var tp = $('team-panel'); if (tp) tp.classList.add('hidden');
     var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
     var sp = $('spectator'); if (sp) sp.classList.add('hidden');
@@ -2703,8 +2739,6 @@
         // đồng hồ vòng 2 ở multiplayer không bao giờ hiện — server vẫn áp
         // deadline 180 giây (games.js). Truyền đúng 180 để HUD đếm ngược được.
         startRoundCommon(2, 'cau-khi', 'Cầu Khỉ Sương Mù', 180);
-        scene.fog.near = 16; scene.fog.far = 130;
-        scene.background.set(0xe8c39a);
         teleportToBridge();
         updateMultiQueuePanel();
       }
@@ -3080,8 +3114,7 @@
     // hồ LƯỢT 30 giây, tính lại từ đầu khi lượt đầu tiên bắt đầu.
     r2Turn.key = null; r2Turn.startedAt = 0; r2Turn.endsAt = 0;
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
-    scene.fog.near = 16; scene.fog.far = 130;
-    scene.background.set(0xe8c39a);
+    fogOverride = null; applyFogPreset('bridge');
     setHudDrum('VÒNG 2 — Cầu Khỉ Sương Mù');
     toast('VÒNG 2 — CẦU KHỈ · ĐI THEO LƯỢT THEO ĐỘI');
     updateTeamPanel();
@@ -3827,7 +3860,7 @@
     if (ev.code === 'Enter') { ev.preventDefault(); ensureAudio(); openChat(); return; }
     if (ev.code === 'Escape') {
       var cp = $('chat-panel');
-      if (cp && !cp.classList.contains('hidden')) { closeChat(true); return; }
+      if (cp && cp.classList.contains('open')) { closeChat(true); return; }
     }
     if (phase === 'flyover') { beginCountdown(); return; }
     keys[ev.code] = true;
@@ -4017,8 +4050,7 @@
     bots = [];
     Object.keys(remotePlayers).forEach(function (k) { scene.remove(remotePlayers[k].group); });
     remotePlayers = {};
-    scene.fog.near = 150; scene.fog.far = 720;
-    scene.background.set(0xffc98a);
+    fogOverride = null; applyFogPreset('yard');
     if (playerRing) playerRing.material.color.setHex(0xffd34d);
     phase = 'menu';
   };
@@ -4123,10 +4155,11 @@
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     updateSingleR1._r1TimeoutDone = false;
     phase = 'round' + round;
+    // Fog vòng mới: xoá mọi override của sim vòng trước rồi áp preset theo vòng.
+    fogOverride = null;
+    applyFogPreset(fogPresetForRound(round));
     if (round >= 3) {
       if (mode === 'single') resetYardPositions();
-      scene.fog.near = 150; scene.fog.far = 720;
-      scene.background.set(0xffc98a);
     }
     var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + (name || '');
     if (hr) hr.title = roundTarget ? ('Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (roundIsFinal ? ' · CHUNG KẾT' : '')) : '';
@@ -4139,13 +4172,9 @@
     if (round === 1) {
       matchStartAt = Date.now();
       finishCount = 0;
-      scene.fog.near = 150; scene.fog.far = 720;
-      scene.background.set(0xffc98a);
       if (mode === 'single') startPhase('drum');
     }
     if (round === 2) {
-      scene.fog.near = 16; scene.fog.far = 130;
-      scene.background.set(0xe8c39a);
       brokenSteps = {};
     }
     if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed, isFinal: roundIsFinal });
@@ -4229,8 +4258,7 @@
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     phase = 'round' + round;
     resetYardPositions();
-    scene.fog.near = 150; scene.fog.far = 720;
-    scene.background.set(0xffc98a);
+    fogOverride = null; applyFogPreset(fogPresetForRound(round));
     var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + name;
     if (hr) hr.title = 'Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (isFinal ? ' · CHUNG KẾT' : '');
     setHudDrum(name);
@@ -4299,7 +4327,8 @@
     setTag: setTag, clearTag: clearTag, updateAliveHUD: updateAliveHUD,
     teamColorHex: teamColorHex, TEAM_COLORS: TEAM_COLORS, TEAM_NAMES: TEAM_NAMES,
     localRoundEnd: localRoundEnd, showInterstitial: showInterstitial, hideInterstitial: hideInterstitial,
-    setHudDrum: setHudDrum,
+    setHudDrum: setHudDrum, setFogOverride: setFogOverride, clearFogOverride: clearFogOverride,
+    get fogOverride() { return fogOverride; },
     project: function (x, y, z) {
       var v = new THREE.Vector3(x, y, z); v.project(camera);
       return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, behind: v.z > 1 };

@@ -319,6 +319,29 @@ Người chơi khác vẫn nhảy theo chuyển động x/z thật (sim không g
 theo tiến độ vì tick 15Hz sẽ ghi đè lại, gây giật hình). Chưa đo bằng
 tay: cảm giác nhịp khi vạch nội suy, mobile thật.
 
+**Chat panel — ĐÃ QUYẾT (cycle 5, 2026-11-06):** panel chat chỉ hiện qua
+class `.open` (CSS `#chatPanel.open{display:flex}`), nhưng `openChat()` /
+`closeChat()` trước đây chỉ đổi class `.hidden` nên panel không bao giờ
+mở được (P0). Nay `openChat` thêm `.open` và gỡ `.hidden`, `closeChat`
+gỡ `.open` và thêm `.hidden`, `toggleChat` và handler phím Esc lấy
+`.open` làm nguồn tin đúng/sai duy nhất — giữ cả hai class đồng bộ vì
+`.hidden{display:none!important}` sẽ thắng `.open` nếu còn sót. Chưa đo
+bằng tay: cảm giác gõ chat trong trận thật, mobile thật.
+
+**Fog (sương) — ĐÃ QUYẾT (cycle 6, 2026-11-06):** chỉ `game.js` sở hữu fog.
+Bảng `FOG_PRESETS`: sân làng yard 150/720 + nền 0xffc98a (vòng 1 + vòng 3
+trở đi), cầu bridge 16/130 + nền 0xe8c39a (vòng 2), Bịt Mắt blind 4/26 +
+màu 0x1a2340 + nền 0x141b33, Nhảy Bao Bố hop 60/420 giữ nguyên màu/nền của
+vòng. Đổi vòng luôn xoá override rồi áp preset theo vòng (vòng 2 = bridge,
+còn lại = yard). Sim không chạm `scene.fog`: Bịt Mắt xin override `blind`
+qua `__game.setFogOverride` khi là người tìm, gỡ qua
+`__game.clearFogOverride('blind')` khi thành dê/teardown; Nhảy Bao Bố xin
+override `hop` lúc build, gỡ lúc teardown. `clearFogOverride` chỉ gỡ đúng
+tên đang giữ — lệnh gỡ cũ (teardown trễ sau khi đã đổi vòng) không đè fog
+vòng mới. Giá trị hiệu dụng giữ nguyên như trước. Chưa đo bằng tay: cảm
+giác sương/tối ở Bịt Mắt và tầm nhìn ở Nhảy Bao Bố trên trình duyệt thật,
+mobile thật.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết

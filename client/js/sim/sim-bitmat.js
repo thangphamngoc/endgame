@@ -280,41 +280,21 @@
   }
 
   // ---------- Áp / gỡ bầu không khí bịt mắt ----------
+  // Fog + nền tối KHÔNG tự sửa scene.fog nữa: xin override 'blind' từ
+  // game.js (chủ sở hữu duy nhất của fog, cycle 6 #5) để đổi vòng / teardown
+  // trễ không bao giờ đè fog sai lên vòng sau.
   function applyDark(sim, api) {
     if (sim.darkOn || !api.scene) return;
-    var scene = api.scene;
-    if (scene.fog) {
-      sim.savedFog = {
-        near: scene.fog.near, far: scene.fog.far,
-        color: scene.fog.color ? scene.fog.color.getHex() : null
-      };
-      scene.fog.near = 4;
-      scene.fog.far = 26;
-      if (scene.fog.color) scene.fog.color.setHex(0x1a2340);
-    } else { sim.savedFog = null; }
-    if (scene.background && scene.background.getHex) {
-      sim.savedBg = scene.background.getHex();
-      scene.background.setHex(0x141b33);
-    } else { sim.savedBg = null; }
+    if (api.setFogOverride) api.setFogOverride('blind');
     if (!sim.vignette) sim.vignette = makeVignette();
     sim.darkOn = true;
   }
 
   function restoreLight(sim, api) {
     if (!sim.darkOn) return;
-    var scene = api && api.scene;
-    if (scene) {
-      if (scene.fog && sim.savedFog) {
-        scene.fog.near = sim.savedFog.near;
-        scene.fog.far = sim.savedFog.far;
-        if (sim.savedFog.color !== null && scene.fog.color) {
-          scene.fog.color.setHex(sim.savedFog.color);
-        }
-      }
-      if (scene.background && scene.background.setHex && sim.savedBg !== null && sim.savedBg !== undefined) {
-        scene.background.setHex(sim.savedBg);
-      }
-    }
+    // Chỉ gỡ khi override 'blind' vẫn đang giữ (clearFogOverride tự chặn
+    // lệnh gỡ cũ nếu vòng đã đổi / sim khác đã ghi đè).
+    if (api && api.clearFogOverride) api.clearFogOverride('blind');
     if (sim.vignette && sim.vignette.parentNode) sim.vignette.parentNode.removeChild(sim.vignette);
     sim.vignette = null;
     sim.darkOn = false;
@@ -334,8 +314,6 @@
         shimmer: null,
         audio: makeAudio(),
         darkOn: false,
-        savedFog: null,
-        savedBg: null,
         vignette: null,
         bleatT: 1.2,          // kêu sớm lần đầu để người tìm nghe hướng ngay
         stepAcc: 0,
