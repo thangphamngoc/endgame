@@ -28,7 +28,7 @@ thật để xác nhận cảm giác chơi trước khi làm thêm tính năng m
 | P0-08 | Viết `docs/PLAN.md` (tài liệu này) + cập nhật README trỏ tới docs | P0 | Đã có | P0-06, P0-07 | S | README ghi rõ chỉ mô tả demo; PLAN có bảng task, checklist play-test, Definition of Done |
 | P0-09 | **Play-test thật toàn bộ bản demo** (checklist ở §3) | P0 | Dự kiến | P0-01..P0-05 | M | Mọi mục trong checklist §3 đã thử bằng tay trên máy thật, có ghi chú kết quả; lỗi tìm được đã ghi thành task mới |
 
-## Phase 1 — Cấu trúc trận đầy đủ (6 vòng, đường loại, kho thử thách)
+## Phase 1 — Cấu trúc trận đầy đủ (số vòng không giới hạn, đường loại, kho thử thách)
 
 Mục tiêu: từ demo 2 vòng lên thành trận đầy đủ theo tầm nhìn, nhưng **chưa**
 cần scale 456 người — chơi tốt ở quy mô phòng hiện tại (20 người) trước.
@@ -41,7 +41,7 @@ Không bắt đầu Phase 1 cho tới khi Sudo chốt OD-01 và OD-02 trong BRD 
 | P1-02 | Giới hạn thời gian vòng 1 (120 giây) + quy tắc kết thúc vòng (sửa lỗ hổng trận kẹt khi có người đứng yên) | P0 | Đang làm (workstream song song) — quyết định 120 giây đã chốt (BRD §9.4 OD-02); tại thời điểm viết tài liệu này code server.js chưa có giới hạn 120 giây, chỉ có nhịp trống/chiêng, nên chưa ghi "đã xong"; QC có thể lật lại con số 120 giây sau play-test | — | S | Hết 120 giây vòng 1 thì vòng tự kết thúc theo quy tắc đã công bố; không còn trường hợp trận kẹt vì một người đứng yên |
 | P1-03 | Seed random theo phòng–vòng (thay `Math.random()` rải rác) cho nhịp trống, ván yếu, biến thể trò | P1 | Dự kiến | P1-01 | M | Cùng seed cho cùng kết quả random; trận khác seed thì khác kết quả; seed lưu trong dữ liệu trận |
 | P1-04 | Cài 4 trò mới vào game (client + server), mỗi trò một module riêng | P0 | Dự kiến | P1-01, P1-03 | L | Chơi được cả 4 trò ở chế độ chơi đơn và multiplayer; luật loại đúng tài liệu P1-01 |
-| P1-05 | Đường loại 6 vòng co giãn theo số người thực tế (456 → 280 → 150 → 70 → 24 → 6 → 1 ở phòng đủ người; bảng co giãn cho phòng nhỏ) | P1 | Dự kiến | P1-04 | M | Phòng 20 người có đường loại hợp lý tới 1 người thắng; phòng đủ 456 người theo đúng đường loại tầm nhìn |
+| P1-05 | Đường loại không giới hạn số vòng, co giãn theo số người thực tế (456 → 280 → 150 → 70 → 24 → 6 → 1 ở phòng đủ người chơi đúng mục tiêu; bảng co giãn cho phòng nhỏ; mỗi vòng loại ít nhất 1 người, chung kết Rồng Rắn chỉ khi ≤ 6 người sống) | P1 | Đã làm (PR #3) | P1-04 | M | Phòng 20 người có đường loại hợp lý tới 1 người thắng; phòng đủ 456 người theo đúng đường loại tầm nhìn; trận có thể dài hơn 6 vòng nếu người chơi đều chơi tốt (OD-11) |
 | P1-06 | Chọn 6 trò mỗi trận từ kho (random theo seed, không lặp trận trước) + thứ tự trò random | P1 | Dự kiến | P1-03, P1-04 | M | Hai trận liên tiếp không giống hệt nhau; mỗi trận đủ 6 trò |
 | P1-07 | Timer trận tổng + HUD theo vòng (hiển thị vòng hiện tại/tổng số vòng, trò hiện tại) | P1 | Dự kiến | P1-05 | S | HUD luôn đúng vòng và trò đang chơi; hết giờ tổng thì trận kết thúc có kết quả |
 | P1-08 | Cân bằng lại (play-test + chỉnh số): thời gian mỗi vòng, tỉ lệ loại mỗi vòng, độ khó ván yếu | P1 | Dự kiến | P1-04, P1-05 | M | Sau 5 trận play-test, tỉ lệ loại mỗi vòng gần mục tiêu trong BRD §8.2 (sai lệch ghi rõ lý do nếu chưa đạt) |
@@ -192,8 +192,9 @@ tìm ra lỗi mà lỗi đó chưa được sửa hoặc ghi thành task mới.*
 
 Dự án chỉ coi là **xong** khi tất cả các điều sau đúng cùng lúc:
 
-1. **Trận đầy đủ:** chơi được trận 6 vòng theo đường loại trong BRD §8.2,
-   từ lobby tới 1 người thắng, ở cả phòng nhỏ và phòng đủ 456 người.
+1. **Trận đầy đủ:** chơi được trận theo đường loại trong BRD §8.2 (số vòng
+   không giới hạn, OD-11), từ lobby tới 1 người thắng, ở cả phòng nhỏ và
+   phòng đủ 456 người; trận có thể dài hơn 6 vòng nếu người chơi đều chơi tốt.
 2. **Đúng luật đã chốt:** CHIA TEAM chỉ chia lượt, không team thắng/thua;
    xếp hạng cá nhân theo thời gian; bot luôn ghi rõ là bot.
 3. **Scale:** phòng 456 người chơi được với số đo load test (P2-07) đạt mục

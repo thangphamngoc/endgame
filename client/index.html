@@ -23,7 +23,7 @@
         </div>
       </div>
       <div id="hudStats">
-        <div class="plate stat"><b id="hudRound">1/6</b><span>VÒNG</span></div>
+        <div class="plate stat"><b id="hudRound">VÒNG 1</b><span>VÒNG</span></div>
         <div class="plate stat"><b id="hudCountdown">—</b><span>ĐẾM NGƯỢC</span></div>
         <div class="plate stat"><b id="hudTime">0:00</b><span>THỜI GIAN</span></div>
         <div class="plate stat"><b id="hudAlive">61</b><span>CÒN LẠI</span></div>
@@ -132,7 +132,7 @@
     <div class="overlay" id="startCard">
       <div class="card">
         <h1>TRỐNG HỘI</h1>
-        <p><b>Sáu vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng 3–6: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê và chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
+        <p><b>Nhiều vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng sau bốc từ kho trò dân gian: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê, Ô Ăn Quan, Nhảy Bao Bố. Trận chỉ kết thúc khi còn 1 người — khi còn 6 người trở xuống, vòng tiếp theo là chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
         <div class="rules">
           <b>VÒNG 1 · TRỐNG ĐÁNH</b> — được chạy thoải mái. <b>CHIÊNG VANG</b> — phải <b>đứng yên tuyệt đối</b>, cử động là bị loại!<br />
           <b>VÒNG 2 · CẦU KHỈ</b> — trước vòng 2 có bước <b>CHIA TEAM</b>: tối đa 3 đội (Đỏ / Vàng / Xanh lá), mỗi đội một cầu riêng, <b>đi theo lượt</b> — chỉ người dẫn đầu của đội được lên cầu, người sau chờ trên bệ an toàn, không chen lấn nhảy vượt. Mỗi bước có 2 tấm ván: một chắc, một yếu, <b>ngẫu nhiên riêng cho từng cầu mỗi trận</b>. Giẫm ván yếu là rơi xuống biển và <b>bị loại cá nhân</b>. Ván đã vỡ thành khoảng trống — phải <b>nhảy (Space)</b> qua.<br />
@@ -233,7 +233,7 @@
     <div id="tournament-panel" class="hidden"></div>
     <div id="gift-panel" class="hidden"></div>
 
-    <!-- Overlay hệ 6 vòng (rounds.js / game.js điền nội dung; ẩn mặc định) -->
+    <!-- Overlay hệ nhiều vòng (rounds.js / game.js điền nội dung; ẩn mặc định) -->
     <div id="round-overlay" class="hidden"></div>
     <div id="blind-overlay" class="hidden"></div>
     <div id="interstitial" class="hidden"></div>
@@ -242,6 +242,12 @@
     <div id="deployNote">Server: <b>npm start</b> · http://localhost:3000 (đổi cổng bằng biến môi trường PORT) · Kiểm tra sống: <b>GET /health</b> → {ok, rooms, players, uptime}</div>
 <script src="js/game.js"></script>
 <script src="js/rounds.js"></script>
+<script src="js/sim/sim-keoco.js"></script>
+<script src="js/sim/sim-tohe.js"></script>
+<script src="js/sim/sim-bitmat.js"></script>
+<script src="js/sim/sim-oanquan.js"></script>
+<script src="js/sim/sim-hop.js"></script>
+<script src="js/sim/sim-flag.js"></script>
 <script src="js/shop.js"></script>
 </body>
 </html>

@@ -5,7 +5,8 @@
  *
  * Cảnh / camera / minimap / du lịch / chat: port từ bản prototype 3D 1 vòng
  * (artifact prototype-game-3d-1-vong), điều chỉnh theo trạng thái của repo:
- * START_Z/FINISH_Z của server (35/-35), luồng 6 vòng, protocol WebSocket,
+ * START_Z/FINISH_Z của server (35/-35), luồng số vòng KHÔNG giới hạn,
+ * protocol WebSocket,
  * CHIA TEAM (không thắng/thua theo team) và economy hooks (shop.js) giữ nguyên.
  */
 (function () {
@@ -63,12 +64,60 @@
   var phase = 'menu'; // menu | flyover | countdown | round1 | team | round2 | round3..6 | interstitial | spectator | finished | tourism
   var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0;
   var aliveCount = 0, aliveBefore = 0;
-  // ---- Luồng 6 vòng ----
-  var ROUND_NAMES = { 1: 'Trống Hội', 2: 'Cầu Khỉ Sương Mù', 3: 'Kéo Co Nhịp', 4: 'Nặn Tò He', 5: 'Bịt Mắt Bắt Dê', 6: 'Rồng Rắn Cướp Cờ' };
-  var ROUND_GAMES = { 1: 'trong-hoi', 2: 'cau-khi', 3: 'keo-co', 4: 'to-he', 5: 'bit-mat', 6: 'rong-ran' };
+  // ---- Luồng số vòng KHÔNG giới hạn (Sudo 2026-11-06) ----
+  // Vòng 1-2 cố định; từ vòng 3, trò bốc theo chu kỳ kho 5 trò (không lặp
+  // trong chu kỳ) và Rồng Rắn chỉ là chung kết khi <= 6 người sống lúc bắt
+  // đầu vòng. Xem localGameForRound / localPoolCycle dưới đây (phải khớp
+  // server: games.drawPoolCycle + roundEntryFor).
+  var ROUND_NAMES = { 1: 'Trống Hội', 2: 'Cầu Khỉ Sương Mù' };
+  var POOL_GAMES = ['keo-co', 'to-he', 'bit-mat', 'o-an-quan', 'nhay-bao-bo'];
+  var POOL_NAMES = { 'keo-co': 'Kéo Co Nhịp', 'to-he': 'Nặn Tò He', 'bit-mat': 'Bịt Mắt Bắt Dê', 'o-an-quan': 'Ô Ăn Quan', 'nhay-bao-bo': 'Nhảy Bao Bố', 'rong-ran': 'Rồng Rắn Cướp Cờ' };
   var ROUND_TIME_LIMITS = { 'keo-co': 60, 'to-he': 60, 'bit-mat': 60, 'o-an-quan': 90, 'nhay-bao-bo': 60, 'rong-ran': 120 };
-  var TOTAL_ROUNDS = 6;
-  var currentRound = 0, roundTimeLimit = 0, roundEndsAt = 0, roundStartAlive = [];
+  // Không còn TOTAL_ROUNDS: trận chỉ kết thúc khi còn 1 người (xem BRD OD-11).
+  function localRng(seed) {
+    var a = (seed || 1) >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      var x = a;
+      x = Math.imul(x ^ (x >>> 15), x | 1);
+      x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Xáo kho 5 trò của một chu kỳ (seed theo thời điểm bắt đầu trận + chu kỳ);
+  // không lặp liền kề qua biên chu kỳ: chu kỳ mới mở đầu bằng trò cuối của
+  // chu kỳ trước thì đổi chỗ 2 trò đầu (giống server drawPoolCycle).
+  function localPoolCycle(cycle) {
+    var rng = localRng((matchStartAt || 1) + cycle * 7919);
+    var order = [0, 1, 2, 3, 4];
+    for (var i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+    }
+    if (cycle > 0) {
+      var prev = localPoolCycle(cycle - 1);
+      if (prev[prev.length - 1] === order[0]) { var t2 = order[0]; order[0] = order[1]; order[1] = t2; }
+    }
+    return order;
+  }
+  // Trò của vòng n ở chơi đơn (khớp server roundEntryFor): vòng 1-2 cố định;
+  // từ vòng 3, <= 6 người sống thì là chung kết Rồng Rắn, ngược lại bốc
+  // theo chu kỳ kho. aliveCount = số người sống lúc bắt đầu vòng.
+  function localGameForRound(round, aliveCount) {
+    if (round === 1) return 'trong-hoi';
+    if (round === 2) return 'cau-khi';
+    if (aliveCount <= 6) return 'rong-ran';
+    var idx = (round - 3) % POOL_GAMES.length;
+    var cycle = Math.floor((round - 3) / POOL_GAMES.length);
+    return POOL_GAMES[localPoolCycle(cycle)[idx]];
+  }
+  function localNameForRound(round, aliveCount) {
+    var g = localGameForRound(round, aliveCount);
+    if (round === 1) return 'Trống Hội';
+    if (round === 2) return 'Cầu Khỉ Sương Mù';
+    return POOL_NAMES[g] + (g === 'rong-ran' ? ' (CHUNG KẾT)' : '');
+  }
+  var currentRound = 0, currentRoundName = '', currentRoundGame = null, roundTimeLimit = 0, roundEndsAt = 0, roundStartAlive = [], roundTarget = 0, roundIsFinal = false;
   var lastInputSentAt = 0, jumpQueued = false, interstitialTimer = null;
   var keys = {}, typing = false, joy = { x: 0, y: 0, active: false };
   // Camera người chơi (hệ damping của bản prototype).
@@ -98,13 +147,24 @@
   var localBridges = {}, localRanking = [];
   // ---- CHẾ ĐỘ QC (FR-46, chỉ test) ----
   // QC cho phép nhảy thẳng tới vòng bất kỳ để test nhanh (qua mỗi vòng thật
-  // rất khó nên test hết 6 vòng sẽ rất lâu). TẮT mặc định, không ảnh hưởng
+  // rất khó nên test hết các vòng sẽ rất lâu). TẮT mặc định, không ảnh hưởng
   // trận thường: trận QC không thưởng Hội Xu / XP Pass, không tính BXH.
   var qcMode = false, qcNoElim = false, qcStartRound = 1, qcPlan = null, qcJumpedRound = 0;
-  // Số người còn sống khi vào thẳng từng vòng ở chơi đơn (61 người): đường
-  // loại co giãn từ 456→280→150→70→24→6→1 (games.scaledTargets(61) =
-  // [37, 20, 9, 3, 1, 1]); V6 lấy tối thiểu 2 người để còn test được cờ.
-  var QC_START_ALIVE = { 1: 61, 2: 37, 3: 20, 4: 9, 5: 3, 6: 2 };
+  // Số người còn sống khi vào thẳng vòng n ở chơi đơn (61 người): áp tỉ lệ
+  // giữ lại theo chu kỳ (0.614, 0.536, 0.467, 0.343, 0.25, 0.167) từ 61 —
+  // games.scaledTargets(61) = [37, 20, 9, 3, 1]. Không hardcode bảng 6 vòng:
+  // vòng nào cũng tính bằng cùng công thức, và QC lấy tối thiểu 2 người
+  // (để vòng chung kết còn test được cờ, và các vòng sau vòng 6 vẫn có bot).
+  var QC_CURVE_RATIOS = [0.614, 0.536, 0.467, 0.343, 0.25, 0.167];
+  function qcAliveForRound(n) {
+    var cur = 61;
+    for (var i = 1; i < n; i++) {
+      var ratio = QC_CURVE_RATIOS[(i - 1) % QC_CURVE_RATIOS.length];
+      cur = Math.max(1, Math.min(cur - 1, Math.round(cur * ratio)));
+    }
+    return Math.max(2, cur); // sàn QC: luôn có ít nhất người chơi + 1 bot
+  }
+  var QC_START_ALIVE = { 1: 61, 2: 37, 3: 20, 4: 9, 5: 3, 6: 2 }; // giữ để tương thích cũ; dùng qcAliveForRound()
   // RNG có seed (mulberry32) để xáo thứ tự lượt vòng 2 khi nhảy thẳng mà
   // không có thời gian về đích vòng 1 — seed là thời điểm bắt đầu trận.
   function qcRng() {
@@ -119,17 +179,19 @@
   }
   function qcRoundName(r) {
     if (qcPlan && qcPlan[r - 1] && qcPlan[r - 1].name) return qcPlan[r - 1].name;
-    return ROUND_NAMES[r] || ('Vòng ' + r);
+    if (r === 1) return 'Trống Hội';
+    if (r === 2) return 'Cầu Khỉ Sương Mù';
+    return localNameForRound(r, qcAliveForRound(r));
   }
   function renderQcButtons() {
     var box = $('qc-round-btns'); if (!box) return;
     var html = '';
-    for (var r = 1; r <= 6; r++) {
+    for (var r = 1; r <= 8; r++) { // QC nhảy được qua vòng 6 (vòng 7, 8, ...)
       var name = (mode === 'multi' && !qcPlan && r >= 3 && r <= 5)
         ? 'Vòng ' + r + ' · bốc từ kho' : qcRoundName(r);
       html += '<button type="button" class="qcRoundBtn' + (r === qcStartRound ? ' on' : '') +
         '" data-qc-round="' + r + '">V' + r + ' · ' + escapeHtml(name) +
-        (mode === 'multi' ? '' : ' · ' + QC_START_ALIVE[r] + ' người') + '</button>';
+        (mode === 'multi' ? '' : ' · ' + qcAliveForRound(r) + ' người') + '</button>';
     }
     box.innerHTML = html;
     var btns = box.querySelectorAll('[data-qc-round]');
@@ -140,7 +202,7 @@
   function renderQcBarButtons() {
     var box = $('qcBarRounds'); if (!box) return;
     var html = '';
-    for (var r = 1; r <= 6; r++) {
+    for (var r = 1; r <= 8; r++) { // QC nhảy được qua vòng 6
       html += '<button type="button" class="qcRoundBtn" data-qc-bar-round="' + r + '">V' + r + '</button>';
     }
     box.innerHTML = html;
@@ -154,10 +216,10 @@
     var show = qcMode && mode && (phase.indexOf('round') === 0 || phase === 'team' || phase === 'interstitial' || phase === 'spectator');
     bar.classList.toggle('hidden', !show);
     var br = $('qcBarRound');
-    if (br) br.textContent = currentRound ? ('Vòng ' + currentRound + '/6 — ' + (ROUND_NAMES[currentRound] || '')) : '—';
+    if (br) br.textContent = currentRound ? ('Vòng ' + currentRound + ' — ' + (currentRoundName || '')) : '—';
   }
   function qcSkipTo(n) {
-    n = Math.max(1, Math.min(6, Number(n) || 1));
+    n = Math.max(1, Math.min(20, Number(n) || 1)); // không giới hạn ở vòng 6
     // Chặn ở tầng hàm, không chỉ tầng giao diện: trận thường không bao giờ
     // nhảy vòng được, kể cả khi ai đó gọi hàm này trực tiếp.
     if (!qcMode) { toast('Chế độ QC chưa bật — không nhảy vòng được.'); return; }
@@ -171,7 +233,7 @@
   // Chuẩn bị đội hình chơi đơn cho vòng n: đúng số người còn sống theo
   // đường loại (QC_START_ALIVE), người chơi luôn còn sống, bot thừa ẩn đi.
   function qcSetupSingle(n) {
-    var alive = QC_START_ALIVE[n] || 61;
+    var alive = qcAliveForRound(n);
     var shuffled = bots.slice();
     for (var i = shuffled.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
@@ -2552,7 +2614,7 @@
     phase = 'flyover'; flyT = 0; introBlend = 0;
     ensureFlyoverEls();
     flyoverTitleEl.style.display = 'block';
-    setHudDrum('VÒNG 1/6 — Trống Hội');
+    setHudDrum('VÒNG 1 — Trống Hội');
     toast('Bay tổng quan quanh đảo… bấm phím bất kỳ để bỏ qua.');
   }
   function connectWS() {
@@ -2571,7 +2633,7 @@
     // Tin nhắn riêng của các vòng 3-6 do rounds.js xử lý trước.
     if (window.Rounds && window.Rounds.onServerMessage && window.Rounds.onServerMessage(msg)) return;
     if (msg.type === 'welcome') { myId = msg.id; return; }
-    if (msg.type === 'roundStart') { startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed); return; }
+    if (msg.type === 'roundStart') { startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed, msg.target, msg.isFinal); return; }
     if (msg.type === 'economy' && window.HoiShop && window.HoiShop.onMessage) { window.HoiShop.onMessage(msg); return; }
     if (msg.type === 'roundEnd') { onRoundEnd(msg); return; }
     if (msg.type === 'tick') { onTick(msg); return; }
@@ -2646,10 +2708,25 @@
         teleportToBridge();
         updateMultiQueuePanel();
       }
-      if (msg.phase === 'round3' || msg.phase === 'round4' || msg.phase === 'round5' || msg.phase === 'round6') {
+      if (msg.phase && msg.phase.indexOf('round') === 0 && msg.phase !== 'round1' && msg.phase !== 'round2') {
         var rn = Number(msg.phase.slice(5));
         var ts4 = $('team-screen'); if (ts4) ts4.classList.add('hidden');
-        startRoundCommon(rn, ROUND_GAMES[rn], ROUND_NAMES[rn], ROUND_TIME_LIMITS[ROUND_GAMES[rn]] || 90);
+        // Trò/tên vòng do server gửi kèm tin roundStart (trước tin phase);
+        // nếu chưa có thì dùng tên theo vòng (chỉ đúng vòng 1-2, còn lại
+        // server là nguồn chuẩn). Không hardcode vòng 3-6.
+        startRoundCommon(rn, msg.game || currentRoundGame, msg.name || currentRoundName, msg.timeLimit || ROUND_TIME_LIMITS[msg.game] || 90);
+        // Server đã đưa mọi người về sân làng ở startRound (vòng 3–6) —
+        // dịch người chơi theo đúng vị trí server của mình (tin phase kèm
+        // players), nếu không client vẫn đứng ở cuối cầu trong khi server
+        // tính vị trí ở sân (bắt dê / cướp cờ đều chấm bằng vị trí server).
+        if (player && msg.players) {
+          var meInfo = msg.players.find(function (pp) { return pp.id === myId; });
+          var px = meInfo ? meInfo.x : 0, pz = meInfo ? meInfo.z : START_Z;
+          if (Number.isFinite(px) && Number.isFinite(pz)) {
+            player.x = px; player.z = pz;
+            player.group.position.set(px, player.y || 0, pz);
+          }
+        }
       }
       if (msg.phase === 'finished') {
         showRanking(msg.ranking || []);
@@ -3001,7 +3078,7 @@
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     scene.fog.near = 16; scene.fog.far = 130;
     scene.background.set(0xe8c39a);
-    setHudDrum('VÒNG 2/6 — Cầu Khỉ Sương Mù');
+    setHudDrum('VÒNG 2 — Cầu Khỉ Sương Mù');
     toast('VÒNG 2 — CẦU KHỈ · ĐI THEO LƯỢT THEO ĐỘI');
     updateTeamPanel();
     syncQcBar();
@@ -3491,7 +3568,7 @@
       var len = Math.hypot(mx, mz); mx /= len; mz /= len;
       var oldX = player.x, oldZ = player.z;
       player.x += mx * speed * dt; player.z += mz * speed * dt;
-      // Giới hạn trong đảo chính ở vòng 1/3/5/6.
+      // Giới hạn trong đảo chính ở vòng 1 và các vòng sân làng.
       if (phase === 'round1' || phase === 'round3' || phase === 'round5' || phase === 'round6') { player.x = Math.max(-28, Math.min(28, player.x)); player.z = Math.max(-48, Math.min(38, player.z)); }
       if (phase === 'round2') {
         // Trên cầu chỉ đi trong làn cầu của đội mình.
@@ -3909,7 +3986,7 @@
   } catch (e) { /* URLSearchParams không có thì thôi, QC vẫn bật được bằng nút */ }
   renderQcButtons(); renderQcBarButtons();
   var qcNext = $('qcNextBtn');
-  if (qcNext) qcNext.onclick = function () { qcSkipTo(currentRound >= TOTAL_ROUNDS ? TOTAL_ROUNDS : (currentRound || 1) + 1); };
+  if (qcNext) qcNext.onclick = function () { qcSkipTo((currentRound || 1) + 1); }; // VÒNG SAU không dừng ở vòng 6
   var qcRe = $('qcRestartBtn');
   if (qcRe) qcRe.onclick = function () { qcSkipTo(currentRound || 1); };
   if (btnTourLobby) btnTourLobby.onclick = function () { ensureAudio(); startAmbient(); focusIsland(1, true); };
@@ -4007,7 +4084,7 @@
     window.HoiWallet = { set: function (balance) { var el = $('wallet-hud'); if (el) el.textContent = 'Hội Xu: ' + balance; } };
   }
 
-  // ---- Luồng 6 vòng (mở rộng) ----
+  // ---- Luồng nhiều vòng (số vòng không giới hạn) ----
   function roundEndStats() {
     var alive = allPersons().filter(function (p) { return p.alive; });
     var elim = roundStartAlive.filter(function (n) {
@@ -4015,15 +4092,41 @@
     });
     return { survivors: alive.length, eliminated: elim };
   }
-  function startRoundCommon(round, game, name, timeLimit, seed) {
+  // Vòng 3–6 chơi trong sân làng (sim đặt đạo cụ ở z 0..35) — sau vòng 2
+  // mọi người đang ở cuối cầu (z≈-95..-131) nên phải đưa đội hình về sân,
+  // không thì sim ở một nơi, người chơi ở một nơi. Chơi đơn: game.js là
+  // nguồn chuẩn nên dịch luôn. Nhiều người: server dịch ở startRound, client
+  // dịch theo vị trí server gửi kèm tin phase (xem handler phase round3-6).
+  function resetYardPositions() {
+    if (player) {
+      player.x = 0; player.z = START_Z; player.y = 0; player.vy = 0;
+      player.group.position.set(0, 0, START_Z);
+    }
+    bots.forEach(function (b) {
+      if (!b.alive) return;
+      b.x = -13 + Math.random() * 26; b.z = 28 + Math.random() * 10; b.y = 0;
+      b.group.position.set(b.x, 0, b.z);
+    });
+  }
+  function startRoundCommon(round, game, name, timeLimit, seed, target, isFinal) {
     currentRound = round;
+    currentRoundGame = game;
+    currentRoundName = name || '';
+    roundTarget = target || 0;
+    roundIsFinal = !!isFinal;
     roundTimeLimit = timeLimit || 0;
     roundEndsAt = roundTimeLimit ? Date.now() + roundTimeLimit * 1000 : 0;
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     updateSingleR1._r1TimeoutDone = false;
     phase = 'round' + round;
-    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + (name || ROUND_NAMES[round] || '');
-    setHudDrum(name || ROUND_NAMES[round] || '');
+    if (round >= 3) {
+      if (mode === 'single') resetYardPositions();
+      scene.fog.near = 150; scene.fog.far = 720;
+      scene.background.set(0xffc98a);
+    }
+    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + (name || '');
+    if (hr) hr.title = roundTarget ? ('Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (roundIsFinal ? ' · CHUNG KẾT' : '')) : '';
+    setHudDrum(name || currentRoundName || '');
     hideInterstitial();
     // An toàn: màn CHIA TEAM và dải team không được nấn ná sang vòng chơi —
     // bắt đầu vòng nào thì mọi banner của vòng trước phải biến mất hẳn.
@@ -4041,7 +4144,7 @@
       scene.background.set(0xe8c39a);
       brokenSteps = {};
     }
-    if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed });
+    if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed, isFinal: roundIsFinal });
     syncQcBar();
   }
   function onRoundEnd(msg) {
@@ -4053,7 +4156,7 @@
       return pp ? pp.name : id;
     });
     showInterstitial(msg.round, survivors, elimNames.length ? elimNames : st.eliminated,
-      msg.round < TOTAL_ROUNDS ? ROUND_NAMES[msg.round + 1] : null);
+      msg.nextName || null);
     if (window.Rounds) window.Rounds.endRound();
     phase = 'interstitial';
     clearTimeout(interstitialTimer);
@@ -4074,7 +4177,7 @@
   }
   function showInterstitial(round, survivors, eliminated, nextName) {
     var el = $('interstitial'); if (!el) return;
-    el.innerHTML = '<h2>HẾT VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + (ROUND_NAMES[round] || '') + '</h2>' +
+    el.innerHTML = '<h2>HẾT VÒNG ' + round + ' — ' + (currentRoundName || '') + '</h2>' +
       '<p>Còn sống: <b>' + survivors + '</b> người</p>' +
       (eliminated && eliminated.length
         ? '<p>Bị loại: ' + eliminated.map(function (n) { return escapeHtml(n); }).join(', ') + '</p>'
@@ -4087,7 +4190,10 @@
   // Kết thúc một vòng ở chế độ chơi đơn: hiện interstitial 3s rồi sang vòng sau.
   function localRoundEnd(round, survivors, eliminated) {
     if (window.Rounds) window.Rounds.endRound();
-    showInterstitial(round, survivors, eliminated, round < TOTAL_ROUNDS ? ROUND_NAMES[round + 1] : null);
+    // Vòng tiếp theo bốc theo số người còn sống (không giới hạn ở vòng 6);
+    // nếu chỉ còn 1 người hoặc vừa xong chung kết thì trận kết thúc.
+    var nextName = (survivors > 1 && !roundIsFinal) ? localNameForRound(round + 1, survivors) : null;
+    showInterstitial(round, survivors, eliminated, nextName);
     phase = 'interstitial';
     clearTimeout(interstitialTimer);
     interstitialTimer = setTimeout(function () {
@@ -4099,20 +4205,32 @@
         return;
       }
       if (round === 1) { showTeamScreenSingle(); return; }
-      if (round < TOTAL_ROUNDS) { startRoundLocal(round + 1); return; }
+      if (survivors > 1 && !roundIsFinal) { startRoundLocal(round + 1); return; }
       showRanking(allPersons().filter(function (p) { return p.alive; })
         .map(function (p) { return { name: p.name, time: Date.now() - matchStartAt }; }));
     }, 3000);
   }
   function startRoundLocal(round) {
-    var game = ROUND_GAMES[round], name = ROUND_NAMES[round];
-    currentRound = round; roundTimeLimit = ROUND_TIME_LIMITS[game] || 90; roundEndsAt = Date.now() + roundTimeLimit * 1000;
+    // Trò của vòng bốc theo số người còn sống lúc bắt đầu vòng (khớp server):
+    // <= 6 người thì là chung kết Rồng Rắn, còn không thì bốc theo chu kỳ kho.
+    var aliveNow = allPersons().filter(function (p) { return p.alive; }).length;
+    var game = localGameForRound(round, aliveNow);
+    var name = localNameForRound(round, aliveNow);
+    var isFinal = game === 'rong-ran';
+    currentRound = round; currentRoundGame = game; currentRoundName = name;
+    roundIsFinal = isFinal;
+    roundTarget = isFinal ? 1 : Math.max(1, Math.min(aliveNow - 1, Math.round(aliveNow * QC_CURVE_RATIOS[(round - 1) % QC_CURVE_RATIOS.length])));
+    roundTimeLimit = ROUND_TIME_LIMITS[game] || 90; roundEndsAt = Date.now() + roundTimeLimit * 1000;
     roundStartAlive = allPersons().filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
     phase = 'round' + round;
-    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + '/' + TOTAL_ROUNDS + ' — ' + name;
+    resetYardPositions();
+    scene.fog.near = 150; scene.fog.far = 720;
+    scene.background.set(0xffc98a);
+    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + name;
+    if (hr) hr.title = 'Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (isFinal ? ' · CHUNG KẾT' : '');
     setHudDrum(name);
     hideInterstitial();
-    if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now() });
+    if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now(), isFinal: isFinal });
   }
   // Đồng hồ đếm ngược HIỂN THỊ TRÊN HUD (ô ĐẾM NGƯỢC, cạnh ô VÒNG):
   // mọi vòng đều có đếm ngược. Vòng 1, 3–6: đếm ngược cả vòng (deadline
@@ -4146,7 +4264,7 @@
     if (roundEndsAt && phase.indexOf('round') === 0) {
       var rRemain = Math.max(0, (roundEndsAt - Date.now()) / 1000);
       wrap.classList.remove('hidden'); txt.classList.remove('hidden');
-      txt.textContent = 'Còn ' + fmtTime(rRemain) + (currentRound === 1 ? ' — về đích trước khi hết giờ!' : ' — ' + (ROUND_NAMES[currentRound] || ''));
+      txt.textContent = 'Còn ' + fmtTime(rRemain) + (currentRound === 1 ? ' — về đích trước khi hết giờ!' : ' — ' + (currentRoundName || '')) + (roundTarget ? ' · mục tiêu ~' + roundTarget + ' người' : '');
       fill.style.width = (roundTimeLimit ? Math.round(rRemain / roundTimeLimit * 100) : 0) + '%';
       txt.classList.toggle('urgent', rRemain <= 30);
       fill.classList.toggle('urgent', rRemain <= 30);
@@ -4169,6 +4287,8 @@
     get player() { return player; },
     get bots() { return bots; },
     get scene() { return scene; },
+    get camera() { return camera; },
+    get renderer() { return renderer; },
     get matchStartAt() { return matchStartAt; },
     allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast,
     setTag: setTag, clearTag: clearTag, updateAliveHUD: updateAliveHUD,

@@ -23,23 +23,24 @@ Mở trình duyệt tại `http://localhost:3000` (cổng mặc định, đổi 
 
 ## Chế độ QC — test nhanh, nhảy thẳng tới vòng bất kỳ (chỉ test)
 
-Qua mỗi vòng thật rất khó nên test hết 6 vòng sẽ rất lâu. Chế độ QC cho
+Qua mỗi vòng thật rất khó nên test hết các vòng sẽ rất lâu. Chế độ QC cho
 phép nhảy thẳng tới vòng bất kỳ, không cần qua các vòng trước:
 
 - Mở bằng nút **CHẾ ĐỘ QC — TEST NHANH** trên thẻ bắt đầu, hoặc mở nhanh
   bằng đường dẫn `http://localhost:3000/?qc=1`.
-- Chọn vòng 1–6 rồi bấm **CHƠI ĐƠN** (60 bot) hoặc **TẠO PHÒNG** (nhiều
+- Chọn vòng 1–8 rồi bấm **CHƠI ĐƠN** (60 bot) hoặc **TẠO PHÒNG** (nhiều
   người, cả phòng cùng bắt đầu ở vòng đã chọn; tên các vòng 3–5 đã bốc
   hiện sau khi tạo phòng). Phòng QC hiện dấu `[QC]` trong danh sách phòng.
+  Nhảy được qua vòng 6 (vòng 7, 8, ...) vì số vòng chơi không giới hạn.
 - Chơi đơn: số người còn sống khi vào vòng theo đường loại co giãn từ
-  61 người — V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 (V6 lấy tối
-  thiểu 2 người để còn test được cờ).
+  61 người, tính bằng tỉ lệ chu kỳ — V1: 61 · V2: 37 · V3: 20 · V4: 9 ·
+  V5: 3 · V6: 2 (tối thiểu 2 người để còn test được cờ).
 - Nhảy thẳng Vòng 2 vẫn qua bước CHIA TEAM: thứ tự lượt xáo trộn theo
   seed của trận (không có thời gian về đích Vòng 1), đồng hồ lượt 30 giây
   vẫn áp dụng. Mỗi cầu có đúng số lượt bằng số thành viên của nó.
 - Trong lúc chơi, thanh **QC — CHỈ TEST** ở dưới màn hình cho nhảy tới
-  vòng khác (V1–V6), sang vòng sau, hoặc chơi lại vòng đang chơi. Ở chế
-  độ nhiều người chỉ chủ phòng mới nhảy vòng được.
+  vòng khác (V1–V8), sang vòng sau (không dừng ở vòng 6), hoặc chơi lại
+  vòng đang chơi. Ở chế độ nhiều người chỉ chủ phòng mới nhảy vòng được.
 - Tuỳ chọn **Không loại (chỉ test giao diện)** — tắt mặc định; bật thì
   người chơi không bị loại, chỉ dùng để xem giao diện từng vòng.
 - **Trận QC không thưởng Hội Xu / XP Pass, không tính vào bảng xếp hạng
@@ -173,8 +174,9 @@ trong chế độ multiplayer.
 
 **README này chỉ mô tả bản demo trong repo** (2 vòng, phòng tối đa 20 người
 tự bắt đầu, chơi đơn 60 bot, du lịch 7 đảo, chat phòng). Tầm nhìn đầy đủ —
-trận 456 người, 6 vòng, kho 18–20 trò, đường loại tới 1 người thắng, và kế
-hoạch triển khai production — nằm trong ba tài liệu dưới `docs/`:
+trận 456 người, số vòng không giới hạn tới 1 người thắng, kho 18–20 trò,
+đường loại theo tỉ lệ chu kỳ, và kế hoạch triển khai production — nằm
+trong ba tài liệu dưới `docs/`:
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — tài liệu kiến trúc: luồng trận, server có thẩm quyền, giao thức WebSocket, máy trạng thái, mô hình dữ liệu, đường mở rộng lên 456 người, triển khai.
 - [docs/BRD.md](./docs/BRD.md) — tài liệu yêu cầu nghiệp vụ: tầm nhìn, mục tiêu và KPI đề xuất, scope IN/OUT, user stories, yêu cầu chức năng FR-01…FR-33, kho thử thách và đường loại dự kiến, quyết định mở cần Sudo chốt.
@@ -191,7 +193,8 @@ Ported / Adapted / Missing và danh sách gap còn mở: xem
 [docs/ARTIFACT-PARITY.md](./docs/ARTIFACT-PARITY.md).
 
 Ngắn gọn: artifact chỉ có 2 vòng chơi đơn; repo giữ giao diện đó và thêm
-toàn bộ hệ thống artifact không có — trận 6 vòng, multiplayer WebSocket
+toàn bộ hệ thống artifact không có — trận nhiều vòng không giới hạn,
+multiplayer WebSocket
 với server có thẩm quyền, kinh tế trong game (shop/pass/giải đấu/quà tặng,
 stub thanh toán), Docker. Gap lớn nhất còn mở so với artifact là **chưa có
 âm thanh** (trống/chiêng chỉ còn là chữ trên HUD) và **bấm đảo xa trong 3D

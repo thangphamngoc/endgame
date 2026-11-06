@@ -1,16 +1,21 @@
-/* Các vòng 3–6 và 2 vòng dự phòng (Ô Ăn Quan, Nhảy Bao Bố) — client.
+/* Các vòng từ 3 trở đi (số vòng KHÔNG giới hạn — Sudo 2026-11-06) — client.
  * Chạy sau game.js, chỉ giao tiếp với game qua cầu nối window.__game.
  * Multiplayer: server quyết nhịp, điểm và loại; client chỉ hiển thị + gửi hành động.
  * Chơi đơn: bot mô phỏng tại client, loại theo đúng đường cong loại của server
- * (tỉ lệ giữ lại mỗi vòng: vòng 3 giữ 46.7%, vòng 4 giữ 34.3%, vòng 5 giữ 25%,
- * vòng 6 chỉ giữ 1 người thắng; server là nguồn chuẩn ở multiplayer).
+ * (tỉ lệ giữ lại áp theo chu kỳ 0.614, 0.536, 0.467, 0.343, 0.25, 0.167;
+ * vòng chung kết Rồng Rắn chỉ giữ 1 người thắng; server là nguồn chuẩn
+ * ở multiplayer). Mỗi vòng còn > 1 người đều loại ít nhất 1 người.
  * Chỉ dùng bản sắc dân gian Việt Nam, không dùng tài sản Squid Game hay Minecraft.
  */
 (function () {
   'use strict';
   var ELIM_FRAC = 0.30; // dự phòng khi vòng không nằm trong đường cong chuẩn
-  // Đường cong loại của server (CURVE_RATIOS): tỉ lệ NGƯỜI GIỮ LẠI sau mỗi vòng.
-  var KEEP_RATIO = { 3: 0.467, 4: 0.343, 5: 0.25 };
+  // Đường cong loại của server (CURVE_RATIOS), áp THEO CHU KỲ theo số vòng:
+  // vòng r giữ tỉ lệ CURVE_RATIOS[(r-1) % 6] (vòng 3 giữ 46.7%, vòng 4 giữ
+  // 34.3%, vòng 5 giữ 25%, vòng 6 giữ 16.7%, vòng 7 lại giữ 61.4%, ...).
+  // Vòng chung kết (Rồng Rắn) luôn chỉ giữ 1 người, không theo tỉ lệ này.
+  var CURVE_RATIOS = [0.614, 0.536, 0.467, 0.343, 0.25, 0.167];
+  function keepRatioForRound(round) { return CURVE_RATIOS[(round - 1) % CURVE_RATIOS.length]; }
   var overlay = null, blindEl = null, flagMarker = null, goatMarker = null;
   var active = null;
   // blind/cue có thể tới trước roundStart (server gửi trong lúc chuẩn bị vòng):
@@ -50,14 +55,14 @@
   function removeMarker(el) { if (el && el.parentNode) el.parentNode.removeChild(el); return null; }
 
   // Loại nhóm yếu nhất trong `scored` (đã xếp theo điểm giảm dần), trả về tên bị loại.
-  function eliminateBottom(scored, reason, round) {
+  function eliminateBottom(scored, reason, round, isFinal) {
     var b = B();
     var n = scored.length;
     if (n <= 1) return [];
     var keep;
-    if (round === 6) keep = 1;
-    else if (KEEP_RATIO[round]) keep = Math.max(1, Math.round(n * KEEP_RATIO[round]));
-    else keep = Math.max(1, n - Math.max(1, Math.ceil(n * ELIM_FRAC)));
+    if (isFinal) keep = 1;
+    else keep = Math.max(1, Math.round(n * keepRatioForRound(round)));
+    if (keep >= n) keep = n - 1; // dự phòng: tỉ lệ lớn vẫn loại ít nhất 1
     if (n > 2) keep = Math.min(keep, n - 1); // còn >2 người thì mỗi vòng loại ít nhất 1
     var elim = scored.slice(keep);
     var names = [];
@@ -111,11 +116,24 @@
   }
   function endTug(st, winner) {
     var loserTeam = winner === 'a' ? st.state.teamB : st.state.teamA;
+    // Đội thua chỉ còn 1 người: người đó vẫn bị loại (nếu không, vòng này
+    // không loại ai và trận có thể không bao giờ kết thúc).
+    if (loserTeam.length === 1) {
+      var sole = loserTeam[0];
+      var elimSole = [];
+      if (sole === B().player) B().eliminate(sole, 'Đội thua kéo co — bị loại');
+      else sole.alive = false;
+      elimSole.push(sole.name);
+      if (B()) B().updateAliveHUD();
+      toast(winner === st.state.myTeam ? 'Đội bạn thắng kéo co!' : 'Đội bạn thua kéo co.');
+      finishLocal(st, elimSole);
+      return;
+    }
     var scored = loserTeam.map(function (p) {
       var score = p === B().player ? st.state.myPower : rand(1, 10);
       return { p: p, score: score };
     }).sort(function (x, y) { return y.score - x.score; });
-    var elim = eliminateBottom(scored, 'Đội thua kéo co — bị loại', st.round);
+    var elim = eliminateBottom(scored, 'Đội thua kéo co — bị loại', st.round, st.isFinal);
     toast(winner === st.state.myTeam ? 'Đội bạn thắng kéo co!' : 'Đội bạn thua kéo co.');
     finishLocal(st, elim);
   }
@@ -204,7 +222,7 @@
     if (rk) rk.innerHTML = '<b>Xếp hạng nặn tò he:</b><br>' + scored.slice(0, 8).map(function (s, i) {
       return (i + 1) + '. ' + esc(s.p.name) + ' — ' + s.score + ' điểm' + (s.p === B().player ? ' (bạn)' : '');
     }).join('<br>') + '<br>Bạn đứng hạng ' + rank + '/' + scored.length + '.';
-    var elim = eliminateBottom(scored, 'Nặn tò he điểm thấp — bị loại', st.round);
+    var elim = eliminateBottom(scored, 'Nặn tò he điểm thấp — bị loại', st.round, st.isFinal);
     setTimeout(function () { finishLocal(st, elim); }, 1500);
   }
 
@@ -216,14 +234,50 @@
     if (dist < 30) return 'Còn xa — tiếng dê vọng lại.';
     return 'Rất xa — chỉ nghe tiếng thoang thoảng.';
   }
+  // ---- Mô phỏng 3D từng vòng (client/js/sim/sim-*.js) ----
+  // rounds.js giữ máy trạng thái + luật server; các sim chỉ vẽ thế giới 3D
+  // và strip HUD gọn. Sim được gọi ở startRound (build), update (mỗi khung)
+  // và endRound (teardown). Sim không chấm điểm, không tự gửi tin ngoài
+  // những gì rounds.js đã có.
+  var activeSim = null, activeSimGame = null;
+  function simFor(game) { return (window.RoundSims || {})[game] || null; }
+  function simBuild(st) {
+    var s = simFor(st.game);
+    activeSim = null; activeSimGame = null;
+    if (s && s.build) {
+      try { s.build(st, B()); activeSim = s; activeSimGame = st.game; } catch (e) { if (typeof console !== 'undefined' && console.error) console.error('[sim] build failed: ' + st.game, e); }
+    }
+    var ov = $('round-overlay');
+    if (ov) ov.classList.toggle('sim-mode', !!activeSim);
+  }
+  function simUpdate(dt, st) {
+    if (activeSim && activeSim.update) {
+      try { activeSim.update(dt, st, B()); } catch (e) { if (typeof console !== 'undefined' && console.error) console.error('[sim] update failed: ' + activeSimGame, e); /* giữ sim để teardown còn dọn được; khung sau có thể hồi phục */ }
+    }
+  }
+  function simTeardown(st) {
+    if (activeSim && activeSim.teardown) {
+      try { activeSim.teardown(st, B()); } catch (e) { if (typeof console !== 'undefined' && console.error) console.error('[sim] teardown failed: ' + activeSimGame, e); }
+    }
+    activeSim = null; activeSimGame = null;
+    var ov = $('round-overlay');
+    if (ov) ov.classList.remove('sim-mode');
+  }
   function updateCue(st, dir, dist) {
     var arrow = $('cue-arrow'), txt = $('cue-text');
-    if (arrow && dir !== undefined && dir !== null) arrow.style.transform = 'rotate(' + dir + 'deg)';
+    // Server gửi hướng dạng chữ (east/west/south/north); chế độ chơi đơn
+    // tính bằng độ. Đổi chữ sang độ theo cùng quy ước atan2(dx,-dz).
+    var deg = dir;
+    if (typeof dir === 'string') {
+      deg = { north: 0, east: 90, south: 180, west: 270 }[dir];
+      if (deg === undefined) deg = null;
+    }
+    if (arrow && deg !== undefined && deg !== null) arrow.style.transform = 'rotate(' + deg + 'deg)';
     if (txt) txt.textContent = cueLabel(dist) + (dist !== undefined && dist !== null ? ' (khoảng ' + Math.round(dist) + ' bước)' : '');
   }
   function blindHtml(st) {
     return '<div class="blind-box">' +
-      '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '/6</h2>' +
+      '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '</h2>' +
       '<p class="note"><b>Luật chơi:</b> người bịt mắt nghe tiếng dê để bắt. Mũi tên chỉ hướng tiếng kêu, dòng chữ cho biết xa hay gần. Dê chạy trốn; ai bắt được dê thì dê bị loại. Hết giờ mà dê chưa bị bắt thì 2 người tìm kém nhất bị loại.</p>' +
       '<div id="cue-arrow">▲</div>' +
       '<p id="cue-text">Đang nghe…</p>' +
@@ -234,12 +288,12 @@
       '</div>';
   }
   function goatPanelHtml(st) {
-    return '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '/6</h2>' +
+    return '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '</h2>' +
       '<p class="note"><b>Luật chơi:</b> bạn là <b>DÊ</b> — chạy trốn, đừng để bị bắt! Dấu 🐐 chỉ mình bạn thấy. Người tìm nghe tiếng dê để bắt bạn; hết giờ mà bạn chưa bị bắt thì người tìm bị loại.</p>' +
       '<p class="note">Màn hình của bạn không tối vì dê không bị bịt mắt. Di chuyển bằng WASD / phím mũi tên / joystick như thường.</p>';
   }
   function seekerPanelHtml(st) {
-    return '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '/6</h2>' +
+    return '<h2>BỊT MẮT BẮT DÊ — VÒNG ' + st.round + '</h2>' +
       '<p class="note"><b>Luật chơi:</b> bạn là người đi bắt dê. Màn hình sẽ tối lại khi bịt mắt; nghe tiếng dê (mũi tên chỉ hướng, chữ cho biết xa/gần) để tìm dê. Dê bị bắt thì bị loại; hết giờ mà dê chưa bị bắt thì người tìm bị loại.</p>' +
       '<p class="note">Đang chờ server bịt mắt…</p>';
   }
@@ -262,7 +316,7 @@
     var turnText = st.state.over ? '' : (myTurn ? 'Tới lượt bạn — bấm một ô còn quân.' : 'Đang chờ lượt…');
     var scoreText = 'Điểm của bạn: ' + (st.state.scores.me || 0) + ' quân — Đối thủ: ' + (st.state.scores.bot || 0) + ' quân.';
     showOverlay(
-      '<h2>Ô ĂN QUAN — VÒNG ' + st.round + '/6</h2>' +
+      '<h2>Ô ĂN QUAN — VÒNG ' + st.round + '</h2>' +
       '<p class="note"><b>Luật chơi:</b> bấm một ô còn quân để rải theo vòng. Quân cuối rơi vào ô đang có đúng 1 quân thì ăn toàn bộ quân ở ô kế tiếp (không ăn ô quan). Mỗi người đi 3 lượt rồi đếm điểm ăn được; điểm thấp bị loại theo đường cong loại.</p>' +
       '<div class="oq-board"><div class="oq-rows"><div class="oq-row">' + top + '</div><div class="oq-row">' + bot + '</div></div></div>' +
       '<p class="note">' + scoreText + '</p>' +
@@ -322,9 +376,17 @@
       if (b.player.alive) { b.eliminate(b.player, 'Ô ăn quan thua điểm — bị loại'); elim.push(b.player.name); }
     } else {
       var bots = alivePersons().filter(function (p) { return p.isBot; });
-      var scored = bots.map(function (p) { return { p: p, score: rand(1, 10) }; })
-        .sort(function (x, y) { return y.score - x.score; });
-      elim = eliminateBottom(scored, 'Ô ăn quan — bị loại', st.round);
+      if (bots.length === 1) {
+        // Chỉ còn 1 đối thủ mà bạn thắng điểm: đối thủ bị loại (nếu không,
+        // vòng này không loại ai).
+        bots[0].alive = false;
+        elim = [bots[0].name];
+        if (B()) B().updateAliveHUD();
+      } else {
+        var scored = bots.map(function (p) { return { p: p, score: rand(1, 10) }; })
+          .sort(function (x, y) { return y.score - x.score; });
+        elim = eliminateBottom(scored, 'Ô ăn quan — bị loại', st.round, st.isFinal);
+      }
     }
     oqRender(st);
     var info = $('oq-info');
@@ -363,7 +425,7 @@
       var prog = p === B().player ? st.state.progress : (st.state.botProg[p.id] || 0);
       return { p: p, score: prog };
     }).sort(function (x, y) { return y.score - x.score; });
-    var elim = eliminateBottom(scored, 'Nhảy bao bố chậm nhất — bị loại', st.round);
+    var elim = eliminateBottom(scored, 'Nhảy bao bố chậm nhất — bị loại', st.round, st.isFinal);
     finishLocal(st, elim);
   }
 
@@ -378,7 +440,7 @@
       else if (s) score = s.touched ? 60 - Math.abs(p.z - 35) : 20 - Math.hypot(p.x, p.z);
       return { p: p, score: score };
     }).sort(function (x, y) { return y.score - x.score; });
-    var elim = eliminateBottom(scored, 'Chung kết cướp cờ — bị loại', st.round);
+    var elim = eliminateBottom(scored, 'Chung kết cướp cờ — bị loại', st.round, true);
     toast(winner === B().player ? 'Bạn cướp cờ về đích — thắng vòng chung kết!' : esc(winner ? winner.name : 'Không ai') + ' cướp cờ về đích trước.');
     finishLocal(st, elim);
   }
@@ -399,8 +461,8 @@
           return { p: p, acc: rand(0.45, 0.9), team: st.state.teamA.indexOf(p) >= 0 ? 'a' : 'b' };
         });
         showOverlay(
-          '<h2>KÉO CO NHỊP — VÒNG ' + st.round + '/6</h2>' +
-          '<p class="note"><b>Luật chơi:</b> hai đội kéo một sợi dây. Nghe nhịp trống, bấm nút KÉO (hoặc phím Space) đúng lúc vòng tròn sáng lên để kéo mạnh. Đội nào kéo được mốc giữa về phía mình trước sẽ thắng; đội thua bị loại theo đường cong loại (chỉ giữ lại ~47% người chơi sau vòng 3).</p>' +
+          '<h2>KÉO CO NHỊP — VÒNG ' + st.round + '</h2>' +
+          '<p class="note"><b>Luật chơi:</b> hai đội kéo một sợi dây. Nghe nhịp trống, bấm nút KÉO (hoặc phím Space) đúng lúc vòng tròn sáng lên để kéo mạnh. Đội nào kéo được mốc giữa về phía mình trước sẽ thắng; đội thua bị loại theo đường cong loại (giữ lại theo tỉ lệ của vòng).</p>' +
           '<div id="beat-ind" class="beat-ind">● NHỊP TRỐNG ●</div>' +
           '<div class="power-row"><div class="power-bar"><div id="power-a" class="power-fill a"></div></div><b id="power-a-num">Đội A: 0 sức kéo</b></div>' +
           '<div class="power-row"><div class="power-bar"><div id="power-b" class="power-fill b"></div></div><b id="power-b-num">Đội B: 0 sức kéo</b></div>' +
@@ -456,7 +518,7 @@
         st.state.drawn = [];
         st.state.myScore = null;
         showOverlay(
-          '<h2>NẶN TÒ HE — VÒNG ' + st.round + '/6</h2>' +
+          '<h2>NẶN TÒ HE — VÒNG ' + st.round + '</h2>' +
           '<p class="note"><b>Luật chơi:</b> vẽ lại hình mẫu bằng chuột hoặc ngón tay, đi theo đường nét đứt. Bấm NỘP BÀI để chấm điểm giống mẫu (tối đa 100). những người điểm thấp nhất bị loại theo đường cong loại.</p>' +
           '<p>Mẫu cần vẽ: <b>' + esc(shape.name) + '</b></p>' +
           '<canvas id="trace-canvas" width="320" height="320"></canvas>' +
@@ -610,9 +672,19 @@
       timeout: function (st) {
         // Hết giờ, dê chưa bị bắt: loại người tìm theo đường cong loại của vòng.
         var seekers = alivePersons().filter(function (p) { return p !== st.state.goat; });
+        if (seekers.length === 1) {
+          // Chỉ còn 1 người tìm: người đó bị loại (nếu không vòng không loại ai).
+          var soleSeeker = seekers[0];
+          if (soleSeeker === B().player) B().eliminate(soleSeeker, 'Tìm dê kém nhất — bị loại');
+          else soleSeeker.alive = false;
+          if (B()) B().updateAliveHUD();
+          toast('Hết giờ — dê chạy thoát!');
+          finishLocal(st, [soleSeeker.name]);
+          return;
+        }
         var scored = seekers.map(function (p) { return { p: p, score: rand(1, 10) }; })
           .sort(function (x, y) { return y.score - x.score; });
-        var elim = eliminateBottom(scored, 'Tìm dê kém nhất — bị loại', st.round);
+        var elim = eliminateBottom(scored, 'Tìm dê kém nhất — bị loại', st.round, st.isFinal);
         toast('Hết giờ — dê chạy thoát!');
         finishLocal(st, elim);
       },
@@ -686,7 +758,7 @@
           st.state.botAcc[p.id] = rand(0.4, 0.9);
         });
         showOverlay(
-          '<h2>NHẢY BAO BỐ — VÒNG ' + st.round + '/6</h2>' +
+          '<h2>NHẢY BAO BỐ — VÒNG ' + st.round + '</h2>' +
           '<p class="note"><b>Luật chơi:</b> nhảy trong bao bố về đích. Vạch sáng chạy qua lại trên thanh nhịp — bấm NHẢY (hoặc phím Space) đúng lúc vạch nằm trong ô sáng giữa thanh. Nhảy lệch nhịp sẽ vấp và chậm lại. Nhảy đủ ' + st.state.target + ' nhịp thì về đích; những người chậm nhất bị loại theo đường cong loại.</p>' +
           '<div class="hop-track"><div class="hop-zone"></div><div id="hop-marker" class="hop-marker"></div></div>' +
           '<div class="power-bar"><div id="hop-fill" class="power-fill a"></div></div>' +
@@ -761,8 +833,8 @@
           st.state.mesh = g;
         }
         showOverlay(
-          '<h2>RỒNG RẮN CƯỚP CỜ — VÒNG ' + st.round + '/6 (CHUNG KẾT)</h2>' +
-          '<p class="note"><b>Luật chơi:</b> cờ ở giữa sân. Chạm vào cờ rồi chạy về vạch xuất phát (phía sau lưng bạn) thì thắng vòng. Ai chạm cờ sẽ có dấu 🚩 trên đầu. Những người chậm nhất bị loại theo đường cong loại (chung kết chỉ giữ 1 người thắng).</p>' +
+          '<h2>RỒNG RẮN CƯỚP CỜ — VÒNG ' + st.round + ' (CHUNG KẾT)</h2>' +
+          '<p class="note"><b>Luật chơi:</b> cờ ở giữa sân. Chạm vào cờ rồi chạy về vạch xuất phát (phía sau lưng bạn) thì thắng vòng. Ai chạm cờ sẽ có dấu 🚩 trên đầu. Chung kết chỉ giữ 1 người thắng.</p>' +
           '<p id="flag-status" class="note">Chưa ai cầm cờ — chạy ra giữa sân!</p>');
         flagMarker = document.createElement('div');
         flagMarker.id = 'flag-marker';
@@ -861,7 +933,7 @@
     if (!meta) { toast('Vòng chưa hỗ trợ ở client: ' + game); return; }
     var alive = alivePersons();
     active = {
-      round: round, game: game, name: meta.name,
+      round: round, game: game, name: meta.name, isFinal: !!(opts && opts.isFinal),
       timeLimit: (opts && opts.timeLimit) || meta.time || 90,
       endsAt: Date.now() + (((opts && opts.timeLimit) || meta.time || 90) * 1000),
       local: !!(opts && opts.local),
@@ -871,6 +943,7 @@
     };
     if (b.setHudDrum) b.setHudDrum(meta.name + ' — ' + meta.ruleShort);
     meta.start(active);
+    simBuild(active);
     if (game === 'bit-mat' && !active.local) {
       if (pendingBlind === true) { hideOverlay(); showBlind(true, blindHtml(active)); }
       else if (pendingBlind === false) {
@@ -888,6 +961,7 @@
     if (active) {
       var g = GAMES[active.game];
       try { if (g && g.end) g.end(active); } catch (e) { /* dọn dẹp không được làm vỡ game */ }
+      simTeardown(active);
       active = null;
     }
     hideOverlay();
@@ -900,6 +974,8 @@
     var g = GAMES[active.game];
     if (g && g.update) g.update(dt, active);
     if (!active) return; // vòng có thể kết thúc trong update
+    simUpdate(dt, active);
+    if (!active) return;
     if (active.local && Date.now() >= active.endsAt && g && g.timeout) g.timeout(active);
   }
   function onServerMessage(msg) {

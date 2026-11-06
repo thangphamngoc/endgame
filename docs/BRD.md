@@ -76,7 +76,7 @@ sau khi có số người chơi thật.
 
 | Bên | Vai trò | Nhu cầu chính |
 |---|---|---|
-| Người chơi | Vào phòng, chơi 2 vòng (mục tiêu 6 vòng), chat với người khác | Vào trận nhanh, luật rõ, không lag, không gặp gian lận |
+| Người chơi | Vào phòng, chơi các vòng cho tới khi còn 1 người thắng, chat với người khác | Vào trận nhanh, luật rõ, không lag, không gặp gian lận |
 | Chủ phòng (host) | Tạo phòng, bắt đầu trận | Tạo phòng dễ, bắt đầu khi đủ người, host rời thì có người thay |
 | Khán giả / người bị loại | Xem tiếp trận sau khi bị loại | Có góc xem hay, biết ai đang dẫn đầu, không bị văng khỏi trận |
 | Khách du lịch trong game (người bị loại) | Đi du lịch vịnh Hạ Long trong lúc chờ | Đảo đẹp, có chuyện để đọc, click/zoom vào đảo xa được |
@@ -113,7 +113,7 @@ sau khi có số người chơi thật.
 ### 4.2. Phạm vi NGOÀI bản demo — chưa làm, cần quyết trước khi làm (Scope OUT)
 
 - Quy mô 456 người/phòng, tách trận song song, chia nhỏ vòng đầu rồi gộp lại.
-- Trận đầy đủ 6 vòng và kho thử thách 18–20 trò (xem §8).
+- Trận đầy đủ: số vòng không giới hạn, chỉ kết thúc khi còn 1 người thắng; kho thử thách 18–20 trò (xem §8).
 - Tài khoản / đăng nhập, hồ sơ người chơi, bạn bè, mời chơi.
 - Bảng xếp hạng lưu lâu dài, lịch sử trận, thống kê cá nhân.
 - Giải thưởng tiền mặt, quảng cáo (chưa quyết — xem §10: giải thưởng
@@ -143,7 +143,7 @@ sau khi có số người chơi thật.
   *(Đã có trong demo)*
 - **US-P06:** Là người chơi, tôi muốn sau khi bị loại vẫn ở lại xem hoặc đi
   chơi chỗ khác trong game, thay vì bị văng ra ngoài. *(Đã có: khán giả + du lịch)*
-- **US-P07 (dự kiến):** Là người chơi, tôi muốn chơi một trận đầy đủ 6 vòng
+- **US-P07 (dự kiến):** Là người chơi, tôi muốn chơi một trận đầy đủ cho tới khi còn 1 người thắng
   với nhiều thử thách khác nhau, để mỗi trận đều mới. *(Chưa có)*
 
 ### 5.2. Chủ phòng (host)
@@ -208,7 +208,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-26 | Điều khiển mobile | Joystick ảo + nút NHẢY dùng được, không tràn màn hình | Đã có (chưa play-test kỹ trên máy thật) |
 | FR-27 | Phòng 456 người, tự bắt đầu khi đủ 456 | Đủ 456 người thì tự bắt đầu; quá 456 thì tách trận mới | Dự kiến |
 | FR-28 | Chia nhỏ vòng 1 thành sân con ~57 người rồi gộp | Vòng 1 chia sân con, mỗi sân lấy top N, gộp lại chơi vòng sau | Dự kiến |
-| FR-29 | Trận đầy đủ 6 vòng, kho 18–20 trò, mỗi trận chọn 6 | Mỗi trận chọn 6 trò khác nhau từ kho, có biến thể theo người chơi | Dự kiến |
+| FR-29 | Trận đầy đủ (số vòng không giới hạn, OD-11), kho 18–20 trò | Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò, không lặp trong chu kỳ; chung kết Rồng Rắn chỉ khi ≤ 6 người sống lúc bắt đầu vòng; mỗi vòng loại ít nhất 1 người | Đã làm (PR #3, nhánh feat/reverse-team-order) |
 | FR-30 | Tài khoản / đăng nhập | Người chơi có hồ sơ, lịch sử trận | Dự kiến |
 | FR-31 | Bảng xếp hạng lưu lâu dài | Xếp hạng theo mùa/tuần, xem lại được sau khi tắt game | Dự kiến |
 | FR-32 | Kiểm duyệt chat (tố cáo, mute, lọc) | Người chơi tố cáo được, host/mod mute được, từ xấu bị lọc | Dự kiến |
@@ -225,7 +225,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-43 | Lưu trữ kinh tế | Hồ sơ (ví, inventory, pass, tour) lưu bền vững qua restart server | Đã làm (bản stub) — JSON `data/economy.json` (RAM + ghi file mỗi lần đổi); chưa phải database production (xem ARCHITECTURE §7.5) |
 | FR-44 | Kiểm duyệt tên shop / giải đấu | Tên giải đấu/thương hiệu bị từ chối khi trống, quá 40 ký tự hoặc chứa từ cấm | Đã làm (bản stub) — `economy.js` `validateTournamentText` |
 | FR-45 | Không pay-to-win / không cá cược / không loot box | Không món nào mua bằng tiền/xu cho chỉ số hay lợi thế trận đấu; không đặt tiền vào kết quả trận; không hộp quà ngẫu nhiên trả phí | Đã làm (bản stub) — catalogue toàn cosmetic; giải thưởng chỉ bằng xu, không đổi ra tiền mặt; xem §10 |
-| FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–6; chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, V6 tối thiểu 2 để test được cờ); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, QC_START_ALIVE) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
+| FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -250,7 +250,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 > Bản demo hiện tại chỉ có 2 trò: Trống Hội và Cầu Khỉ Sương Mù.
 > Mọi trò khác dưới đây đều là **dự kiến**, chưa có code.
 
-### 8.1. Kho thử thách dự kiến (18–20 trò, mỗi trận chọn 6)
+### 8.1. Kho thử thách dự kiến (18–20 trò; mỗi trận bốc theo chu kỳ, số vòng không giới hạn)
 
 Nguyên tắc thiết kế kho trò, theo tầm nhìn gốc:
 
@@ -268,18 +268,28 @@ Nguyên tắc thiết kế kho trò, theo tầm nhìn gốc:
 | 3 | **Kéo Co Nhịp** | Hai đội kéo co theo nhịp trống: bấm đúng nhịp thì kéo mạnh, lệch nhịp thì mất lực; đội thua bị loại theo luật **ĐÃ QUYẾT (OD-02, 2026-11-05)**: trận đủ người (≥ 24 người lúc bắt đầu vòng 3) thì cả đội thua bị loại; phòng nhỏ (< 24 người) thì chỉ 2 người đóng góp yếu nhất của đội thua bị loại (đội thua chỉ còn ≤ 2 người thì loại hết). | 3 (dự kiến) |
 | 4 | **Nặn Tò He** | Vẽ/nặn theo mẫu hiện ra trong thời gian giới hạn; chấm theo độ giống mẫu (mẫu random mỗi trận, không học thuộc được). | 3–4 (dự kiến) |
 | 5 | **Bịt Mắt Bắt Dê** | Một người bịt mắt (góc nhìn hạn chế) đi bắt "dê" di chuyển; người còn lại né tránh trong khu vực giới hạn. | 4 (dự kiến) |
-| 6 | **Rồng Rắn Cướp Cờ** | Vòng cuối: hai đội rồng rắn tranh cờ ở giữa sân; cướp được cờ và mang về đích thì thắng. | Cuối (dự kiến) |
+| 6 | **Rồng Rắn Cướp Cờ** | Chung kết: hai đội rồng rắn tranh cờ ở giữa sân; cướp được cờ và mang về đích thì thắng. Chỉ là chung kết khi ≤ 6 người sống lúc bắt đầu vòng (OD-11) — không cố định ở vòng 6. | Chung kết (khi ≤ 6 người sống) |
 | 7–20 | Kho mở rộng (dự kiến, chưa chốt tên) | Cần Sudo chốt danh sách: các trò dân gian khác có thể đưa vào kho để đủ 18–20 trò (ví dụ: ô ăn quan, nhảy bao bố, đi cà kheo, chọi gà... — chỉ là gợi ý, chưa quyết). Mỗi trò cần thiết kế luật chống học thuộc riêng. | Xoay vòng |
 
-**Cơ chế chọn trò mỗi trận (dự kiến):** mỗi trận bốc 6 trò từ kho 18–20
-trò, theo seed của phòng–trận; thứ tự trò cũng random; biến thể (nhịp, vị
-trí, mẫu) random theo seed của phòng–vòng. Mục tiêu: hai trận liên tiếp
-không giống nhau hoàn toàn.
+**Cơ chế chọn trò mỗi trận — ĐÃ QUYẾT, OD-11 (Sudo 2026-11-06, số vòng
+không giới hạn):** vòng 1 Trống Hội và vòng 2 Cầu Khỉ cố định. Từ vòng 3,
+mỗi vòng bốc 1 trò từ kho 5 trò (Kéo Co, Tò He, Bịt Mắt, Ô Ăn Quan, Nhảy
+Bao Bố) theo chu kỳ có seed: không lặp trong một chu kỳ, hết kho thì xáo
+lại chu kỳ mới, không lặp liền kề qua biên chu kỳ. Rồng Rắn Cướp Cờ không
+còn cố định ở vòng 6: nó chỉ là vòng chung kết khi lúc bắt đầu vòng chỉ
+còn ≤ 6 người sống; nếu một vòng kết thúc với đúng 1 người sống thì trận
+kết thúc ngay, không cần chung kết. Biến thể (nhịp, vị trí, mẫu) random
+theo seed của phòng–vòng. Mục tiêu: hai trận liên tiếp không giống nhau
+hoàn toàn, và số vòng phụ thuộc vào số người còn lại.
 
-### 8.2. Đường loại dự kiến (456 → 1, ~25–35 phút)
+### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
-Đường loại dưới đây là **tầm nhìn gốc, chưa triển khai**. Con số là đề xuất,
-cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
+Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
+cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,
+0.25, 0.167) cho tới khi còn 1 người. Phòng 456 người chơi đúng mục tiêu
+thì đi theo sơ đồ dưới (6 vòng); phòng nhỏ đi ít vòng hơn; và một trận có
+thể dài hơn nếu người chơi đều chơi tốt (Kéo Co / Bịt Mắt loại theo luật
+riêng, có thể ít hơn mục tiêu) — xem OD-11.
 
 ```
 456 người vào trận
@@ -303,11 +313,18 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 1 người thắng
 ```
 
-- Tổng thời gian mục tiêu: ~25–35 phút/trận (ước tính, chưa đo).
+- Tổng thời gian mục tiêu: ~25–35 phút/trận cho phòng đủ người (ước tính,
+  chưa đo); trận dài hơn nếu người chơi đều chơi tốt và các vòng loại ít người.
 - Người bị loại ở bất kỳ vòng nào cũng chuyển sang khán giả hoặc du lịch,
   không bị văng khỏi trận.
-- Khi chưa đủ 456 người (phòng nhỏ), đường loại cần có bảng co giãn theo số
-  người thực tế — chưa thiết kế, cần làm ở Phase 1.
+- Khi chưa đủ 456 người (phòng nhỏ), đường loại co giãn theo số người thực
+  tế (mục tiêu tính từ số người lúc bắt đầu trận, `games.scaledTargets`).
+- **Bảo đảm kết thúc:** mỗi vòng còn > 1 người đều loại ít nhất 1 người
+  (cắt ép tối thiểu theo xếp hạng/điểm của trò đó — `server.js`
+  `ensureAtLeastOneElimination`; các trò xếp hạng Trống Hội / Cầu Khỉ /
+  Tò He / Ô Ăn Quan / Nhảy Bao Bố cắt về đúng mục tiêu tỉ lệ). Giới hạn
+  xấu nhất: N−1 vòng từ N người (mỗi vòng chỉ loại đúng 1); thường 6–8
+  vòng với phòng đủ người vì hầu hết các vòng cắt về đúng mục tiêu.
 
 ## 9. Giả định, phụ thuộc, rủi ro và quyết định mở
 
@@ -358,8 +375,9 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 | OD-06 | Có làm voice chat không? | Voice chat tốn nhiều công sức và rủi ro kiểm duyệt | Phase 4 (hoặc không làm) |
 | OD-07 | Mục tiêu người chơi đồng thời đầu tiên sau khi ra mắt (ví dụ 50 / 200 / 456)? | Quyết định mức độ đầu tư vào scale ở Phase 2 | Phase 2 |
 | OD-08 | Có làm tài khoản / đăng nhập không, hay giữ chơi bằng tên tự chọn? | Ảnh hưởng bảng xếp hạng, lịch sử, chống gian lận | Phase 1–3 |
-| OD-09 | Đếm ngược lượt qua cầu vòng 2 là bao lâu? | **ĐÃ QUYẾT (tạm) 2026-11-05 — Muse chọn theo chỉ đạo "thấy phương án nào hợp lý thì triển khai", QC có thể lật:** 30 giây/lượt — một người qua hết 9 bước cầu. Lý do: 9 bước × ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi; lượt không bắt đầu và lượt đi quá chậm là một (đồng hồ chạy từ lúc lượt bắt đầu, hết giờ thì bị loại, lượt chuyển người tiếp theo). Áp cả 2 chế độ: server ép ở multi (server/server.js, tick kiểm tra turnStartedAt), client ép ở chơi đơn (game.js r2Turn; bot cũng chịu cùng luật, tốc độ bot qua cầu đã tăng lên 2.4–3.7 để qua hết trong ~10–15 giây). Mọi vòng đều hiện đếm ngược trên HUD (ô ĐẾM NGƯỢC cạnh ô VÒNG, đỏ khi ≤ 10 giây); vòng 2 hiện đếm ngược theo lượt, vòng 1/3–6 hiện đếm ngược cả vòng (vòng 1: 120 giây; vòng 2 cả vòng multi: 180 giây; vòng 3–6 theo games.js ROUND_TIME_LIMITS). Panel team vòng 2 thu gọn thành dải 2 dòng ở mép trên (không che giữa màn hình, không chặn bấm ván) sau khi Sudo báo banner "qua cầu 0/0" chắn màn hình. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
-| OD-10 | Chế độ QC nhảy vòng: số người sống khi vào thẳng vòng sau là bao nhiêu, và nhảy Vòng 2 thì thứ tự lượt tính sao? | **ĐÃ QUYẾT 2026-11-05 — theo yêu cầu của Sudo ("cần chế độ cho admin để QC test, chọn vòng để chơi luôn, không thì test rất lâu"):** chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 — V6 lấy tối thiểu 2 người để còn test được cờ, thay vì 1 theo đường cong); nhảy Vòng 2 qua CHIA TEAM như thường nhưng thứ tự lượt xáo trộn theo seed của trận vì không có thời gian về đích Vòng 1 (ghi rõ trên màn team). Trận QC không thưởng Hội Xu / XP Pass, không tính BXH; tuỳ chọn "Không loại" tắt mặc định, chỉ để test giao diện. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
+| OD-09 | Đếm ngược lượt qua cầu vòng 2 là bao lâu? | **ĐÃ QUYẾT (tạm) 2026-11-05 — Muse chọn theo chỉ đạo "thấy phương án nào hợp lý thì triển khai", QC có thể lật:** 30 giây/lượt — một người qua hết 9 bước cầu. Lý do: 9 bước × ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi; lượt không bắt đầu và lượt đi quá chậm là một (đồng hồ chạy từ lúc lượt bắt đầu, hết giờ thì bị loại, lượt chuyển người tiếp theo). Áp cả 2 chế độ: server ép ở multi (server/server.js, tick kiểm tra turnStartedAt), client ép ở chơi đơn (game.js r2Turn; bot cũng chịu cùng luật, tốc độ bot qua cầu đã tăng lên 2.4–3.7 để qua hết trong ~10–15 giây). Mọi vòng đều hiện đếm ngược trên HUD (ô ĐẾM NGƯỢC cạnh ô VÒNG, đỏ khi ≤ 10 giây); vòng 2 hiện đếm ngược theo lượt, các vòng còn lại hiện đếm ngược cả vòng (vòng 1: 120 giây; vòng 2 cả vòng multi: 180 giây; các vòng sau theo games.js ROUND_TIME_LIMITS). Panel team vòng 2 thu gọn thành dải 2 dòng ở mép trên (không che giữa màn hình, không chặn bấm ván) sau khi Sudo báo banner "qua cầu 0/0" chắn màn hình. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
+| OD-10 | Chế độ QC nhảy vòng: số người sống khi vào thẳng vòng sau là bao nhiêu, và nhảy Vòng 2 thì thứ tự lượt tính sao? | **ĐÃ QUYẾT 2026-11-05 — theo yêu cầu của Sudo ("cần chế độ cho admin để QC test, chọn vòng để chơi luôn, không thì test rất lâu"):** chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 — tối thiểu 2 người để còn test được cờ, thay vì 1 theo đường cong); nhảy Vòng 2 qua CHIA TEAM như thường nhưng thứ tự lượt xáo trộn theo seed của trận vì không có thời gian về đích Vòng 1 (ghi rõ trên màn team). Trận QC không thưởng Hội Xu / XP Pass, không tính BXH; tuỳ chọn "Không loại" tắt mặc định, chỉ để test giao diện. **Cập nhật OD-11 (2026-11-06):** số người sống tính bằng cùng tỉ lệ chu kỳ cho mọi vòng (không hardcode bảng 6 vòng), panel QC có nút tới V8 và "VÒNG SAU" nhảy được qua vòng 6. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
+| OD-11 | Số vòng chơi có giới hạn ở 6 không? | **ĐÃ QUYẾT 2026-11-06 — theo yêu cầu của Sudo ("không giới hạn số vòng chơi, số vòng phụ thuộc vào số người còn lại; ví dụ mọi người đều chơi tốt thì 6 vòng không thể loại hết chỉ còn 1 được"):** KHÔNG giới hạn số vòng. Trận chỉ kết thúc khi còn 1 người thắng. Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò (không lặp trong chu kỳ, hết kho xáo lại chu kỳ mới, không lặp liền kề qua biên); Rồng Rắn là chung kết chỉ khi ≤ 6 người sống lúc bắt đầu vòng; một vòng kết thúc với đúng 1 người sống thì trận kết thúc ngay. Mỗi vòng loại ít nhất 1 người (cắt ép tối thiểu theo xếp hạng/điểm của trò; các trò xếp hạng cắt về đúng mục tiêu tỉ lệ chu kỳ 0.614, 0.536, 0.467, 0.343, 0.25, 0.167). HUD hiện "VÒNG x" không có "/6" và hiện mục tiêu giữ lại của vòng. Thường 6–8 vòng với phòng đủ người; giới hạn xấu nhất N−1 vòng từ N người. QC: nhảy được qua vòng 6, số người sống tính bằng cùng tỉ lệ chu kỳ. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
 
 ## 10. Kinh tế trong game (MONETIZATION) — ĐÃ QUYẾT 2026-11-05
 
@@ -372,7 +390,7 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 ### 10.1. Nguyên tắc
 
 - **Lõi trận sinh tồn hoàn toàn miễn phí.** Vào phòng, chơi 2 vòng (mục
-  tiêu 6 vòng), chat, khán giả, du lịch Hạ Long — không mất tiền, không
+  tiêu, chat, khán giả, du lịch Hạ Long — không mất tiền, không
   cần tài khoản ở giai đoạn đầu.
 - **Không pay-to-win:** không món nào mua bằng tiền hay xu cho chỉ số,
   tốc độ, sức mạnh, ván chắc, lượt đi thêm hay bất kỳ lợi thế nào trong

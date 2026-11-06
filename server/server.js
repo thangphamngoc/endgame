@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Trống Hội & Cầu Khỉ — game server (6 vòng, seeded, scale 456).
+ * Trống Hội & Cầu Khỉ — game server (số vòng KHÔNG giới hạn, seeded, scale 456).
  * Node.js + WebSocket (ws), không framework. Vừa phục vụ file client tĩnh,
  * vừa làm game server có thẩm quyền cho chế độ multiplayer.
  *
@@ -33,11 +33,13 @@
  *     economy {action, ...}       : ủy quyền cho server/economy.js nếu có,
  *                                   chưa có thì trả lỗi 'Economy chưa sẵn sàng.'
  *     QC — Client -> Server (FR-46, chỉ phòng QC):
- *     create {qc:true, startRound:1-6, noElim:bool} : tạo phòng QC, bốc
- *                                   plan vòng 3-5 ngay lúc tạo và giữ nguyên.
- *     qcSkip {round:1-6}            : host nhảy thẳng tới vòng đó giữa trận
+ *     create {qc:true, startRound:1+, noElim:bool} : tạo phòng QC, bốc
+ *                                   bản xem trước vòng 3-5 ngay lúc tạo.
+ *     qcSkip {round:1+}             : host nhảy thẳng tới vòng đó giữa trận
  *                                   (vòng 2 đi qua CHIA TEAM, lượt xáo theo
  *                                   seed vì không có thời gian về đích V1).
+ *                                   Không giới hạn ở vòng 6 — nhảy được tới
+ *                                   vòng 7, 8, ... để test các vòng sau.
  *     QC — Server -> Client: joined/phase 'team' kèm {qc, startRound,
  *     noElim, plan:[{round,game,name,timeLimit}]}; phòng QC không thưởng
  *     Hội Xu / XP (recordMatchPlayed / awardRoundSurvived / awardWin /
@@ -60,9 +62,15 @@
  *   HTTP: GET /health -> {ok:true, rooms, players, uptime}
  *         GET /        -> client/index.html (file tĩnh như cũ)
  *
- * ĐƯỜNG LOẠI (games.scaledTargets): 456 -> 280 -> 150 -> 70 -> 24 -> 6 -> 1,
- * co giãn theo phòng nhỏ; khi chỉ còn 1-2 người thì không ép loại, trừ vòng
- * cuối luôn về 1 người thắng.
+ * ĐƯỜNG LOẠI (games.scaledTargets, KHÔNG GIỚI HẠN SỐ VÒNG — Sudo 2026-11-06):
+ * tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343, 0.25, 0.167)
+ * cho tới khi chỉ còn 1 người thắng; 456 người thì đúng đường loại
+ * 456 -> 280 -> 150 -> 70 -> 24 -> 6 -> 1 (thường 6 vòng), nhưng một trận
+ * có thể dài hơn nếu người chơi đều chơi tốt. Mỗi vòng đều có mục tiêu
+ * giữ lại (roundTarget, là đích để các trò xếp hạng cắt về) và bị CẮT ÉP
+ * TỐI THIỂU 1 người nếu luật riêng của trò chưa loại ai — không vòng nào
+ * kết thúc mà không loại ai (trừ khi chỉ còn 1 người). Rồng Rắn Cướp Cờ KHÔNG còn cố định ở vòng 6: nó chỉ
+ * là vòng CHUNG KẾT khi lúc bắt đầu vòng chỉ còn <= 6 người sống.
  * KÉO CO — LUẬT ĐÃ CHỐT: nếu số người lúc bắt đầu R3 >= 24 thì đội thua bị
  * loại toàn bộ; nếu < 24 thì chỉ loại 2 người đóng góp thấp nhất của đội thua
  * (hoặc toàn bộ đội thua nếu đội đó <= 2 người).
@@ -223,17 +231,37 @@ function makePlayer(id, name, ws, isHost) {
 }
 function roundSeedStr(room, round) { return room.code + ':' + room.matchId + ':R' + round; }
 
+// Trò của vòng n (1-based), quyết định TẠI LÚC BẮT ĐẦU VÒNG đó vì số vòng
+// không giới hạn và trò phụ thuộc vào số người còn sống (Sudo 2026-11-06):
+// - Vòng 1 Trống Hội, vòng 2 Cầu Khỉ: cố định.
+// - Từ vòng 3: nếu lúc bắt đầu vòng chỉ còn <= 6 người sống thì vòng đó là
+//   Rồng Rắn Cướp Cờ (CHUNG KẾT, mục tiêu giữ 1 người); ngược lại bốc từ
+//   kho 5 trò theo chu kỳ có seed (games.drawPoolCycle): không lặp trong
+//   một chu kỳ, hết kho thì xáo lại chu kỳ mới, không lặp liền kề qua biên
+//   chu kỳ. Seed theo phòng + matchId nên mọi client/server đều bốc giống nhau.
+function roundEntryFor(room, n, aliveCount) {
+  if (n === 1) return { round: 1, game: 'trong-hoi', name: games.ROUND_NAMES['trong-hoi'], timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] };
+  if (n === 2) return { round: 2, game: 'cau-khi', name: games.ROUND_NAMES['cau-khi'], timeLimit: games.ROUND_TIME_LIMITS['cau-khi'] };
+  if (aliveCount <= 6) return { round: n, game: 'rong-ran', name: games.ROUND_NAMES['rong-ran'], timeLimit: games.ROUND_TIME_LIMITS['rong-ran'] };
+  const idx = (n - 3) % games.ROUND_POOL.length;
+  const cycle = Math.floor((n - 3) / games.ROUND_POOL.length);
+  const order = games.drawPoolCycle(room.code + ':' + room.matchId, cycle);
+  const game = games.ROUND_POOL[order[idx]];
+  return { round: n, game, name: games.ROUND_NAMES[game], timeLimit: games.ROUND_TIME_LIMITS[game] };
+}
+
+// Bản xem trước kế hoạch (chỉ để hiển thị ở sảnh QC): vòng 1-2 cố định +
+// 3 trò đầu của chu kỳ kho đầu tiên. KHÔNG phải kế hoạch cố định của cả
+// trận — trò thật của vòng >= 3 do roundEntryFor quyết tại lúc bắt đầu vòng.
 function buildRoundPlan(room) {
-  const seedNum = games.hashSeed(room.code + ':' + room.matchId);
-  const picked = games.pickRounds(seedNum, games.ROUND_POOL.length, 3); // indices into ROUND_POOL
-  const mid = picked.map((i) => games.ROUND_POOL[i]);
+  const order = games.drawPoolCycle(room.code + ':' + room.matchId, 0);
+  const mid = order.slice(0, 3).map((i) => games.ROUND_POOL[i]);
   const plan = [
     { round: 1, game: 'trong-hoi', name: games.ROUND_NAMES['trong-hoi'], timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] },
     { round: 2, game: 'cau-khi', name: games.ROUND_NAMES['cau-khi'], timeLimit: games.ROUND_TIME_LIMITS['cau-khi'] },
     { round: 3, game: mid[0], name: games.ROUND_NAMES[mid[0]], timeLimit: games.ROUND_TIME_LIMITS[mid[0]] },
     { round: 4, game: mid[1], name: games.ROUND_NAMES[mid[1]], timeLimit: games.ROUND_TIME_LIMITS[mid[1]] },
     { round: 5, game: mid[2], name: games.ROUND_NAMES[mid[2]], timeLimit: games.ROUND_TIME_LIMITS[mid[2]] },
-    { round: 6, game: 'rong-ran', name: games.ROUND_NAMES['rong-ran'], timeLimit: games.ROUND_TIME_LIMITS['rong-ran'] },
   ];
   room.roundPlan = plan;
   return plan;
@@ -297,16 +325,17 @@ function sendTurn(room, team) {
   });
 }
 function eliminatePlayer(room, player, reason) {
-  if (!player.alive) return;
+  if (!player.alive) return false;
   // QC "Không loại (chỉ test giao diện)": chặn mọi lần loại do server gọi.
   // Vòng vẫn kết thúc được nhờ deadline từng vòng; chỉ là không ai chết.
   if (room.qc && room.qcNoElim) {
     logEvent('qc_noelim_blocked', { room: room.code, matchId: room.matchId, playerId: player.id, name: player.name, reason });
-    return;
+    return false;
   }
   player.alive = false; player.spectator = true;
   logEvent('elimination', { room: room.code, matchId: room.matchId, round: room.round, playerId: player.id, name: player.name, reason });
   broadcast(room, { type: 'eliminated', id: player.id, reason });
+  return true;
 }
 function finishRound2Player(room, player) {
   player.round2Finished = true;
@@ -337,19 +366,21 @@ function buildSubArenas(room) {
   return rng;
 }
 
-// QC: nhảy thẳng tới vòng n (1-6) giữa trận hoặc lúc bắt đầu trận.
+// QC: nhảy thẳng tới vòng n (không giới hạn ở 6) giữa trận hoặc lúc bắt đầu trận.
 // - Vòng 2 đi qua bước CHIA TEAM như thường (assignTeams + 5,5 giây màn
 //   team rồi mới startRound(2)); vì không có thời gian về đích vòng 1 nên
 //   thứ tự lượt được xáo trộn theo seed của trận (finishTime giả bốc từ
 //   seeded RNG), assignTeams đảo ngược như thường — thứ tự cuối cùng vẫn là
 //   một thứ tự xáo trộn theo seed, client ghi rõ điều này trên màn team.
-// - Vòng 3-6: startRound(n) tự khởi tạo trạng thái riêng của vòng đó
+// - Vòng 3+: startRound(n) tự khởi tạo trạng thái riêng của vòng đó
+//   (trò do roundEntryFor quyết theo số người còn sống — nhảy tới vòng
+//   có <= 6 người sống là vào thẳng chung kết Rồng Rắn).
 //   (Kéo Co chia đội, Tò He chọn hình, Bịt Mắt rải vị trí + chia nhóm,
 //   Ô Ăn Quan dựng bàn, chung kết đặt cờ) nên không còn trạng thái vòng 1.
 // - Người đã bị loại trước đó vẫn là khán giả (không hồi sinh); người còn
 //   sống được reset trạng thái theo vòng (hết finished/bridgeStep/điểm).
 function qcJumpToRound(room, n) {
-  n = Math.max(1, Math.min(6, Number(n) || 1));
+  n = Math.max(1, Math.min(20, Number(n) || 1));
   if (room.phase === 'finished' || room.phase === 'lobby') return false;
   for (const p of room.players.values()) {
     p.finished = false; p.bridgeStep = 0; p.round2Finished = false;
@@ -424,12 +455,16 @@ function startMatch(room) {
 }
 
 function startRound(room, n) {
-  const plan = room.roundPlan[n - 1];
-  if (!plan) { endMatch(room); return; }
+  const aliveAtStart = survivorsOf(room).length;
+  const plan = roundEntryFor(room, n, aliveAtStart);
+  room.roundPlan[n - 1] = plan; // ghi lại trò thật của vòng (kế hoạch xem trước chỉ tới vòng 5)
   room.round = n;
   room.roundGame = plan.game;
   room.roundName = plan.name;
   room.roundTimeLimit = plan.timeLimit;
+  room.isFinal = plan.game === 'rong-ran';
+  room.roundTarget = room.isFinal ? 1
+    : (room.targets[n - 1] != null ? room.targets[n - 1] : games.nextTarget(aliveAtStart, n, false));
   room.roundSeed = roundSeedStr(room, n);
   room.roundSeedNum = games.hashSeed(room.roundSeed);
   room.roundDeadline = Date.now() + plan.timeLimit * 1000;
@@ -512,9 +547,18 @@ function startRound(room, n) {
     }
     state = { flag: { x: 0, z: 0, holderId: null }, flagTouchOrder: [], flagTouchTime: {} };
   }
+  // Vòng 3–6 chơi trong sân làng (sim đặt đạo cụ ở z 0..35) — sau vòng 2
+  // mọi người đang ở cuối cầu nên phải đưa đội hình về sân, giống như
+  // Bịt Mắt (rải) và Rồng Rắn (về vạch xuất phát) đã làm. Nếu không, vị trí
+  // server (dùng để chấm bắt dê / cướp cờ) ở một nơi, sim ở một nơi.
+  if (plan.game === 'keo-co' || plan.game === 'to-he' || plan.game === 'o-an-quan' || plan.game === 'nhay-bao-bo') {
+    for (const p of room.players.values()) {
+      if (p.alive && !p.spectator) { p.x = Math.round((rng() * 26 - 13) * 10) / 10; p.z = Math.round((28 + rng() * 10) * 10) / 10; p.gongX = p.x; p.gongZ = p.z; }
+    }
+  }
   room.roundState = state;
   logEvent('round_start', { room: room.code, matchId: room.matchId, round: n, game: plan.game, timeLimit: plan.timeLimit, seed: room.roundSeed, players: room.roundStartCount });
-  broadcast(room, { type: 'roundStart', round: n, game: plan.game, name: plan.name, timeLimit: plan.timeLimit, seed: room.roundSeed });
+  broadcast(room, { type: 'roundStart', round: n, game: plan.game, name: plan.name, timeLimit: plan.timeLimit, seed: room.roundSeed, target: room.roundTarget, isFinal: room.isFinal });
   broadcast(room, { type: 'phase', phase: phaseName, game: plan.game, name: plan.name, players: publicPlayers(room) });
   if (plan.game === 'to-he') {
     broadcast(room, { type: 'traceTarget', shape: state.shape, points: state.points });
@@ -537,10 +581,77 @@ function cutToTarget(room, rankedIds, target, reason) {
   return eliminated;
 }
 
+// Xếp người sống từ TỆ NHẤT tới TỐT NHẤT theo trò đang chơi — dùng cho
+// xếp người sống từ tệ nhất tới tốt nhất (dùng cho cắt ép tối thiểu).
+function rankWorstFirst(room, game, alive) {
+  const st = room.roundState || {};
+  const arr = alive.slice();
+  if (game === 'trong-hoi') {
+    return arr.sort((a, b) => (a.finished === b.finished ? (b.finishTime || 0) - (a.finishTime || 0) : (a.finished ? 1 : -1)));
+  }
+  if (game === 'cau-khi') {
+    return arr.sort((a, b) => (a.round2Finished === b.round2Finished ? (b.finishTime || 0) - (a.finishTime || 0) : (a.round2Finished ? 1 : -1)));
+  }
+  if (game === 'keo-co') {
+    const sp = st.sidePower || [0, 0];
+    const winnerSide = sp[0] === sp[1] ? null : (sp[0] > sp[1] ? 0 : 1);
+    return arr.sort((a, b) => {
+      const aLoser = winnerSide !== null && a.tugSide === 1 - winnerSide ? 0 : 1;
+      const bLoser = winnerSide !== null && b.tugSide === 1 - winnerSide ? 0 : 1;
+      return aLoser - bLoser || (a.tugPower || 0) - (b.tugPower || 0);
+    });
+  }
+  if (game === 'to-he') return arr.sort((a, b) => (a.traceScore || 0) - (b.traceScore || 0));
+  if (game === 'bit-mat') {
+    const goats = (st.groups || []).map((g) => room.players.get(g.goatId)).filter(Boolean);
+    const dist = (p) => {
+      if (!goats.length) return 999;
+      return Math.min(...goats.map((g) => Math.hypot(p.x - g.x, p.z - g.z)));
+    };
+    return arr.sort((a, b) => dist(b) - dist(a)); // xa dê nhất = tệ nhất
+  }
+  if (game === 'o-an-quan') return arr.sort((a, b) => (a.oanquanScore || 0) - (b.oanquanScore || 0));
+  if (game === 'nhay-bao-bo') {
+    return arr.sort((a, b) => (a.hopFinished === b.hopFinished ? (a.hopProgress || 0) - (b.hopProgress || 0) : (a.hopFinished ? 1 : -1)));
+  }
+  if (game === 'rong-ran') {
+    const holder = st.flag && st.flag.holderId;
+    return arr.sort((a, b) => {
+      if (a.id === holder) return 1;
+      if (b.id === holder) return -1;
+      return Math.hypot(b.x, b.z) - Math.hypot(a.x, a.z); // xa cờ nhất = tệ nhất
+    });
+  }
+  return arr;
+}
+
+// CẮT ÉP TỐI THIỂU — bảo đảm mỗi vòng loại ít nhất 1 người (Sudo
+// 2026-11-06: nếu mọi người đều chơi tốt thì 6 vòng không thể loại hết
+// xuống 1 người, nên số vòng không cố định). Lưu ý: cắt ép CHỈ bảo đảm
+// tối thiểu 1 người, KHÔNG ép về đúng mục tiêu tỉ lệ — mục tiêu
+// (roundTarget) là đích để các trò xếp hạng (Trống Hội, Cầu Khỉ, Tò He,
+// Ô Ăn Quan, Nhảy Bao Bố) cắt về, còn Kéo Co / Bịt Mắt loại theo luật
+// riêng của trò (có thể ít hơn mục tiêu) và trận sẽ dài thêm vòng sau.
+// Nếu ép đúng mục tiêu thì kỹ năng chơi tốt hay dở không còn ý nghĩa và
+// trận không bao giờ qua được vòng 6 — trái với yêu cầu của Sudo.
+// Ở phòng QC "Không loại", eliminatePlayer chặn loại nên hàm này không làm
+// gì — vòng chung kết QC vẫn kết thúc trận (xem cuối endRound).
+function ensureAtLeastOneElimination(room, game, alreadyEliminated) {
+  if (alreadyEliminated > 0) return [];
+  const alive = survivorsOf(room);
+  if (alive.length <= 1) return [];
+  const worst = rankWorstFirst(room, game, alive)[0];
+  if (!worst) return [];
+  if (eliminatePlayer(room, worst, 'Cắt tối thiểu — tệ nhất vòng ' + (games.ROUND_NAMES[game] || game))) return [worst.id];
+  return [];
+}
+
 function endRound(room, n, reason) {
   if (room.round !== n || room.phase === 'finished' || room.phase === 'lobby') return;
   const game = room.roundGame;
-  const target = room.targets[n - 1] != null ? room.targets[n - 1] : 1;
+  const isFinal = game === 'rong-ran';
+  const target = isFinal ? 1
+    : (room.targets[n - 1] != null ? room.targets[n - 1] : games.nextTarget(room.roundStartCount, n, false));
   let eliminated = [];
   if (game === 'trong-hoi') {
     // Non-finishers eliminated; finishers ranked per sub-arena, top N per arena advance.
@@ -639,14 +750,26 @@ function endRound(room, n, reason) {
       eliminated = cutToTarget(room, ranked, 1, 'Rồng Rắn — xa cờ nhất');
     }
   }
+  // Cắt ép tối thiểu: nếu luật riêng của trò chưa loại ai ở vòng này
+  // (vd số người sống đã bằng đúng mục tiêu, hoặc Kéo Co hòa mà không ai
+  // bị loại), loại người tệ nhất — không vòng nào kết thúc mà không loại ai.
+  eliminated = eliminated.concat(ensureAtLeastOneElimination(room, game, eliminated.length));
   const survivors = survivorsOf(room).map((p) => p.id);
   // Trận QC không thưởng Hội Xu / XP cho việc sống sót qua vòng.
   if (!room.qc) survivorsOf(room).forEach((pl) => econSafe((ec) => ec.awardRoundSurvived(pl.id, pl.name)));
-  logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length });
-  broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated });
+  logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length, target, isFinal });
+  // Báo luôn vòng tiếp theo (trò đã bốc theo số người còn sống) để client
+  // hiện được tên vòng sau mà không cần đoán — số vòng không giới hạn nên
+  // không còn khái niệm "vòng 6 là vòng cuối" để suy ra.
+  const nextEntry = (survivors.length > 1 && !isFinal) ? roundEntryFor(room, n + 1, survivors.length) : null;
+  broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated,
+    nextRound: nextEntry ? nextEntry.round : null, nextGame: nextEntry ? nextEntry.game : null, nextName: nextEntry ? nextEntry.name : null });
   broadcast(room, { type: 'players', players: publicPlayers(room) });
   room.roundDeadline = 0;
-  if (survivors.length <= 1 || n >= 6) { endMatch(room); return; }
+  // KHÔNG còn điều kiện n >= 6: trận chỉ kết thúc khi còn 1 người, hoặc
+  // khi vừa xong vòng chung kết Rồng Rắn (kể cả phòng QC "Không loại",
+  // nơi không ai chết được — chung kết là điểm dừng của trận test).
+  if (survivors.length <= 1 || isFinal) { endMatch(room); return; }
   if (n === 1) {
     room.phase = 'team';
     const teamSurvivors = assignTeams(room);
@@ -868,11 +991,12 @@ wss.on('connection', (ws) => {
       const v = validateName(msg.name);
       if (!v.ok) { send(ws, { type: 'error', message: v.reason }); return; }
       const room = makeRoom();
-      // CHẾ ĐỘ QC (FR-46): host chọn vòng bắt đầu (1-6) + có/không loại.
-      // Plan vòng 3-5 bốc NGAY lúc tạo phòng và giữ nguyên cả trận để host
-      // thấy đúng tên trò đã bốc trước khi bắt đầu (startMatch không bốc lại).
+      // CHẾ ĐỘ QC (FR-46): host chọn vòng bắt đầu (không giới hạn ở 6) + có/không loại.
+      // Bản xem trước vòng 3-5 bốc NGAY lúc tạo phòng để host thấy đúng
+      // tên trò đã bốc trước khi bắt đầu (startMatch không bốc lại); trò
+      // thật của vòng >= 3 do roundEntryFor quyết lúc bắt đầu vòng.
       room.qc = msg.qc === true;
-      room.qcStartRound = room.qc ? Math.max(1, Math.min(6, Number(msg.startRound) || 1)) : 1;
+      room.qcStartRound = room.qc ? Math.max(1, Math.min(20, Number(msg.startRound) || 1)) : 1;
       room.qcNoElim = room.qc && msg.noElim === true;
       if (room.qc) { room.matchId = nextMatchId++; buildRoundPlan(room); }
       info.name = v.name; info.roomCode = room.code;
@@ -1158,7 +1282,7 @@ wss.on('connection', (ws) => {
       // Nhảy vòng giữa trận trong chế độ QC (host bấm trên thanh QC).
       if (!room.qc) { send(ws, { type: 'error', message: 'Chỉ phòng QC mới nhảy vòng được.' }); return; }
       if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới nhảy vòng trong chế độ QC.' }); return; }
-      const n = Math.max(1, Math.min(6, Number(msg.round) || 1));
+      const n = Math.max(1, Math.min(20, Number(msg.round) || 1));
       if (!qcJumpToRound(room, n)) { send(ws, { type: 'error', message: 'Chưa nhảy vòng được (trận đã kết thúc hoặc đang ở sảnh).' }); return; }
       return;
     }

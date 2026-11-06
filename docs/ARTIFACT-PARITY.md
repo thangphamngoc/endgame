@@ -24,7 +24,7 @@
 > export nói trên — không sao chép mã nguồn artifact**. Không có mã nguồn
 > artifact nào được đưa vào repo; mọi hàm repo đều viết mới theo cùng
 > đặc tả giao diện. Ngược lại, **repo giữ toàn bộ hệ thống mà artifact
-> không có**: trận 6 vòng, multiplayer WebSocket với server có thẩm quyền,
+> không có**: trận nhiều vòng (không giới hạn số vòng, OD-11), multiplayer WebSocket với server có thẩm quyền,
 > kinh tế trong game (shop/pass/giải đấu/quà tặng, stub thanh toán),
 > Docker — artifact chỉ là **prototype chơi đơn 2 vòng, 60 bot, không
 > mạng** (0 lần xuất hiện `WebSocket` trong mã artifact).
@@ -43,7 +43,7 @@
 | # | Artifact UI | Repo tương đương | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | H-01 | `#hud` + `#statePlate` (chấm `#stateDot` + `#hudState` + `#stateSub`: "CHUẨN BỊ / TRỐNG ĐÁNH / CHIÊNG VANG" + dòng phụ) | `#hud` + `#hud-drum` (`game.js` `onServerMessage`/`updateSingle`: "TRỐNG ĐÁNH — Chạy đi!" / "CHIÊNG VANG — Đứng yên!" / "TỚI LƯỢT BẠN — chọn ván!") | Adapted | Chấm màu trạng thái và dòng phụ (`#stateSub`, vd "Chờ người về đích… sắp sang Cầu Khỉ") bị bỏ; trạng thái chỉ còn là một dòng chữ trong HUD. |
-| H-02 | `#hudStats`: 4 ô `#hudRound` (1/2), `#hudTime`, `#hudAlive` (61), `#hudDist` ("ĐÃ ĐI", mét) | `#hud-round` ("VÒNG 1/6 — Trống Hội", `game.js:1116`/`1186`), `#hud-time`, `#hud-alive` (`updateAliveHUD`), `#progress` + `#progress-fill` | Adapted | Vòng hiển thị dạng x/6 kèm tên vòng (phục vụ luồng 6 vòng). **Ô "ĐÃ ĐI" (số mét đã chạy) bị bỏ** — repo chỉ có thanh tiến độ, không có con số mét. |
+| H-02 | `#hudStats`: 4 ô `#hudRound` (1/2), `#hudTime`, `#hudAlive` (61), `#hudDist` ("ĐÃ ĐI", mét) | `#hud-round` ("VÒNG 1 — Trống Hội"), `#hud-time`, `#hud-alive` (`updateAliveHUD`), `#progress` + `#progress-fill` | Adapted | Vòng hiển thị dạng "VÒNG x" kèm tên vòng, không có "/6" (số vòng không giới hạn, OD-11). **Ô "ĐÃ ĐI" (số mét đã chạy) bị bỏ** — repo chỉ có thanh tiến độ, không có con số mét. |
 | H-03 | `#progressWrap` + `#progressTrack`/`#progressFill` + nhãn `#progStartLabel` "VẠCH XUẤT PHÁT" / `#progEndLabel` "ĐÍCH — SÂN ĐÌNH" | `#progress` + `#progress-fill` (`client/index.html`) | Adapted | Thanh tiến độ giữ nguyên; **hai nhãn đầu/cuối bị bỏ**. |
 | H-04 | `#phaseBanner` (banner lớn giữa màn hình mỗi lần đổi trống/chiêng, `showBanner(text, isGong, ms)`, hiện ~1,1 giây) + body class `freeze-danger` (nhuộm đỏ khi chiêng) | Không có phần tử tương đương; chỉ có `#hud-drum` đổi chữ + `#toast` cho sự kiện | Missing | Trống/chiêng đổi nhịp trong repo **không có phản hồi hình ảnh lớn** — chỉ một dòng chữ nhỏ trong HUD. Đây là một trong các gap lớn nhất về cảm giác chơi (xem §3). |
 | H-05 | `#countdown` (chữ lớn "SẴN SÀNG / 3 / 2 / 1", mỗi bước kèm `drumHit`) | Không có phần tử tương đương; chỉ `toast('Đếm ngược… Trống sắp đánh!')` (`game.js:350`) và phase `countdown` phía server (~3,2 giây, `server.js:280`) | Missing | Repo có đếm ngược về mặt trạng thái nhưng **không hiển thị số đếm** cho người chơi. |
@@ -54,7 +54,7 @@
 
 | # | Artifact UI | Repo tương đương | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| C-01 | `#startCard` (overlay): tiêu đề "TRỐNG HỘI", mô tả 2 vòng, khối `.rules`, `#btnStart` "BẮT ĐẦU CHƠI", `#btnStartTour` "DU LỊCH HẠ LONG TRƯỚC", khối `.ctrls` hướng dẫn phím | `#menu` (`client/index.html`): tiêu đề, phụ đề liệt kê 6 vòng, `#player-name`, `#btn-single` "CHƠI ĐƠN (60 BOT)", `#btn-multi` "MULTIPLAYER THẬT", `#multi-box` (tạo/vào phòng, xem phòng, `#btn-start`), `#btn-tour-lobby`, `#btn-shop` / `#btn-pass` / `#btn-tournament` | Adapted | Từ overlay toàn màn hình thành panel menu; **mở rộng lớn cho multiplayer** (nhập tên, mã phòng 6 ký tự, danh sách phòng) **và kinh tế** (3 nút shop/pass/giải đấu) — những thứ artifact không có. Nội dung luật trong `.rules` được rút gọn thành một dòng ghi chú trong menu. |
+| C-01 | `#startCard` (overlay): tiêu đề "TRỐNG HỘI", mô tả 2 vòng, khối `.rules`, `#btnStart` "BẮT ĐẦU CHƠI", `#btnStartTour` "DU LỊCH HẠ LONG TRƯỚC", khối `.ctrls` hướng dẫn phím | `#menu` (`client/index.html`): tiêu đề, phụ đề liệt kê các vòng, `#player-name`, `#btn-single` "CHƠI ĐƠN (60 BOT)", `#btn-multi` "MULTIPLAYER THẬT", `#multi-box` (tạo/vào phòng, xem phòng, `#btn-start`), `#btn-tour-lobby`, `#btn-shop` / `#btn-pass` / `#btn-tournament` | Adapted | Từ overlay toàn màn hình thành panel menu; **mở rộng lớn cho multiplayer** (nhập tên, mã phòng 6 ký tự, danh sách phòng) **và kinh tế** (3 nút shop/pass/giải đấu) — những thứ artifact không có. Nội dung luật trong `.rules` được rút gọn thành một dòng ghi chú trong menu. |
 | C-02 | `#teamCard` (overlay): "CHIA TEAM — VÒNG 2", `#teamCols` (3 cột liệt kê thành viên từng đội), `#btnTeamGo` "VÀO CẦU NGAY", tự chuyển sau vài giây | `#team-screen` (`client/index.html` + `game.js` `showTeamScreenSingle`/`localStartRound2`): `#team-list`, `#btn-to-bridge` "Vào cầu ngay" | Adapted | Cùng nội dung và nút; khác ở chỗ repo dùng panel thường thay vì overlay, và **panel này được tái dùng làm màn hình xếp hạng cuối trận** (`showRanking`, `game.js:477` — xem C-03). |
 | C-03 | `#endCard` (overlay): `#endTitle` / `#endText`, `#endBoard` (bảng `buildBoard()` xếp theo hạng + thời gian), `.resultGrid` 3 ô `#endRank` / `#endAlive` / `#endTime`, `#btnAgain` "CHƠI LẠI" | Không có overlay kết thúc riêng. `showRanking(ranking)` vẽ bảng xếp hạng vào lại `#team-screen`/`#team-list` và đổi `#btn-to-bridge` thành "Chơi lại từ vòng 1"; nút `#btn-replay` nằm trong panel khán giả | Adapted | Bảng xếp hạng còn (theo thời gian cá nhân, đúng luật). **Mất 3 ô kết quả cá nhân** (hạng của bạn / người còn lại / thời gian) — hạng và thời gian chỉ còn đọc được trong từng dòng của bảng, không có ô riêng. **Mất hiệu ứng confetti** (`burstConfetti` khi về đích/thắng, artifact `game.js:1480,2234,2484`) — repo không có confetti. |
 | C-04 | `#errBox` (bẫy lỗi toàn cục: `window.onerror` / `unhandledrejection` hiện lỗi JS lên màn hình) | Không có; lỗi game chỉ hiện qua `#toast` (vd toast khi chưa tải được Three.js, `game.js:793`) | Missing | Chỉ phục vụ dev/debug; chưa port. |
@@ -126,7 +126,7 @@
 |---|---|---|---|
 | N-01 | Multiplayer thật: tạo/vào phòng mã 6 ký tự, danh sách phòng, host bắt đầu (≥ 2 người), tự bắt đầu khi đủ người, vào giữa trận làm khán giả, chuyển host, reconnect token, rate-limit | `server/server.js` (`create`/`join`/`list`/`start`/`reconnect`, `MAX_PLAYERS_PER_ROOM = 456`, lobby đầy 456 thì tách phòng mới) + menu multiplayer trong `client/index.html` | Repo-only |
 | N-02 | Server có thẩm quyền: nhịp trống/chiêng, loại người lúc chiêng, chia team, ván yếu, lượt cầu, xếp hạng — client không tự quyết | `server/server.js` (`startMatch`, `startRound`, `endRound`, `assignTeams`, `advanceLeader`, `eliminatePlayer`, `checkRound1End`/`checkRound2End`) | Repo-only |
-| N-03 | Trận 6 vòng: vòng 1–2 cố định (Trống Hội, Cầu Khỉ), vòng 3–5 bốc 3 trong kho 5 trò, vòng 6 chung kết Rồng Rắn; seed theo phòng–vòng; đường loại co giãn 456→280→150→70→24→6→1 | `server/server.js` `buildRoundPlan` + `server/games.js` (`pickRounds`, `scaledTargets`, `ROUND_POOL`, `ROUND_TIME_LIMITS`) + `client/js/rounds.js` (`GAMES`: keo-co, to-he, bit-mat, o-an-quan, nhay-bao-bo, rong-ran) + `#round-overlay`, `#blind-overlay`, `#interstitial`, `#round-timer-wrap`/`#round-timer-fill`/`#hud-round-time` | Repo-only |
+| N-03 | Trận không giới hạn số vòng (OD-11): vòng 1–2 cố định (Trống Hội, Cầu Khỉ), từ vòng 3 bốc theo chu kỳ kho 5 trò (không lặp trong chu kỳ), chung kết Rồng Rắn chỉ khi ≤ 6 người sống lúc bắt đầu vòng; seed theo phòng–vòng; đường loại theo tỉ lệ chu kỳ, mục tiêu 456→280→150→70→24→6→1 với phòng đủ người; mỗi vòng loại ít nhất 1 người (cắt ép tối thiểu) | `server/server.js` (`roundEntryFor`, `ensureAtLeastOneElimination`) + `server/games.js` (`drawPoolCycle`, `scaledTargets`, `nextTarget`, `ROUND_POOL`, `ROUND_TIME_LIMITS`) + `client/js/rounds.js` (`GAMES`: keo-co, to-he, bit-mat, o-an-quan, nhay-bao-bo, rong-ran) + `client/js/game.js` (`localGameForRound`, `qcAliveForRound`) + `#round-overlay`, `#blind-overlay`, `#interstitial`, `#round-timer-wrap`/`#round-timer-fill`/`#hud-round-time` | Repo-only |
 | N-04 | Kinh tế trong game: Hội Xu, shop đồ trang trí, Hội Làng Pass, Chủ Hội (giải đấu), cổ vũ/tặng sticker, Vé Du Lịch; tiền thật chỉ là stub demo | `server/economy.js` + `client/js/shop.js` (`window.HoiShop`, `window.HoiWallet`) + `#wallet-hud`, `#shop-panel`, `#pass-panel`, `#tournament-panel`, `#gift-panel` | Repo-only |
 | N-05 | Đóng gói & chạy: `npm start` cổng 3000, Docker | `Dockerfile`, `docker-compose.yml`, `.env.example`, `package.json` (chỉ phụ thuộc `ws`) | Repo-only |
 
@@ -250,8 +250,8 @@ Sudo chơi bản main đã merge và báo 2 lỗi ở vòng 2:
   lớn không sao). Màn CHIA TEAM và dải team bị ẩn hẳn khi vòng chơi bắt
   đầu (bảo vệ trong `startRoundCommon` + `beginRound2Play`).
 - **Mọi vòng cần đếm ngược, vòng 2 cần đếm ngược theo lượt:** HUD thêm ô
-  **ĐẾM NGƯỢC** cạnh ô VÒNG (đỏ khi ≤ 10 giây). Vòng 1/3–6 hiện đếm ngược
-  cả vòng (vòng 1: 120 giây; vòng 3–6 theo `ROUND_TIME_LIMITS`); vòng 2
+  **ĐẾM NGƯỢC** cạnh ô VÒNG (đỏ khi ≤ 10 giây). Các vòng khác vòng 2 hiện
+  đếm ngược cả vòng (vòng 1: 120 giây; các vòng sau theo `ROUND_TIME_LIMITS`); vòng 2
   hiện đếm ngược lượt **30 giây/người** (DECIDED tạm, xem BRD §9.4 OD-09).
   Sửa kèm: handler `phase: round2` ở multi trước đây truyền `timeLimit 0`
   nên `roundEndsAt` bị ghi đè thành 0 và đồng hồ vòng 2 không bao giờ hiện
@@ -264,3 +264,30 @@ Sudo chơi bản main đã merge và báo 2 lỗi ở vòng 2:
   rồi dừng thì bị loại ở 29,6 giây, lượt chuyển cho người tiếp theo, người
   mới bước được ván chắc đầu tiên). Chưa kiểm chứng bằng chơi thật trên
   trình duyệt: cảm giác banner, 30 giây có vừa tay không, bố cục mobile.
+
+## 7. Cập nhật: số vòng KHÔNG giới hạn (Sudo 2026-11-06, nhánh feat/reverse-team-order, PR #3)
+
+Sudo báo: không giới hạn số vòng chơi — số vòng phụ thuộc vào số người còn
+lại (mọi người đều chơi tốt thì 6 vòng không thể loại hết chỉ còn 1 được).
+
+- **Luật mới (BRD OD-11):** trận chỉ kết thúc khi còn 1 người thắng. Vòng
+  1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò (không lặp trong chu
+  kỳ, hết kho xáo lại chu kỳ mới, không lặp liền kề qua biên chu kỳ);
+  Rồng Rắn là chung kết chỉ khi ≤ 6 người sống lúc bắt đầu vòng; một vòng
+  kết thúc với đúng 1 người sống thì trận kết thúc ngay.
+- **Bảo đảm kết thúc:** mỗi vòng loại ít nhất 1 người (cắt ép tối thiểu
+  theo xếp hạng/điểm của trò — `server.js` `ensureAtLeastOneElimination`);
+  các trò xếp hạng cắt về đúng mục tiêu tỉ lệ chu kỳ
+  (0.614, 0.536, 0.467, 0.343, 0.25, 0.167). Thường 6–8 vòng với phòng đủ
+  người; giới hạn xấu nhất N−1 vòng từ N người.
+- **HUD:** hiện "VÒNG x" không có "/6", kèm mục tiêu giữ lại của vòng
+  (title của ô VÒNG + dòng đếm ngược). Thẻ "HẾT VÒNG" báo tên vòng tiếp
+  theo do server gửi kèm (`roundEnd.nextName`).
+- **Chơi đơn** mirror server (`game.js` `localGameForRound` /
+  `localPoolCycle`, `rounds.js` tỉ lệ giữ lại theo chu kỳ + cắt tối thiểu
+  ở Kéo Co / Ô Ăn Quan / Bịt Mắt khi chỉ còn 1 đối thủ).
+- **QC:** panel có nút tới V8, "VÒNG SAU" nhảy được qua vòng 6, số người
+  sống tính bằng cùng tỉ lệ chu kỳ (`qcAliveForRound`, tối thiểu 2 người).
+- Đợt này đẩy cùng 6 file mô phỏng vòng 3–6 (`client/js/sim/*.js`) — các
+  file đó đã có ở local từ trước nhưng 2 lần push lên PR #3 đều hết hạn
+  duyệt, đầu nhánh vẫn ở `ed4be632`.
