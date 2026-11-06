@@ -282,6 +282,19 @@ kết thúc ngay, không cần chung kết. Biến thể (nhịp, vị trí, m�
 theo seed của phòng–vòng. Mục tiêu: hai trận liên tiếp không giống nhau
 hoàn toàn, và số vòng phụ thuộc vào số người còn lại.
 
+**Bịt Mắt — ĐÃ QUYẾT (cycle 2, 2026-11-06):** server gửi `goatId` trong tin
+`blind` cho cả người tìm (`blind:true`) lẫn dê (`blind:false`, goatId là id
+của chính mình), để client người tìm biết dê là ai mà vẽ ánh dê phát sáng +
+la bàn theo vị trí thật. Mũi tên `#cue-arrow` và la bàn sim xoay theo hướng
+CAMERA (góc tương đối = góc thế giới trừ yaw camera, cùng quy ước
+atan2(dx,-dz)), không theo hướng thế giới tuyệt đối. Tin `cue` 2s của server
+giữ làm dự phòng khi dê ngoài AOI 40 của tick. Vị trí dê trên client chỉ
+được tin khi tươi (<1,5s — tick 15Hz trong AOI 40, game.js đóng dấu `_posAt`;
+`syncRemotePlayers` cũng đồng bộ `x`/`z` chứ không chỉ `group.position`).
+Ánh vàng nhấp nháy ở dê chỉ hiện khi dê rất gần (<6 — chắc chắn trong AOI
+nên vị trí tươi). Chưa đo bằng tay: cảm giác tìm dê theo la bàn mới,
+độ chính xác khi dê ngoài AOI, mobile thật.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết

@@ -18,14 +18,16 @@
  *
  * Lưu ý về nguồn hướng/khoảng cách tới dê:
  *  - Chơi đơn: st.state.goat là person thật nên tính trực tiếp từng khung hình.
- *  - Nhiều người: server KHÔNG gửi goatId cho người tìm (chỉ gửi blind + cue),
- *    nên st.state.goat là null. Sim bọc window.Rounds.onServerMessage để bắt tin
- *    cue {dir: 'north'|'east'|'south'|'west', dist} của server (cứ 2s một lần)
- *    và đổi hướng chính (north=0°, east=90°, south=180°, west=270° — cùng quy
- *    ước atan2(dx,-dz) mà rounds.js dùng cho mũi tên ở chế độ chơi đơn).
- *  - Mũi tên là hướng theo thế giới (bắc = lên trên), giống #cue-arrow của
- *    rounds.js; cầu nối không đưa góc quay camera nên không xoay theo tầm nhìn.
- *  - Nhiều người chơi: không biết vị trí dê nên không vẽ được ánh vàng nhấp nháy.
+ *  - Nhiều người: server gửi goatId trong tin blind nên st.state.goat là
+ *    person thật của dê (rounds.js gắn khi nhận blind, kể cả blind tới
+ *    trước roundStart). Vị trí dê chỉ tin khi tươi (<1,5s — tick 15Hz
+ *    trong AOI 40, game.js đóng dấu _posAt); khi dê ngoài AOI thì dùng
+ *    tin cue {dir, dist} của server (cứ 2s một lần, vẫn bắt qua wrapper).
+ *  - Mũi tên la bàn + pan tiếng dê xoay theo hướng CAMERA (tương đối),
+ *    không theo hướng thế giới tuyệt đối: góc tương đối = góc thế giới
+ *    trừ yaw camera (api.camera, cùng quy ước atan2(dx,-dz)).
+ *  - Nhiều người chơi: ánh vàng nhấp nháy vẽ được khi biết vị trí dê
+ *    (dê ở rất gần <6 thì chắc chắn trong AOI nên vị trí tươi).
  */
 (function () {
   'use strict';
@@ -182,7 +184,8 @@
     else if (dist < DIST_NEAR) vol = 0.34;
     else if (dist < DIST_FAR) vol = 0.22;
     else vol = 0.12;
-    // Pan theo thành phần đông–tây của hướng dê (quy ước giống mũi tên la bàn).
+    // Pan theo hướng TƯƠNG ĐỐI với camera (playBleat nhận dirDeg đã trừ yaw
+    // camera): dê ở bên phải màn hình thì tiếng lệch phải, bên trái thì lệch trái.
     var pan = (dirDeg === null || dirDeg === undefined || isNaN(dirDeg))
       ? 0 : Math.sin(dirDeg * Math.PI / 180);
     var t0 = ctx.currentTime + 0.02;
@@ -213,19 +216,54 @@
   }
 
   // ---------- Hướng / khoảng cách tới dê ----------
-  // Trả {dirDeg, dist} hoặc null khi chưa biết. Ưu tiên vị trí dê thật
-  // (chơi đơn), sau đó tin cue server đã bắt được, cuối cùng đọc #cue-text.
+  // Góc yaw của camera (cùng quy ước atan2(dx,-dz): 0° = bắc = -Z).
+  function camYawDeg(api) {
+    var cam = api && api.camera;
+    if (!cam || !cam.getWorldDirection || !window.THREE) return null;
+    try {
+      var v = new window.THREE.Vector3();
+      cam.getWorldDirection(v);
+      return Math.atan2(v.x, -v.z) * 180 / Math.PI;
+    } catch (e) { return null; }
+  }
+  // Hướng thế giới -> hướng tương đối theo tầm nhìn, chuẩn hoá (-180, 180].
+  function relDeg(worldDeg, yaw) {
+    if (worldDeg === null || worldDeg === undefined || isNaN(worldDeg)) return worldDeg;
+    if (yaw === null || yaw === undefined || isNaN(yaw)) return worldDeg;
+    var r = worldDeg - yaw;
+    while (r > 180) r -= 360;
+    while (r <= -180) r += 360;
+    return r;
+  }
+  // Vị trí dê có tươi không: chơi đơn luôn tươi (tính tại client); nhiều
+  // người thì cần dấu _posAt của game.js (tick 15Hz trong AOI 40).
+  function livePosFresh(st, goat) {
+    if (!goat) return false;
+    if (st.local) return true;
+    return !!(goat._posAt && Date.now() - goat._posAt < 1500);
+  }
+  // Trả {dirDeg, dist} hoặc null khi chưa biết. Thứ tự ưu tiên:
+  //  1. vị trí dê thật khi tươi (chơi đơn, hoặc multi trong AOI);
+  //  2. tin cue server còn tươi (dê ngoài AOI — cue là nguồn chuẩn);
+  //  3. vị trí dê thật dù cũ (phương án cuối);
+  //  4. #cue-text của rounds.js (chỉ khoảng cách).
   function senseGoat(sim, st, api) {
     var player = api.player;
     if (!player || !player.alive) return null;
     var goat = st.state && st.state.goat;
     if (goat && goat.alive && goat !== player) {
       var dx = goat.x - player.x, dz = goat.z - player.z;
-      return {
+      var live = {
         dirDeg: Math.atan2(dx, -dz) * 180 / Math.PI,
         dist: Math.hypot(dx, dz),
         goat: goat
       };
+      if (livePosFresh(st, goat)) return live;
+      // Vị trí cũ: cue server tươi thì tin cue, không thì dùng vị trí cũ.
+      if (sim.cue && (Date.now() - sim.cue.at) < 12000) {
+        return { dirDeg: sim.cue.dirDeg, dist: sim.cue.dist, goat: null };
+      }
+      return live;
     }
     if (goat === player) return { dirDeg: null, dist: null, goat: goat };
     // Nhiều người: dê không lộ vị trí — dùng cue server (bắt qua wrapper).
@@ -351,7 +389,7 @@
 
       var sense = senseGoat(sim, st, api);
 
-      // --- Dải la bàn ---
+      // --- Dải la bàn (mũi tên xoay theo hướng camera, không theo bắc tuyệt đối) ---
       if (sim.compass) {
         if (!seeker) {
           sim.compass.root.classList.add('sim-bitmat-goat');
@@ -362,7 +400,7 @@
           sim.compass.root.classList.remove('sim-bitmat-goat');
           sim.compass.arrow.textContent = '▲';
           if (sense && sense.dirDeg !== null && sense.dirDeg !== undefined && !isNaN(sense.dirDeg)) {
-            sim.compass.arrow.style.transform = 'rotate(' + sense.dirDeg + 'deg)';
+            sim.compass.arrow.style.transform = 'rotate(' + relDeg(sense.dirDeg, camYawDeg(api)) + 'deg)';
           }
           var label = distLabel(sense ? sense.dist : null);
           sim.compass.text.textContent = 'Nghe tiếng dê: ' + label +
@@ -372,11 +410,12 @@
       }
 
       // --- Tiếng dê kêu (chỉ người tìm nghe; dê không tự nghe mình kêu) ---
+      // Pan trái/phải theo hướng TƯƠNG ĐỐI với camera (giống mũi tên la bàn).
       if (seeker) {
         sim.bleatT += dt;
         if (sim.bleatT >= BLEAT_EVERY) {
           sim.bleatT = 0;
-          if (sense) playBleat(sim, sense.dirDeg, sense.dist);
+          if (sense) playBleat(sim, relDeg(sense.dirDeg, camYawDeg(api)), sense.dist);
         }
       }
 

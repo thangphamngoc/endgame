@@ -2807,6 +2807,10 @@
       }
       var p = remotePlayers[info.id];
       p.alive = info.alive; p.team = info.team; p.finished = info.finished;
+      // Đồng bộ cả x/z (rounds.js/sim dùng p.x, p.z để tính hướng tới dê):
+      // trước đây chỉ group.position được cập nhật nên x/z cũ tới khi có tick.
+      p.x = info.x || 0; p.z = info.z || START_Z;
+      p._posAt = Date.now(); // vị trí tươi — dùng để biết có tin được khi tính hướng
       p.group.position.set(info.x || 0, p.y || 0, info.z || START_Z);
     });
   }
@@ -4168,6 +4172,7 @@
       var rp = remotePlayers[info.id];
       if (rp) {
         rp.x = info.x; rp.z = info.z; rp.alive = info.alive;
+        rp._posAt = Date.now(); // tick 15Hz, AOI 40 — vị trí tươi
         rp.group.position.set(info.x, rp.y || 0, info.z);
       } else {
         syncRemotePlayers([info]);

@@ -52,8 +52,13 @@
  *                                   (+ leader / người giữ cờ luôn gửi).
  *     tugState {sidePower:[a,b], threshold, timeLeft}
  *     traceTarget {shape, points} : mẫu Nặn Tò He (1 trong 6 hình seeded).
- *     blind {blind}               : Bịt Mắt — true = người đi tìm (tối màn hình).
- *     cue {dir, dist}             : Bịt Mắt — gợi ý âm thanh mỗi 2s cho người tìm.
+ *     blind {blind, goatId}       : Bịt Mắt — true = người đi tìm (tối màn hình),
+ *                                   goatId = id dê của nhóm mình (người tìm
+ *                                   dùng để vẽ ánh dê phát sáng + la bàn theo
+ *                                   vị trí thật; dê nhận blind:false + goatId
+ *                                   là id của chính mình).
+ *     cue {dir, dist}             : Bịt Mắt — gợi ý âm thanh mỗi 2s cho người tìm
+ *                                   (dự phòng khi dê ngoài AOI 40 của tick).
  *     caught {goatId, seekerId}   : Bịt Mắt — dê bị bắt.
  *     flag {holderId}             : Rồng Rắn — ai đang giữ cờ.
  *     oanquanState {board, turnId, scores}
@@ -520,13 +525,16 @@ function startRound(room, n) {
       groups.push({ goatId: goat.id, seekerIds: members.slice(1).map((p) => p.id), caught: false, caughtBy: null });
     }
     state = { groups, lastCue: 0 };
-    // Tell seekers they are blind, goats they can see.
+    // Tell seekers they are blind, goats they can see. Both get the goatId:
+    // seekers need it to draw the glowing goat + camera-relative compass
+    // from the goat's live position (tick AOI 40); the 2s cue stays as the
+    // fallback when the goat is outside the seeker's AOI.
     for (const g of groups) {
       const goat = room.players.get(g.goatId);
-      if (goat && goat.ws) send(goat.ws, { type: 'blind', blind: false });
+      if (goat && goat.ws) send(goat.ws, { type: 'blind', blind: false, goatId: g.goatId });
       for (const sid of g.seekerIds) {
         const s = room.players.get(sid);
-        if (s && s.ws) send(s.ws, { type: 'blind', blind: true });
+        if (s && s.ws) send(s.ws, { type: 'blind', blind: true, goatId: g.goatId });
       }
     }
   } else if (plan.game === 'o-an-quan') {
@@ -756,7 +764,13 @@ function endRound(room, n, reason) {
   eliminated = eliminated.concat(ensureAtLeastOneElimination(room, game, eliminated.length));
   const survivors = survivorsOf(room).map((p) => p.id);
   // Trận QC không thưởng Hội Xu / XP cho việc sống sót qua vòng.
-  if (!room.qc) survivorsOf(room).forEach((pl) => econSafe((ec) => ec.awardRoundSurvived(pl.id, pl.name)));
+  // Đẩy ví mới về client ngay (không thì HUD ví vẫn hiện số cũ cho tới
+  // khi người chơi mở shop và shop.js tự hỏi lại getProfile).
+  if (!room.qc) survivorsOf(room).forEach((pl) => {
+    let res = null;
+    econSafe((ec) => { res = ec.awardRoundSurvived(pl.id, pl.name); });
+    if (res && res.profile && pl.ws) send(pl.ws, { type: 'economy', action: 'earned', reason: 'roundSurvived', amount: 10, profile: res.profile });
+  });
   logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length, target, isFinal });
   // Báo luôn vòng tiếp theo (trò đã bốc theo số người còn sống) để client
   // hiện được tên vòng sau mà không cần đoán — số vòng không giới hạn nên
@@ -813,7 +827,11 @@ function endMatch(room) {
   if (winner && !room.ranking.some((r) => r.id === winner.id)) {
     room.ranking.unshift({ id: winner.id, name: winner.name, team: winner.team, time: Date.now() - room.matchStart });
   }
-  if (winner && !room.qc) econSafe((ec) => ec.awardWin(winner.id, winner.name));
+  if (winner && !room.qc) {
+    let res = null;
+    econSafe((ec) => { res = ec.awardWin(winner.id, winner.name); });
+    if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50, profile: res.profile });
+  }
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length });
   broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null });
   broadcastLobbyList();

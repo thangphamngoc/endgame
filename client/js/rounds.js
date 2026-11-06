@@ -20,7 +20,7 @@
   var active = null;
   // blind/cue có thể tới trước roundStart (server gửi trong lúc chuẩn bị vòng):
   // giữ lại để áp khi vòng Bịt Mắt bắt đầu.
-  var pendingBlind = null, pendingCue = null;
+  var pendingBlind = null, pendingCue = null, pendingBlindGoatId = null;
 
   function B() { return window.__game; }
   function $(id) { return document.getElementById(id); }
@@ -29,6 +29,44 @@
   function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function alivePersons() { var b = B(); return b ? b.allPersons().filter(function (p) { return p.alive; }) : []; }
+  // Gắn dê của nhóm mình từ goatId server gửi trong tin blind. Trả person
+  // của dê hoặc null (dê chưa có trong allPersons — ví dụ mới join).
+  function resolveGoat(st, goatId) {
+    if (!st || goatId === undefined || goatId === null) return null;
+    var b = B();
+    var list = b ? b.allPersons() : [];
+    var goat = null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === goatId) { goat = list[i]; break; }
+    }
+    st.state.goatId = goatId;
+    if (goat) st.state.goat = goat;
+    return goat;
+  }
+  // Góc yaw của camera theo cùng quy ước atan2(dx,-dz) mà mũi tên/la bàn
+  // dùng (0° = bắc = -Z). Trả null khi không có camera (test/mock).
+  function cameraYawDeg() {
+    var b = B();
+    var cam = b && b.camera;
+    if (!cam || !cam.getWorldDirection || typeof window === 'undefined' || !window.THREE) return null;
+    try {
+      var v = new window.THREE.Vector3();
+      cam.getWorldDirection(v);
+      return Math.atan2(v.x, -v.z) * 180 / Math.PI;
+    } catch (e) { return null; }
+  }
+  // Đổi hướng tuyệt đối (theo thế giới) sang hướng tương đối theo tầm nhìn:
+  // mũi tên/la bàn chỉ đúng hướng trên màn hình dù camera xoay. Chuẩn hoá
+  // về (-180, 180].
+  function relDeg(worldDeg) {
+    if (worldDeg === undefined || worldDeg === null || isNaN(worldDeg)) return worldDeg;
+    var yaw = cameraYawDeg();
+    if (yaw === null || yaw === undefined || isNaN(yaw)) return worldDeg;
+    var r = worldDeg - yaw;
+    while (r > 180) r -= 360;
+    while (r <= -180) r += 360;
+    return r;
+  }
   function toast(m) { var b = B(); if (b) b.toast(m); }
   function send(o) { var b = B(); if (b) b.sendWS(o); }
 
@@ -266,13 +304,14 @@
   function updateCue(st, dir, dist) {
     var arrow = $('cue-arrow'), txt = $('cue-text');
     // Server gửi hướng dạng chữ (east/west/south/north); chế độ chơi đơn
-    // tính bằng độ. Đổi chữ sang độ theo cùng quy ước atan2(dx,-dz).
+    // tính bằng độ. Đổi chữ sang độ theo cùng quy ước atan2(dx,-dz),
+    // rồi xoay theo hướng camera (tương đối) thay vì hướng thế giới.
     var deg = dir;
     if (typeof dir === 'string') {
       deg = { north: 0, east: 90, south: 180, west: 270 }[dir];
       if (deg === undefined) deg = null;
     }
-    if (arrow && deg !== undefined && deg !== null) arrow.style.transform = 'rotate(' + deg + 'deg)';
+    if (arrow && deg !== undefined && deg !== null) arrow.style.transform = 'rotate(' + relDeg(deg) + 'deg)';
     if (txt) txt.textContent = cueLabel(dist) + (dist !== undefined && dist !== null ? ' (khoảng ' + Math.round(dist) + ' bước)' : '');
   }
   function blindHtml(st) {
@@ -598,7 +637,8 @@
             goat = Math.random() < 0.25 ? b.player : (botsAlive[randInt(0, Math.max(0, botsAlive.length - 1))] || alive[0]);
           }
         }
-        // Multiplayer: dê do server chỉ định qua tin blind (blind:false = bạn là dê).
+        // Multiplayer: dê do server chỉ định qua tin blind (blind:false = bạn
+        // là dê, blind:true + goatId = dê của nhóm mình để vẽ ánh/la bàn).
         st.state.goat = goat;
         st.state.goatId = goat ? goat.id : null;
         st.state.goatIsMe = goat === b.player;
@@ -619,13 +659,19 @@
         var goat = st.state.goat;
         if (!goat || !goat.alive) return;
         // Cập nhật mũi tên chỉ hướng + khoảng cách cho người chơi (nếu không phải dê).
+        // Chơi đơn: vị trí dê tính tại client nên luôn tươi. Nhiều người: chỉ
+        // tin vị trí dê khi tươi (<1,5s — tick 15Hz trong AOI 40); vị trí cũ
+        // (dê đã ra ngoài AOI) thì để nguyên mũi tên theo cue 2s của server.
         st.state.cueT += dt;
         if (st.state.cueT >= 0.3 && b.player && b.player.alive && !st.state.goatIsMe) {
+          var liveOk = st.local || (goat._posAt && Date.now() - goat._posAt < 1500);
           st.state.cueT = 0;
-          var dx = goat.x - b.player.x, dz = goat.z - b.player.z;
-          var dir = Math.atan2(dx, -dz) * 180 / Math.PI;
-          var dist = Math.hypot(dx, dz);
-          updateCue(st, dir, dist);
+          if (liveOk) {
+            var dx = goat.x - b.player.x, dz = goat.z - b.player.z;
+            var dir = Math.atan2(dx, -dz) * 180 / Math.PI;
+            var dist = Math.hypot(dx, dz);
+            updateCue(st, dir, dist);
+          }
         }
         // Dấu dê chỉ mình dê thấy, bám theo vị trí người chơi.
         if (st.state.goatIsMe && goatMarker && b.player) {
@@ -690,7 +736,11 @@
       },
       onMessage: function (msg, st) {
         if (msg.type === 'blind') {
-          if (msg.blind) { hideOverlay(); showBlind(true, blindHtml(st)); }
+          if (msg.goatId !== undefined && msg.goatId !== null) resolveGoat(st, msg.goatId);
+          if (msg.blind) {
+            st.state.goatIsMe = false;
+            hideOverlay(); showBlind(true, blindHtml(st));
+          }
           else {
             hideBlind();
             st.state.goatIsMe = true;
@@ -953,8 +1003,11 @@
         showOverlay(goatPanelHtml(active));
         showGoatMarker();
       }
+      if (pendingBlindGoatId !== null && pendingBlindGoatId !== undefined) {
+        resolveGoat(active, pendingBlindGoatId);
+      }
       if (pendingCue) updateCue(active, pendingCue.dir, pendingCue.dist);
-      pendingBlind = null; pendingCue = null;
+      pendingBlind = null; pendingCue = null; pendingBlindGoatId = null;
     }
   }
   function endRound() {
@@ -986,7 +1039,10 @@
         return false;
       }
       // roundStart chưa tới: giữ lại để áp khi vòng Bịt Mắt bắt đầu.
-      if (msg.type === 'blind') pendingBlind = !!msg.blind;
+      if (msg.type === 'blind') {
+        pendingBlind = !!msg.blind;
+        if (msg.goatId !== undefined && msg.goatId !== null) pendingBlindGoatId = msg.goatId;
+      }
       else if (msg.type === 'cue') pendingCue = msg;
       else if (msg.type === 'caught') { hideBlind(); toast('Dê đã bị bắt!'); }
       return true;
