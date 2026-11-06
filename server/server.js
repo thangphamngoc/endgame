@@ -27,7 +27,9 @@
  *     trace {points:[[x,y],...]}  : Nặn Tò He — server tự chấm theo khoảng cách
  *                                   tới mẫu (ưu tiên hơn score nếu có points).
  *     oanquan {pit}               : Ô Ăn Quan — chọn ô (0-11), server kiểm tra
- *                                   lượt + tính rải/cướp quân.
+ *                                   lượt + ô của mình (chỉ ô dân bên mình:
+ *                                   bên 0 = ô 1-5, bên 1 = ô 7-11; ô quan 0/6
+ *                                   không được rải) + tính rải/cướp quân.
  *     hop {}                      : Nhảy Bao Bố — nhảy theo vạch nhịp của server.
  *     reconnect {token}           : quay lại đúng slot trong 30 giây ân hạn.
  *     economy {action, ...}       : ủy quyền cho server/economy.js nếu có,
@@ -61,7 +63,10 @@
  *                                   (dự phòng khi dê ngoài AOI 40 của tick).
  *     caught {goatId, seekerId}   : Bịt Mắt — dê bị bắt.
  *     flag {holderId}             : Rồng Rắn — ai đang giữ cờ.
- *     oanquanState {board, turnId, scores}
+ *     oanquanState {board, turnId, scores, sides}
+ *                                   sides = {playerId: 0|1} — bên của mỗi người
+ *                                   (0 = ô 1-5, 1 = ô 7-11), client dùng để
+ *                                   chỉ cho bấm ô bên mình.
  *     hopState {progress:{id: n}, beatPhase}
  *     tugResult / traceResult      : (thông qua roundEnd + players)
  *   HTTP: GET /health -> {ok:true, rooms, players, uptime}
@@ -459,6 +464,44 @@ function startMatch(room) {
   }, 3200);
 }
 
+// ---- Ô Ăn Quan: luật ô của mình (ĐÃ QUYẾT, cycle 3, 2026-11-06) ----
+// Bên chia theo chẵn/lẻ của vị trí trong turnOrder (xếp theo id): bên 0
+// đi ô dân 1-5, bên 1 đi ô dân 7-11; lượt đi xen kẽ hai bên vì turnOrder
+// đi lần lượt. Ô quan 0 và 6 KHÔNG ai được rải (luật cổ truyền; server
+// vốn đã không cho ăn ô quan). Viền vàng ô 0-5 ở client là luật thật:
+// chỉ ô bên mình mới bấm được — server chặn, overlay/sim khóa nút.
+const OANQUAN_PITS = { 0: [1, 2, 3, 4, 5], 1: [7, 8, 9, 10, 11] };
+function oanquanSideOf(st, playerId) {
+  if (st.sides && st.sides[playerId] != null) return st.sides[playerId];
+  return st.turnOrder.indexOf(playerId) % 2 === 0 ? 0 : 1;
+}
+function oanquanPitsOf(st, playerId) { return OANQUAN_PITS[oanquanSideOf(st, playerId)]; }
+function oanquanHasMove(st, playerId) {
+  return oanquanPitsOf(st, playerId).some((i) => st.board[i] > 0);
+}
+// Chuyển lượt tới người sống tiếp theo còn nước đi hợp lệ. Trả false
+// nếu đi hết một vòng turnOrder mà không ai còn nước đi (vòng kết thúc).
+function oanquanAdvance(room) {
+  const st = room.roundState;
+  if (!st) return false;
+  const n = st.turnOrder.length;
+  for (let step = 0; step < n; step++) {
+    st.turnIdx++;
+    const nid = st.turnOrder[st.turnIdx % n];
+    const np = room.players.get(nid);
+    if (np && np.alive && oanquanHasMove(st, nid)) return true;
+  }
+  return false;
+}
+function oanquanStateMsg(room) {
+  const st = room.roundState;
+  return {
+    type: 'oanquanState', board: st.board,
+    turnId: st.turnOrder[st.turnIdx % st.turnOrder.length] || null,
+    scores: st.scores, sides: st.sides,
+  };
+}
+
 function startRound(room, n) {
   const aliveAtStart = survivorsOf(room).length;
   const plan = roundEntryFor(room, n, aliveAtStart);
@@ -540,9 +583,11 @@ function startRound(room, n) {
   } else if (plan.game === 'o-an-quan') {
     const alive = [...room.players.values()].filter((p) => p.alive && !p.spectator).sort((a, b) => a.id - b.id);
     for (const p of alive) p.oanquanScore = 0;
+    const sides = {};
+    alive.forEach((p, i) => { sides[p.id] = i % 2; });
     state = {
       board: [10, 5, 5, 5, 5, 5, 10, 5, 5, 5, 5, 5],
-      turnOrder: alive.map((p) => p.id), turnIdx: 0, turnsTaken: {}, scores: {},
+      turnOrder: alive.map((p) => p.id), turnIdx: 0, turnsTaken: {}, scores: {}, sides,
     };
     for (const p of alive) { state.turnsTaken[p.id] = 0; state.scores[p.id] = 0; }
   } else if (plan.game === 'nhay-bao-bo') {
@@ -572,7 +617,7 @@ function startRound(room, n) {
     broadcast(room, { type: 'traceTarget', shape: state.shape, points: state.points });
   }
   if (plan.game === 'o-an-quan') {
-    broadcast(room, { type: 'oanquanState', board: state.board, turnId: state.turnOrder[0] || null, scores: state.scores });
+    broadcast(room, oanquanStateMsg(room));
   }
 }
 
@@ -1235,12 +1280,13 @@ wss.on('connection', (ws) => {
       if (turnId !== player.id) { send(ws, { type: 'error', message: 'Chưa tới lượt của bạn.' }); return; }
       const pit = Number(msg.pit);
       if (!Number.isInteger(pit) || pit < 0 || pit > 11) return;
-      // Side check: turn order alternates sides; pit must belong to player's side.
-      const side = st.turnOrder.indexOf(player.id) % 2 === 0 ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
-      // Simpler ownership: first half of turn order plays pits 0-5, second half 6-11 is
-      // too rigid for >2 players, so allow any non-empty pit except the two quan
-      // pits when the player has not yet scored — but enforce non-empty + not quan
-      // unless it is the only move. Keep validation: pit must be non-empty.
+      // Siết luật ô của mình (cycle 3): chỉ được rải ô dân bên mình
+      // (bên 0: 1-5, bên 1: 7-11); ô quan 0/6 và ô đối thủ đều bị chặn.
+      const ownPits = oanquanPitsOf(st, player.id);
+      if (ownPits.indexOf(pit) < 0) {
+        send(ws, { type: 'error', message: 'Chỉ được bấm ô bên mình (ô ' + ownPits[0] + '-' + ownPits[ownPits.length - 1] + ').' });
+        return;
+      }
       if (st.board[pit] <= 0) { send(ws, { type: 'error', message: 'Ô trống, chọn ô khác.' }); return; }
       let stones = st.board[pit];
       st.board[pit] = 0;
@@ -1257,19 +1303,13 @@ wss.on('connection', (ws) => {
         }
       }
       st.turnsTaken[player.id] = (st.turnsTaken[player.id] || 0) + 1;
-      st.turnIdx++;
-      // Skip eliminated / finished players in turn order.
-      let guard = 0;
-      while (guard++ < st.turnOrder.length) {
-        const nid = st.turnOrder[st.turnIdx % st.turnOrder.length];
-        const np = room.players.get(nid);
-        if (np && np.alive) break;
-        st.turnIdx++;
-      }
-      broadcast(room, { type: 'oanquanState', board: st.board, turnId: st.turnOrder[st.turnIdx % st.turnOrder.length], scores: st.scores });
+      // Chuyển lượt tới người sống tiếp theo còn nước đi; nếu không ai
+      // còn nước đi thì vòng kết thúc (tránh kẹt khi một bên hết quân).
+      const hasNext = oanquanAdvance(room);
+      broadcast(room, oanquanStateMsg(room));
       const allDone = st.turnOrder.every((pid) => (st.turnsTaken[pid] || 0) >= 3);
       const boardEmpty = st.board.reduce((a, b) => a + b, 0) <= 2;
-      if (allDone || boardEmpty) endRound(room, room.round, allDone ? 'all-turns-done' : 'board-empty');
+      if (!hasNext || allDone || boardEmpty) endRound(room, room.round, !hasNext ? 'no-legal-moves' : (allDone ? 'all-turns-done' : 'board-empty'));
       return;
     }
     if (msg.type === 'hop') {

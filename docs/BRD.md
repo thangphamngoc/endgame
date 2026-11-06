@@ -295,6 +295,18 @@ giữ làm dự phòng khi dê ngoài AOI 40 của tick. Vị trí dê trên cli
 nên vị trí tươi). Chưa đo bằng tay: cảm giác tìm dê theo la bàn mới,
 độ chính xác khi dê ngoài AOI, mobile thật.
 
+**Ô Ăn Quan — ĐÃ QUYẾT (cycle 3, 2026-11-06):** chỉ được rải ô dân bên
+mình. Bên chia theo chẵn/lẻ vị trí trong turnOrder (xếp theo id): bên 0
+đi ô 1–5, bên 1 đi ô 7–11; lượt đi xen kẽ hai bên. Ô quan 0 và 6 KHÔNG
+ai được rải (luật cổ truyền; server vốn đã không cho ăn ô quan). Server
+chặn nước sai bằng tin lỗi, gửi `sides` {playerId: 0|1} trong mọi tin
+`oanquanState`; overlay khóa nút ô không phải của mình (viền vàng = hàng
+của bạn theo đúng bên của bạn, ô đối thủ viền teal); sim 3D cũng kiểm tra
+trước khi chuyển tiếp và không gửi thẳng WS cho ô sai bên. Ai hết nước đi
+hợp lệ thì lượt tự bỏ qua; không ai còn nước đi thì vòng kết thúc
+(`no-legal-moves`). Chưa đo bằng tay: cảm giác rải khi chỉ còn ô bên
+mình, mobile thật.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết

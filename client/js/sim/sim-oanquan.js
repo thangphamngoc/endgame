@@ -15,14 +15,21 @@
  *    rải (idx+1)%12 đi thành một vòng khép kín quanh bàn, ô 7 ở phía xa-bên
  *    phải và ô 11 ở phía xa-bên trái (xem PIT_POS). Overlay vẫn giữ thứ tự
  *    6..11 từ trái sang phải — đó chỉ là sơ đồ, không phải vị trí thật.
- * 2. Server + overlay chấp nhận mọi ô còn quân khi tới lượt bạn (server chỉ
- *    chặn ô trống và sai lượt), nên cả 12 ô 3D đều bấm được khi tới lượt;
- *    ô 0–5 chỉ là "hàng của bạn" về mặt hiển thị (viền vàng) theo brief.
+ * 2. LUẬT Ô CỦA MÌNH (ĐÃ QUYẾT, cycle 3, 2026-11-06): chỉ được bấm ô dân
+ *    bên mình — bên 0: ô 1-5, bên 1: ô 7-11; ô quan 0/6 không ai được rải.
+ *    Server chặn nước sai, overlay khóa nút; sim cũng kiểm tra trước khi
+ *    chuyển tiếp (KHÔNG gửi thẳng WS khi ô không phải của mình — đường
+ *    fallback cũ sẽ vòng qua luật của overlay). Viền vàng = hàng của bạn
+ *    theo đúng bên của bạn (mySide từ oanquanState, mặc định 0 ở chơi đơn).
  * 3. Click 3D chuyển tiếp bằng .click() lên nút .oq-pit[data-pit] của
  *    #round-overlay để tái dùng đúng handler của rounds.js (chơi đơn: rải
  *    tại chỗ + bot đi sau 700ms; nhiều người: gửi WS). Nếu nút không có
- *    hoặc bị disabled thì gửi thẳng api.sendWS({type:'oanquan', pit}).
+ *    hoặc bị disabled thì gửi thẳng api.sendWS({type:'oanquan', pit}) —
+ *    CHỈ khi ô đó là ô bên mình (handlePitClick kiểm tra trước).
  * 4. Ở nhiều người, server không gửi turnsTaken nên strip ẩn "lượt đã đi".
+ * 5. Hàng của bạn trong 3D: viền vàng + thẻ "HÀNG CỦA BẠN" đi theo bên của
+ *    bạn (mySide), không cố định ở ô 0-5 — người chơi bên 1 thấy hàng mình
+ *    (ô 7-11) ở phía xa, thẻ và viền đổi theo.
  */
 (function () {
   'use strict';
@@ -64,6 +71,16 @@
   function scoresOf(st) {
     var s = st && st.state && st.state.scores;
     return { me: (s && +s.me) || 0, bot: (s && +s.bot) || 0 };
+  }
+  // Bên của bạn: server gửi qua oanquanState -> rounds.js ghi st.state.mySide
+  // (mặc định 0 ở chơi đơn). Ô dân bên mình: bên 0 = 1-5, bên 1 = 7-11.
+  function mySideOf(st) {
+    var s = st && st.state && st.state.mySide;
+    return (s === 1) ? 1 : 0;
+  }
+  function isMyPit(st, pit) {
+    if (mySideOf(st) === 0) return pit >= 1 && pit <= 5;
+    return pit >= 7 && pit <= 11;
   }
   function arraysEqual(a, b) {
     if (!a || !b || a.length !== b.length) return false;
@@ -154,7 +171,7 @@
       prevOver: !!(st && st.state && st.state.over),
       flying: [], flashes: [], animating: false, synced: false,
       hoverPit: -1, pointer: null, downPos: null, downAt: 0,
-      lastStripKey: '', lastLabelKey: '',
+      lastStripKey: '', lastLabelKey: '', lastSide: -1,
       stoneGeo: null, stoneGeoQuan: null, stoneMats: [],
       onDown: null, onUp: null, onMove: null
     };
@@ -213,8 +230,9 @@
     s.stoneGeoQuan = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     for (i = 0; i < STONE_COLORS.length; i++) s.stoneMats.push(lam(STONE_COLORS[i]));
 
-    // 12 ô: nền lõm tối + viền (ô 0–5 viền vàng = hàng của bạn, ô 6–11
-    // viền teal = hàng đối thủ; ô quan to hơn, viền dày hơn).
+    // 12 ô: nền lõm tối + viền (mặc định ô 0–5 viền vàng, ô 6–11 viền teal;
+    // update() tô lại theo bên của bạn — ô bên mình vàng, ô đối thủ teal;
+    // ô quan to hơn, viền dày hơn).
     for (i = 0; i < 12; i++) {
       var pos = PIT_POS[i], quan = !!pos.quan;
       var half = quan ? 1.15 : 0.85, wallH = quan ? 0.26 : 0.24, wallY = 0.97;
@@ -327,6 +345,10 @@
     if (api.player && !api.player.alive) return;
     if (st.state.over) { if (api.toast) api.toast('Ván đã hết.'); return; }
     if (st.state.turn !== 'me') { if (api.toast) api.toast('Chưa tới lượt bạn.'); return; }
+    // Luật ô của mình: không chuyển tiếp ô đối thủ / ô quan đi đâu cả
+    // (kể cả đường fallback gửi thẳng WS — server cũng chặn, nhưng sim
+    // không được vòng qua overlay).
+    if (!isMyPit(st, pit)) { if (api.toast) api.toast('Chỉ được bấm ô bên mình.'); return; }
     var board = boardOf(st);
     if (!board[pit]) { if (api.toast) api.toast('Ô trống, chọn ô khác.'); return; }
     // Chuyển tiếp qua nút ô của rounds.js để tái dùng đúng luật + lượt bot.
@@ -534,20 +556,30 @@
     var hover = -1;
     if (s.pointer && s.pits.length) {
       hover = pickPit(s, s.pointer.x, s.pointer.y);
-      if (hover >= 0 && !(turn === 'me' && !over && board[hover] > 0)) hover = -1;
+      if (hover >= 0 && !(turn === 'me' && !over && board[hover] > 0 && isMyPit(s.st, hover))) hover = -1;
     }
     if (hover !== s.hoverPit) {
       s.hoverPit = hover;
       if (s.canvas) s.canvas.style.cursor = hover >= 0 ? 'pointer' : '';
     }
     // Viền ô: tới lượt bạn thì hàng của bạn nhấp nháy vàng, lượt đối thủ
-    // thì mờ đi; ô đang trỏ tới luôn sáng nhất.
+    // thì mờ đi; ô đang trỏ tới luôn sáng nhất. Màu viền đi theo bên của
+    // bạn (mySide): ô bên mình vàng, ô đối thủ teal.
     var myTurn = turn === 'me' && !over;
+    var mySide = mySideOf(s.st);
+    if (mySide !== s.lastSide) {
+      s.lastSide = mySide;
+      for (var ri = 0; ri < s.pits.length; ri++) {
+        var col = isMyPit(s.st, ri) ? 0xd97706 : 0x0f766e;
+        s.pits[ri].rimMat.color.setHex(col);
+        s.pits[ri].rimMat.emissive.setHex(col);
+      }
+    }
     for (var i = 0; i < s.pits.length; i++) {
       var rim = s.pits[i].rimMat;
       var target = 0.05;
       if (i === s.hoverPit) target = 0.9;
-      else if (myTurn && i < 6) target = 0.32 + 0.24 * Math.sin(s.time * 4.5);
+      else if (myTurn && isMyPit(s.st, i)) target = 0.32 + 0.24 * Math.sin(s.time * 4.5);
       else if (myTurn) target = 0.08;
       rim.emissiveIntensity += (target - rim.emissiveIntensity) * Math.min(1, dt * 10);
     }
@@ -572,11 +604,13 @@
       }
       s.lastLabelKey = labelKey;
       // Thẻ tên hàng: gần mép bàn, phía người chơi / phía đối thủ.
+      // Hàng của bạn ở mép gần khi bên 0, ở mép xa khi bên 1.
       var tagY = 1.7;
       var pm = s.api.project(s.root.position.x, tagY, s.root.position.z + 2.1);
       var pf = s.api.project(s.root.position.x, tagY, s.root.position.z - 2.1);
-      placeTag(s.rowTags[0], pm);
-      placeTag(s.rowTags[1], pf);
+      var meNear = mySideOf(s.st) === 0;
+      placeTag(s.rowTags[0], meNear ? pm : pf);
+      placeTag(s.rowTags[1], meNear ? pf : pm);
     }
     function placeTag(el, pr) {
       if (!pr || pr.behind) { el.style.display = 'none'; return; }
@@ -597,7 +631,7 @@
         turnText = 'Hết ván: bạn ' + scores.me + ' — đối thủ ' + scores.bot + '. ' +
           (scores.me > scores.bot ? 'Bạn thắng!' : scores.me < scores.bot ? 'Bạn thua.' : 'Hòa!');
       } else if (turn === 'me') {
-        turnText = 'Tới lượt bạn — bấm một ô còn quân.' + turnsText;
+        turnText = 'Tới lượt bạn — bấm một ô bên mình còn quân.' + turnsText;
       } else {
         turnText = 'Đối thủ đang đi…' + turnsText;
       }

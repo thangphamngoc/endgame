@@ -508,6 +508,8 @@
 .oq-row{display:flex;gap:6px;margin:4px 0}
 .oq-pit{flex:1;min-height:52px;min-width:44px;font-size:18px}
 .oq-pit:disabled{opacity:.55;cursor:default}
+.oq-pit.oq-mine{border:3px solid #d97706;background:#ffedb8}
+.oq-pit.oq-foe{border:3px solid #0f766e}
 .oq-quan{border:3px solid var(--edge);background:#fff8e1;padding:8px 4px;font-size:13px;width:76px;display:flex;flex-direction:column;justify-content:center;color:#33200f}
 .oq-quan b{font-size:20px}
 .oq-quan-pit{background:#fff8e1;font-weight:900}

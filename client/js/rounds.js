@@ -341,22 +341,33 @@
   // Cùng mô hình 12 ô như server: ô 0 và ô 6 là ô quan (10 quân), còn lại là ô dân.
   // Rải: đi vòng (idx+1)%12, không bỏ qua ô nào. Ăn: quân cuối rơi vào ô đang có đúng
   // 1 quân thì ăn toàn bộ quân ở ô kế tiếp (trừ 2 ô quan). Mỗi người đi 3 lượt.
+  // LUẬT Ô CỦA MÌNH (ĐÃ QUYẾT, cycle 3, 2026-11-06): chỉ được rải ô dân bên
+  // mình — bên 0: ô 1-5, bên 1: ô 7-11; ô quan 0/6 không ai được rải. Server
+  // chặn nước sai (tin lỗi), overlay khóa nút ô không phải của mình (viền
+  // vàng = hàng của bạn, theo đúng bên của bạn — không còn là gợi ý).
+  var OQ_PITS = { 0: [1, 2, 3, 4, 5], 1: [7, 8, 9, 10, 11] };
+  function oqMyPits(st) {
+    var side = (st.state && st.state.mySide != null) ? st.state.mySide : 0;
+    return OQ_PITS[side];
+  }
   function oqRender(st) {
     var board = st.state.board;
+    var myPits = oqMyPits(st);
     function pit(i, clickable) {
       var isQuan = (i === 0 || i === 6);
-      return '<button class="btn small oq-pit' + (isQuan ? ' oq-quan-pit' : '') + '" data-pit="' + i + '" ' +
-        ((!clickable || !board[i] || st.state.over) ? 'disabled' : '') + '>' +
+      var mine = myPits.indexOf(i) >= 0;
+      return '<button class="btn small oq-pit' + (isQuan ? ' oq-quan-pit' : '') + (mine ? ' oq-mine' : ' oq-foe') + '" data-pit="' + i + '" ' +
+        ((!clickable || !board[i] || st.state.over || !mine) ? 'disabled' : '') + '>' +
         (isQuan ? 'QUAN<br>' : '') + board[i] + '</button>';
     }
     var myTurn = st.state.turn === 'me';
     var top = [6, 7, 8, 9, 10, 11].map(function (i) { return pit(i, myTurn); }).join('');
     var bot = [0, 1, 2, 3, 4, 5].map(function (i) { return pit(i, myTurn); }).join('');
-    var turnText = st.state.over ? '' : (myTurn ? 'Tới lượt bạn — bấm một ô còn quân.' : 'Đang chờ lượt…');
+    var turnText = st.state.over ? '' : (myTurn ? 'Tới lượt bạn — bấm một ô bên mình còn quân (ô ' + myPits[0] + '–' + myPits[myPits.length - 1] + ').' : 'Đang chờ lượt…');
     var scoreText = 'Điểm của bạn: ' + (st.state.scores.me || 0) + ' quân — Đối thủ: ' + (st.state.scores.bot || 0) + ' quân.';
     showOverlay(
       '<h2>Ô ĂN QUAN — VÒNG ' + st.round + '</h2>' +
-      '<p class="note"><b>Luật chơi:</b> bấm một ô còn quân để rải theo vòng. Quân cuối rơi vào ô đang có đúng 1 quân thì ăn toàn bộ quân ở ô kế tiếp (không ăn ô quan). Mỗi người đi 3 lượt rồi đếm điểm ăn được; điểm thấp bị loại theo đường cong loại.</p>' +
+      '<p class="note"><b>Luật chơi:</b> chỉ được bấm ô bên mình (viền vàng, ô ' + myPits[0] + '–' + myPits[myPits.length - 1] + ') để rải theo vòng; ô quan không được rải. Quân cuối rơi vào ô đang có đúng 1 quân thì ăn toàn bộ quân ở ô kế tiếp (không ăn ô quan). Mỗi người đi 3 lượt rồi đếm điểm ăn được; điểm thấp bị loại theo đường cong loại.</p>' +
       '<div class="oq-board"><div class="oq-rows"><div class="oq-row">' + top + '</div><div class="oq-row">' + bot + '</div></div></div>' +
       '<p class="note">' + scoreText + '</p>' +
       '<p id="oq-info" class="note">' + turnText + '</p>');
@@ -364,6 +375,7 @@
     Array.prototype.forEach.call(els, function (el) {
       el.onclick = function () {
         var pitIdx = Number(el.getAttribute('data-pit'));
+        if (oqMyPits(st).indexOf(pitIdx) < 0) return; // phòng thủ: nút đã khóa, nhưng sim có thể .click() lại
         send({ type: 'oanquan', pit: pitIdx });
         if (!st.local) return;
         if (st.state.turn !== 'me' || st.state.over) return;
@@ -373,7 +385,7 @@
           setTimeout(function () {
             if (!active || active !== st || st.state.over) return;
             var opts = [];
-            for (var i = 0; i < 12; i++) if (st.state.board[i] > 0) opts.push(i);
+            for (var i = 7; i <= 11; i++) if (st.state.board[i] > 0) opts.push(i); // bot là bên 1: chỉ ô 7-11
             if (!opts.length) return;
             oqSow(st, opts[randInt(0, opts.length - 1)], true);
             oqRender(st);
@@ -384,6 +396,9 @@
   }
   function oqSow(st, pit, isBot) {
     var board = st.state.board;
+    // Chặn rải sai bên ở chơi đơn (multi đã có server chặn; overlay khóa nút).
+    var legal = isBot ? (pit >= 7 && pit <= 11) : (pit >= 1 && pit <= 5);
+    if (!legal) return false;
     var stones = board[pit]; if (!stones) return false;
     board[pit] = 0;
     var idx = pit;
@@ -765,6 +780,7 @@
       start: function (st) {
         st.state.board = (st.opts && st.opts.board) ? st.opts.board.slice() : [10, 5, 5, 5, 5, 5, 10, 5, 5, 5, 5, 5];
         st.state.turn = 'me';
+        st.state.mySide = 0; // chơi đơn: bạn là bên 0 (ô 1-5); multi: server gửi sides trong oanquanState
         st.state.over = false;
         st.state.turnsTaken = { me: 0, bot: 0 };
         st.state.scores = { me: 0, bot: 0 };
@@ -777,6 +793,7 @@
         if (msg.type === 'oanquanState' && msg.board) {
           st.state.board = msg.board.slice();
           var b = B();
+          if (msg.sides && b && msg.sides[b.myId] != null) st.state.mySide = msg.sides[b.myId];
           st.state.turn = (msg.turnId && b && msg.turnId === b.myId) ? 'me' : 'bot';
           if (msg.scores) {
             var mine = msg.scores[b.myId] || 0;
