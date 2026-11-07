@@ -8,9 +8,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
+<script src="js/vendor/three.min.js"></script>
+<script>
+// Three.js tự host (backlog #11, P2-09): tải bản local trước; nếu lỗi thì
+// fallback sang CDN cdnjs cùng phiên bản 0.158.0 (document.write đồng bộ
+// nên game.js phía dưới vẫn chạy sau Three.js). Nếu cả hai đều lỗi thì
+// hiện banner #threeLoadError thay vì để game chết lặng — kiểm tra ở
+// DOMContentLoaded, khi mọi script chèn lúc parse đã chạy xong.
+if (typeof THREE === 'undefined') {
+  window.__threeSource = 'cdn';
+  document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"><\/script>');
+} else {
+  window.__threeSource = 'local';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof THREE === 'undefined') {
+    var el = document.getElementById('threeLoadError');
+    if (el) el.style.display = 'block';
+  }
+});
+</script>
 </head>
 <body>
+
+<div id="threeLoadError" style="display:none;position:fixed;inset:0;z-index:100;background:#1a0d0d;color:#ffd9d9;padding:24px;font:16px/1.6 'Be Vietnam Pro',sans-serif;text-align:center">Không tải được thư viện 3D (Three.js) — kiểm tra mạng rồi tải lại trang.</div>
 
     <canvas id="scene"></canvas>
 
@@ -35,6 +56,9 @@
       <div id="round-timer-fill"></div>
       <div id="hud-round-time"></div>
     </div>
+    <!-- Gợi ý phím theo vòng (P4-02 bước 2, cycle 13): hiện lúc bắt đầu mỗi
+         vòng, tự ẩn sau 12 giây, bấm ✕ để đóng ngay. -->
+    <div id="roundHint" class="hidden"><span id="roundHintText"></span><button id="roundHintClose" type="button" aria-label="Đóng gợi ý phím">✕</button></div>
     <div id="progressWrap">
       <div id="progressTrack"><div id="progressFill"></div></div>
       <div id="progressLabel"><span id="progStartLabel">VẠCH XUẤT PHÁT</span><span id="progEndLabel">ĐÍCH — SÂN ĐÌNH</span></div>
@@ -83,6 +107,7 @@
         <button class="specBtn" type="button" id="btnTour" style="background:#0f766e;">DU LỊCH HẠ LONG</button>
       </div>
       <div class="specHint">Phím 1–4 hoặc C: đổi góc · Tab / ◀ ▶: đổi người · kéo chuột: xoay · cuộn chuột: zoom<br />Hoặc bấm Du lịch Hạ Long để bay quanh vịnh trong lúc trận vẫn chạy tiếp.</div>
+      <div id="leaderboard" style="display:none" aria-label="Bảng xếp hạng trực tiếp"></div>
     </div>
 
     <div id="tourPanel">
@@ -140,6 +165,7 @@
         </div>
         <button class="bigBtn" id="btnStart" type="button">BẮT ĐẦU CHƠI</button>
         <button class="bigBtn" id="btnStartTour" type="button" style="background:#0f766e;border-color:#083f3a;box-shadow:0 6px 0 #083f3a, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(174,242,221,.5);font-size:16px;padding:11px 26px;">DU LỊCH HẠ LONG TRƯỚC</button>
+        <button class="bigBtn" id="btnHelp" type="button" style="background:#6b7280;border-color:#374151;box-shadow:0 6px 0 #374151, 0 12px 24px rgba(0,0,0,.3);font-size:15px;padding:11px 22px;">❓ HƯỚNG DẪN CHƠI (3 BƯỚC)</button>
         <div class="rules" style="margin-top:12px;">
           <input id="player-name" type="text" maxlength="24" placeholder="Tên của bạn (mặc định: Người chơi)" style="width:100%;padding:10px 12px;font:inherit;border:3px solid var(--edge,#1f2937);border-radius:0;background:#fffdf4;" />
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
@@ -173,6 +199,21 @@
       </div>
     </div>
 
+    <!-- Onboarding người mới (P4-02): hướng dẫn 3 bước, tự hiện lần đầu vào sảnh chờ. -->
+    <div class="overlay hidden" id="onboardingCard">
+      <div class="card" style="max-width:560px;">
+        <h2 id="obTitle">BƯỚC 1 · TRỐNG ĐÁNH — CHIÊNG LÀ LỆNH</h2>
+        <div class="obDots" id="obDots"><span class="on"></span><span></span><span></span></div>
+        <div class="rules" id="obBody" style="text-align:left;"></div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button class="bigBtn hidden" id="btnObPrev" type="button" style="font-size:15px;padding:10px 18px;background:#6b7280;border-color:#374151;box-shadow:0 6px 0 #374151;">← QUAY LẠI</button>
+          <button class="bigBtn" id="btnObNext" type="button" style="font-size:15px;padding:10px 18px;">TIẾP →</button>
+          <button class="bigBtn hidden" id="btnObDone" type="button" style="font-size:15px;padding:10px 18px;">ĐÃ HIỂU — VÀO CHƠI</button>
+        </div>
+        <button id="btnObSkip" type="button" class="obSkip">Bỏ qua hướng dẫn</button>
+      </div>
+    </div>
+
     <div class="overlay" id="endCard">
       <div class="card">
         <h2 id="endTitle">VỀ ĐÍCH!</h2>
@@ -190,11 +231,12 @@
 
     <div class="overlay hidden" id="teamCard">
       <div class="card" style="max-width:640px;">
-        <h2>CHIA TEAM — VÒNG 2</h2>
-        <p>Người sống sót được chia tự động, cân bằng số lượng, thành tối đa 3 đội. <b>Mỗi đội qua cầu riêng của mình và đi theo lượt</b> — chỉ người dẫn đầu được bước lên cầu, người sau chờ trên bệ an toàn. Thứ tự đi trong mỗi đội là <b>ngược thứ tự về đích vòng 1: về đích chậm nhất đi đầu, nhanh nhất đi cuối</b> — đi cuối an toàn nhất vì đã biết ván nào chắc nhờ người đi trước, đó là phần thưởng cho người nhanh nhất vòng 1. Chia đội chỉ để qua cầu có trật tự: <b>rớt cầu là loại cá nhân đó</b>, qua được cầu là sống sót cá nhân, xếp hạng chung cuộc vẫn tính theo từng người.</p>
+        <h2 class="teamOnly">CHIA TEAM — VÒNG 2</h2>
+        <h2 class="rankTitle">KẾT QUẢ TRẬN ĐẤU</h2>
+        <p class="teamOnly">Người sống sót được chia tự động, cân bằng số lượng, thành tối đa 3 đội. <b>Mỗi đội qua cầu riêng của mình và đi theo lượt</b> — chỉ người dẫn đầu được bước lên cầu, người sau chờ trên bệ an toàn. Thứ tự đi trong mỗi đội là <b>ngược thứ tự về đích vòng 1: về đích chậm nhất đi đầu, nhanh nhất đi cuối</b> — đi cuối an toàn nhất vì đã biết ván nào chắc nhờ người đi trước, đó là phần thưởng cho người nhanh nhất vòng 1. Chia đội chỉ để qua cầu có trật tự: <b>rớt cầu là loại cá nhân đó</b>, qua được cầu là sống sót cá nhân, xếp hạng chung cuộc vẫn tính theo từng người.</p>
         <div class="teamCols" id="teamCols"></div>
         <button class="bigBtn" id="btnTeamGo" type="button">VÀO CẦU NGAY</button>
-        <div class="ctrls">Màn hình này tự chuyển sang vòng 2 sau vài giây.</div>
+        <div class="ctrls teamOnly">Màn hình này tự chuyển sang vòng 2 sau vài giây.</div>
       </div>
     </div>
 

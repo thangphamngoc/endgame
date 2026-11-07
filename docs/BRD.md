@@ -523,6 +523,38 @@ minimap trong vài giây bay tổng quan (chữ trắng trên nền tối, vẫn
 gợi ý 4 dòng có che tầm nhìn 3D không, cảm giác chơi trên điện thoại
 thật, mobile thật.
 
+**Three.js tự host + fallback CDN — ĐÃ QUYẾT (cycle 16, 2026-11-07 —
+backlog #11, P2-09, QC/Sudo lật được sau play-test):** thư viện 3D
+không còn phụ thuộc CDN khi tải trang. `client/js/vendor/three.min.js`
+(r158, 651.651 byte, sha256 `3b3a1c97…d41d51`, đối chiếu byte-identical
+với cdnjs 0.158.0) do chính server game phục vụ như file tĩnh; `index.html`
+tải bản local trước, nếu `THREE` chưa định nghĩa thì fallback sang CDN
+cdnjs cùng phiên bản bằng `document.write` đồng bộ (giữ thứ tự: game.js
+vẫn chạy sau Three.js). `window.__threeSource` ghi `'local'` hoặc `'cdn'`
+để QC/probe biết Three.js tới từ đâu. Nếu cả hai nguồn đều lỗi thì banner
+`#threeLoadError` hiện rõ ("Không tải được thư viện 3D (Three.js) — kiểm
+tra mạng rồi tải lại trang.") thay vì để game chết lặng; việc kiểm tra
+đặt ở `DOMContentLoaded` (bản đầu kiểm tra ngay sau `document.write` đã
+sai: script CDN chèn lúc parse chưa chạy xong lúc đó nên banner hiện cả
+khi fallback thành công — probe bắt được, đã sửa). Chưa đo bằng tay:
+tải trang trên trình duyệt thật khi mất mạng CDN, cảm giác tải có chậm
+hơn không (bản local 652 KB do server mình phục vụ).
+
+**Harness capture tắt onboarding trước mọi stage tương tác — ĐÃ QUYẾT
+(cycle 17, 2026-11-07 — backlog #30, QC/Sudo lật được):** từ khi
+onboarding tự hiện lần đầu ở sảnh chờ (cycle 12), overlay của nó
+(z-index 40) chặn mọi click nên harness chỉ chụp lại màn onboarding bước 1
+ở các stage QC/vòng 3–6. Nay `tools/capture.js` có helper
+`dismissOnboarding(page)`: bấm nút "Bỏ qua hướng dẫn" (`#btnObSkip`) thật
+như người chơi — ghi cờ `hoilang_onboarding_seen` vào localStorage nên các
+page sau trong cùng browser không hiện lại — và fallback qua
+`window.__game.hideOnboarding()` nếu không có nút. Helper được gọi sau
+khi load trang ở mọi stage tương tác: QC panel, `startSingleQc` (team +
+vòng 2–6), vòng 1 desktop/mobile, shop, chat; stage lobby (01/01b) GIỮ
+NGUYÊN onboarding để chụp đúng trải nghiệm người mới. Đây là sửa harness,
+không đổi hành vi game. Chưa đo bằng tay: không có — harness chỉ phục vụ
+kiểm chứng, Sudo không cần test tay mục này.
+
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết

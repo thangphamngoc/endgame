@@ -64,7 +64,7 @@ song song. Không bắt đầu trước khi Phase 1 xong và Sudo chốt OD-04, 
 | P2-06 | Instancing đảo xa + LOD (chi tiết theo khoảng cách) cho cây/chim/đảo | P1 | Dự kiến | — | M | Số draw call giảm rõ so với 260 mesh riêng hiện tại (số đo ghi lại); đảo xa vẫn không trắng xóa |
 | P2-07 | Load test phòng đông (bot mô phỏng nhiều client) + đo FPS / độ trễ / tải server | P0 | Dự kiến | P2-01..P2-04 | L | Có báo cáo số đo: FPS, độ trễ, CPU/RAM server ở 100 / 200 / 456 người (số đo thực tế, không ước tính) |
 | P2-08 | Reconnect: người rớt mạng quay lại đúng nhân vật trong thời gian ân hạn | P1 | Dự kiến | P2-03 | M | Rớt mạng < 30 giây (đề xuất) thì vào lại đúng vị trí/trạng thái; quá hạn thì slot được giải phóng |
-| P2-09 | Self-host Three.js (hết phụ thuộc CDN) + fallback nếu CDN lỗi | P2 | Dự kiến | — | S | Tắt mạng CDN thì game vẫn tải được (kiểm tra bằng cách chặn CDN khi test) |
+| P2-09 | Self-host Three.js (hết phụ thuộc CDN) + fallback nếu CDN lỗi | P2 | Xong (cycle 16, 2026-11-07) | — | S | Tắt mạng CDN thì game vẫn tải được (kiểm tra bằng cách chặn CDN khi test) |
 
 ## Phase 3 — Cứng hóa production và triển khai
 
