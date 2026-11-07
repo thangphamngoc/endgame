@@ -18,7 +18,7 @@
   var TEAM_NAMES = ['Đỏ', 'Vàng', 'Xanh lá'];
   var VILLAGES = ['Hải Hậu', 'Hải Lý', 'Hải Tiến', 'Hải Châu', 'Hải Anh', 'Hải Quang', 'Hải Đông', 'Hải Tây'];
 
-  // ---- Dữ liệu đảo du lịch: 12 đảo, mỗi đảo một hình dáng, icon, góc camera
+  // ---- Dữ liệu đảo du lịch: 13 đảo, mỗi đảo một hình dáng, icon, góc camera
   // và câu chuyện riêng (port từ POIS của bản prototype).
   var TOUR_ISLANDS = [
     { id: 'hoi-lang', name: 'Đảo Hội Làng', label: 'Chuyện trong game', x: 0, z: 0, size: 34, y: 2, yaw: 0.7, pitch: 0.42, dist: 95, icon: 'village',
@@ -56,7 +56,10 @@
       story: 'Chuyện trong thế giới game: Đây là đảo của đàn khỉ — khỉ ngồi trên mỏm đá ngắm thuyền qua lại, một con gãi đầu, hai con vẫy tay, thỉnh thoảng một con nhảy phóc sang mỏm đá bên kia. Ngoài đời, vùng Cát Bà — Hạ Long cũng có đảo khỉ thật với khỉ sống tự nhiên. Trong game cứ ghé đảo là thấy khỉ chuyển động, không con nào đứng yên như tượng.' },
     { id: 'cho-da', name: 'Hòn Chó Đá', label: 'Tư liệu thật', x: -285, z: 245, size: 20, y: 4, yaw: 0.85, pitch: 0.3, dist: 62, icon: 'dog',
       feat: 'Khối đá ngồi chồm hỗm như chó trông biển, mõm hướng ra khơi',
-      story: 'Tư liệu thật: Hòn Chó Đá là đảo đá thật trong vịnh — nhìn từ xa giống hệt một chú chó ngồi chồm hỗm giữa biển, mõm hướng ra khơi như đang trông chủ đi biển trở về. Truyền thuyết dân gian kể đó là chú chó trung thành của một ngư dân, ngày ngày ngồi đợi chủ đến hóa đá. Trong game: thân chó là khối đá xám ngồi thấp bè, đầu ngẩng cao, mõm nhô ra hướng tây nam; lưng phủ cây, bãi cát nhỏ ở chân trước, thuyền neo gần bờ và đèn dấu đỏ để thuyền đêm nhận ra từ xa.' }
+      story: 'Tư liệu thật: Hòn Chó Đá là đảo đá thật trong vịnh — nhìn từ xa giống hệt một chú chó ngồi chồm hỗm giữa biển, mõm hướng ra khơi như đang trông chủ đi biển trở về. Truyền thuyết dân gian kể đó là chú chó trung thành của một ngư dân, ngày ngày ngồi đợi chủ đến hóa đá. Trong game: thân chó là khối đá xám ngồi thấp bè, đầu ngẩng cao, mõm nhô ra hướng tây nam; lưng phủ cây, bãi cát nhỏ ở chân trước, thuyền neo gần bờ và đèn dấu đỏ để thuyền đêm nhận ra từ xa.' },
+    { id: 'canh-buom', name: 'Hòn Cánh Buồm', label: 'Tư liệu thật', x: 140, z: 210, size: 20, y: 4, yaw: 0.6, pitch: 0.3, dist: 62, icon: 'sail',
+      feat: 'Hai khối đá dựng đứng như hai cánh buồm nâu rẽ sóng ra khơi',
+      story: 'Tư liệu thật: Hòn Cánh Buồm là đảo đá thật trong vịnh — hai khối đá vôi dựng đứng, nhìn từ xa giống hệt hai cánh buồm nâu đang rẽ sóng nước ra khơi, gợi nhớ thuyền buồm ba vách cánh dơi của ngư dân Quảng Ninh xưa. Trong game: buồm lớn cao hơn đứng trước, buồm nhỏ đứng sau, cả hai đều mỏng theo chiều gió; chân đá có bãi cát nhỏ, cây mọc trên lưng, đèn dấu đỏ để thuyền đêm nhận ra từ xa.' }
   ];
 
   var scene, camera, renderer, raycaster, pointer;
@@ -1141,11 +1144,35 @@
       scene.add(cd);
       isleSign('HÒN CHÓ ĐÁ', -271, 232, 3.2);
       miniBoat(-262, 258, 0.9, 0xf6ead0);
+      /* HÒN CÁNH BUỒM (140,210): hai cánh buồm nâu rẽ sóng — buồm lớn
+         đứng trước cao ~21, buồm nhỏ đứng sau cao ~15, cả hai mỏng theo
+         chiều gió (xoay nhóm 0.6 rad để mặt buồm đón hướng nhìn từ sảnh).
+         Thêm ở cycle 33 (#15 bước 2/3). */
+      var cb = new THREE.Group(); cb.position.set(140, -1.3, 210); cb.rotation.y = 0.6;
+      box(22, 2, 16, dark, 0, 0.5, 0, cb, false);            // chân đá
+      box(2.5, 6, 12, rock, -5, 4, 0, cb, false);           // buồm lớn: chân
+      box(2, 6, 9.5, rock, -5, 10, 0, cb, false);           // buồm lớn: giữa
+      box(1.6, 5, 7, rock, -5, 15.5, 0, cb, false);         // buồm lớn: vai
+      box(1.2, 3.5, 4, rock2, -5, 20, 0, cb, false);        // buồm lớn: chóp
+      box(0.6, 3.5, 0.6, dark, -5, 22.5, 0, cb, false);     // cột buồm lớn
+      box(2.5, 5, 9, rock2, 5, 3.5, 0, cb, false);          // buồm nhỏ: chân
+      box(2, 5, 7, rock2, 5, 8.5, 0, cb, false);            // buồm nhỏ: giữa
+      box(1.6, 4, 4.5, rock2, 5, 13, 0, cb, false);         // buồm nhỏ: chóp
+      box(0.6, 3, 0.6, dark, 5, 16, 0, cb, false);          // cột buồm nhỏ
+      box(8, 0.5, 5, sand, 8, 0.9, 5, cb, false);           // bãi cát chân buồm nhỏ
+      vxTree(cb, -9, 1.6, 4, 0.9, 'canopy'); vxTree(cb, 9, 1.6, -4, 0.8, 'bamboo');
+      vxBush(cb, -8, 1.6, -5, 0.9); vxBush(cb, 8, 1.6, 5, 0.8);
+      vxVine(cb, -6.2, 6, 5, 3);
+      vxFlowers(cb, 8, 1.6, 7, 4, [0xf2b01e, 0xf28bb4]);
+      vxBeacon(cb, -10, 1.6, -5, 0xe2483a);
+      scene.add(cb);
+      isleSign('HÒN CÁNH BUỒM', 154, 197, 3.2);
+      miniBoat(162, 224, 0.7, 0xf6ead0);
     })();
     /* ================= SỰ SỐNG QUANH ĐẢO: chim, bướm, cá nhảy, cua ================= */
     (function wildlife() {
       var birdCols = [0xf6f2e8, 0xdfe8ee, 0xf2b01e];
-      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4], [-285, 22, 245, 18, 4]].forEach(function (f, fi) {
+      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4], [-285, 22, 245, 18, 4], [140, 22, 210, 18, 4]].forEach(function (f, fi) {
         for (var i = 0; i < f[4]; i++) {
           var g = new THREE.Group();
           var bm = mat(birdCols[fi % 3], 0.7);
@@ -1971,6 +1998,13 @@
       R(1, 10, 4, 3, rock); R(0, 11, 2, 2, dark);
       R(29, 10, 3, 5, dark);
       R(3, 21, 12, 2, sand);
+    } else if (type === 'sail') {
+      // Hai cánh buồm nâu rẽ sóng: buồm lớn trước (cao, tam giác hẹp dần),
+      // buồm nhỏ sau, cột buồm nhô trên đỉnh, bãi cát ở chân sóng.
+      R(3, 18, 12, 3, '#a5763a'); R(5, 14, 9, 4, '#a5763a'); R(7, 10, 6, 4, '#a5763a'); R(9, 6, 3, 4, '#a5763a');
+      R(21, 18, 9, 3, '#8a6b35'); R(22, 14, 7, 4, '#8a6b35'); R(24, 10, 4, 4, '#8a6b35');
+      R(10, 4, 2, 2, dark); R(25, 8, 2, 2, dark);
+      R(2, 21, 32, 2, sand);
     } else {
       R(4, 16, 28, 6, veg);
       R(9, 11, 6, 5, '#f3e2c0'); R(8, 9, 8, 3, '#b5451b');

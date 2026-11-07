@@ -103,6 +103,37 @@ const analytics = require('./analytics');
 function analyticsSafe(fn) { try { return fn(analytics); } catch (e) { logEvent('error', { kind: 'analytics_hook', message: String(e && e.message) }); return null; } }
 
 const PORT = Number(process.env.PORT || 3000);
+// P3-06 (cycle 32, bước 7 — backlog #14, khóa admin cho /analytics):
+// Token admin lấy từ env HOI_ADMIN_TOKEN (không có secret trong repo).
+// - Đặt token: GET /analytics chỉ trả số liệu khi request kèm đúng token
+//   (query ?token=... hoặc header Authorization: Bearer ...); sai/thiếu
+//   -> 403 {error:'forbidden'} + 1 dòng log analytics_denied (không ghi
+//   token vào log). So sánh bằng SHA-256 digest cố định độ dài để tránh
+//   timing attack (crypto.timingSafeEqual yêu cầu cùng độ dài).
+// - Chưa đặt token: /analytics vẫn mở như trước (mặc định dev local) để
+//   không làm vỡ luồng chạy local/QC; lúc khởi động ghi 1 dòng cảnh báo
+//   analytics_unprotected để người deploy biết cần đặt token khi mở public.
+// Token dài tối thiểu không ép ở code (env do người deploy quản); token
+// rỗng coi như chưa đặt.
+const ADMIN_TOKEN = process.env.HOI_ADMIN_TOKEN || '';
+function tokenMatches(candidate) {
+  if (!ADMIN_TOKEN || typeof candidate !== 'string' || !candidate) return false;
+  const a = crypto.createHash('sha256').update(ADMIN_TOKEN).digest();
+  const b = crypto.createHash('sha256').update(candidate).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+function isAdminRequest(req) {
+  if (!ADMIN_TOKEN) return true; // chưa đặt token: mở như trước
+  const auth = req.headers && req.headers.authorization;
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    if (tokenMatches(auth.slice('Bearer '.length))) return true;
+  }
+  try {
+    const q = new URL(req.url || '/', 'http://localhost').searchParams.get('token');
+    if (q && tokenMatches(q)) return true;
+  } catch (_) { /* url lỗi: coi như không có token */ }
+  return false;
+}
 const CLIENT_DIR = path.join(__dirname, '..', 'client');
 const START_Z = 35;
 const FINISH_Z = -35;
@@ -178,8 +209,15 @@ function serveStatic(req, res) {
   }
   // P3-06 (cycle 20, bước 1): số đếm tổng hợp + tỉ lệ KPI-01/03/04/05.
   // Chỉ số tổng hợp, không có tên người chơi hay nội dung chat.
-  // TODO (bước sau): chỉ cho admin/host xem khi mở public.
+  // Khóa admin (cycle 32, bước 7 — backlog #14): khi HOI_ADMIN_TOKEN
+  // đã đặt, request thiếu/sai token -> 403, không lộ số liệu.
   if (urlPath === '/analytics') {
+    if (!isAdminRequest(req)) {
+      logEvent('analytics_denied', { path: urlPath });
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'forbidden' }));
+      return;
+    }
     const data = analyticsSafe(() => analytics.summary());
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(data || { totals: {}, kpi: {}, liveMatches: 0 }));
@@ -1794,6 +1832,9 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   logEvent('server_start', { port: PORT });
+  // P3-06 (cycle 32, bước 7): nhắc 1 lần lúc khởi động nếu /analytics
+  // đang mở không khóa — người deploy đặt HOI_ADMIN_TOKEN khi mở public.
+  if (!ADMIN_TOKEN) logEvent('analytics_unprotected', { message: '/analytics is open: set HOI_ADMIN_TOKEN to restrict it' });
   console.log('Trống Hội & Cầu Khỉ chạy tại http://localhost:' + PORT);
   console.log('Chế độ chơi đơn không cần server, nhưng mở qua địa chỉ trên là tiện nhất.');
 });

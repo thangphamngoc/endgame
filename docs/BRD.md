@@ -100,10 +100,10 @@ sau khi có số người chơi thật.
   từng cầu, ván yếu vỡ thì loại cá nhân, ván vỡ thành khoảng trống nhảy qua
   bằng Space, về đích xếp hạng cá nhân theo thời gian.
 - Khán giả: 4 góc nhìn (Toàn cảnh / Theo dõi / Sát vai / Tự do), chuyển người xem.
-- Du lịch Hạ Long: 12 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
+- Du lịch Hạ Long: 13 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
   Vịnh Tháp Đá, Đảo Yên Ngựa, Đảo Hang Vòm, Cầu Khỉ Sương Mù, Hòn Đỉnh Hương,
-  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá — thêm cycle 21, P4-01
-  bước 1/3), mỗi đảo có cây, chim
+  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá, Hòn Cánh Buồm — thêm cycle 33, P4-01
+  bước 2/3), mỗi đảo có cây, chim
   thú, hình dáng và câu chuyện riêng có gắn nhãn; 260 silhouette đảo xa;
   click đảo trong 3D / chấm trên minimap / danh sách để bay-zoom tới xem
   chi tiết; nút quay lại toàn cảnh / quay lại trận.
@@ -640,8 +640,24 @@ trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / ph�
 đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
 đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
 xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
-Chưa đo: khóa admin cho `/analytics` khi mở public (KPI-08 bước 6 đã
-xong ở cycle 31).
+
+**Khóa admin cho `GET /analytics` — ĐÃ QUYẾT (cycle 32, 2026-11-07 —
+backlog #14, P3-06 bước 7, QC/Sudo lật được):** token admin lấy từ env
+`HOI_ADMIN_TOKEN` (không có secret trong repo; `.env.example` có dòng
+mẫu đã comment, `.env` đã trong `.gitignore`). Khi đã đặt token:
+`/analytics` chỉ trả số liệu khi request kèm đúng token qua query
+`?token=...` hoặc header `Authorization: Bearer ...`; thiếu/sai ->
+`403 {error:'forbidden'}` + 1 dòng log `analytics_denied` (không ghi
+token vào log); so sánh bằng digest SHA-256 cố định độ dài
+(`crypto.timingSafeEqual`) để tránh timing attack. Khi chưa đặt token:
+`/analytics` vẫn mở như trước (mặc định dev local/QC, không vỡ luồng
+chạy local) và server ghi 1 dòng cảnh báo `analytics_unprotected` lúc
+khởi động. `/health` và `/` không bị khóa. Test 15/15 PASS
+(`hidden_files/p3-06-analytics-admin-test.js`: 2 server thật cổng
+3998/3999, đủ cả 2 đường token, 3 lần 403 đều ghi log, log không rò
+token). P3-06 hoàn tất với bước này — không còn mục nào chờ. Chưa đo
+bằng tay: Sudo đặt token thật khi deploy public rồi thử gọi
+`/analytics` không token xem có 403 không.
 
 **KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
 P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
@@ -726,6 +742,17 @@ khi mở public. Chưa đo bằng tay: Sudo chơi thử 2 người thật — 1 
 tố cáo, host mở panel, mute rồi xem người bị mute có gửi được tin
 không + mở lại chat được không.
 
+**Khóa admin cho `GET /analytics` — ĐÃ QUYẾT (cycle 32, 2026-11-07 —
+backlog #14, P3-06 bước 7, QC/Sudo lật được):** xem BRD §2 (mục Khóa
+admin cho `GET /analytics`): token từ env `HOI_ADMIN_TOKEN`; khi đã
+đặt, `/analytics` chỉ trả số liệu với `?token=...` hoặc
+`Authorization: Bearer ...` đúng, thiếu/sai -> `403
+{error:'forbidden'}` + log `analytics_denied` (không ghi token); so
+sánh bằng digest SHA-256 + `crypto.timingSafeEqual`. Khi chưa đặt,
+`/analytics` mở như trước + server ghi cảnh báo
+`analytics_unprotected` lúc khởi động; `/health` và `/` không bị khóa.
+P3-06 hoàn tất với bước này.
+
 **Nút THOÁT GAME ở sảnh chờ multi không thoát được — ĐÃ QUYẾT (cycle
 31, 2026-11-07 — phát hiện khi kiểm probe G, backlog #38, QC/Sudo lật
 được):** sau khi vào phòng multi, `phase` vẫn là `'menu'` (handler
@@ -805,6 +832,27 @@ chỗ. Chưa đo bằng tay: hình dáng voxel thật của đảo chỉ xem đ�
 trình duyệt có WebGL (harness headless ở VM trả WebGL null nên canvas
 trắng) — Sudo bay tới Hòn Chó Đá trên máy thật để chốt dáng chó có đọc
 ra ngay không.
+
+**Đảo du lịch mới Hòn Cánh Buồm — ĐÃ QUYẾT (cycle 33, 2026-11-07 —
+backlog #15, P4-01 bước 2/3, QC/Sudo lật được):** thêm đảo thứ 13 vào
+du lịch Hạ Long (P4-01 yêu cầu ít nhất 3 đảo mới; cycle này làm 1 đảo,
+còn nợ 1 đảo cho cycle sau). Hòn Cánh Buồm là đảo đá thật trong vịnh, nhãn
+nguồn "Tư liệu thật": hai khối đá vôi dựng đứng nhìn từ xa giống hệt hai
+cánh buồm nâu đang rẽ sóng ra khơi (đã kiểm chứng qua Wikipedia Vịnh Hạ
+Long); câu chuyện ghi rõ phần gợi nhớ thuyền buồm ba vách cánh dơi của ngư
+dân Quảng Ninh xưa là liên tưởng, không phải tư liệu về bản thân đảo. Vị
+trí (140, 210) ở phía đông vịnh, cách đảo gần nhất (Đảo Khỉ) ~165 đơn vị
+và dãy núi đá vôi gần nhất 52 đơn vị — không chồng lấn. Đảo có đủ: hình
+voxel riêng (hai buồm mỏng theo chiều gió, buồm lớn cao ~21 đứng trước,
+buồm nhỏ cao ~15 đứng sau, cột buồm nhô trên đỉnh, bãi cát chân buồm),
+cây/bụi/dây leo/hoa trên lưng, đèn dấu đỏ, biển tên, thuyền neo gần bờ,
+đàn chim bay vòng quanh, icon `sail` riêng trong danh sách tour. Danh sách
+tour, proxy bấm 3D, chấm minimap và nút bay tới đều chạy theo dữ liệu
+`TOUR_ISLANDS` nên đảo mới tự có đủ đường vào, không sửa riêng từng
+chỗ. Chưa đo bằng tay: hình dáng voxel thật của đảo chỉ xem được trên
+trình duyệt có WebGL — Sudo bay tới Hòn Cánh Buồm trên máy thật để chốt
+hai buồm có đọc ra ngay không; đồng thời chốt luôn nút danh sách tour
+(không bấm được trong harness headless vì lỗi #24 làm danh sách rỗng).
 
 **Kinh tế chơi đơn (ví local) — ĐÃ QUYẾT (cycle 28, 2026-11-07 —
 backlog #19 bước 1, QC/Sudo lật được):** chơi đơn không có server nên
