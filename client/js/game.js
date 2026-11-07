@@ -2344,7 +2344,7 @@
     var p = $('chat-panel'); if (!p) return;
     if (p.classList.contains('open')) closeChat(true); else openChat();
   }
-  function addChatMessage(name, colorCss, text, isBot) {
+  function addChatMessage(name, colorCss, text, isBot, senderId) {
     var log = $('chat-log'); if (!log) return;
     var row = document.createElement('div');
     row.className = 'chatMsg';
@@ -2354,9 +2354,86 @@
     var tm = document.createElement('span');
     tm.className = 'cmTime'; tm.textContent = chatNow();
     row.appendChild(nm); row.appendChild(tx); row.appendChild(tm);
+    // KPI-08 (bước 5, cycle 27): tin của người khác trong trận multi có
+    // nút 🚩 để tố cáo — tin của mình và tin bot không có (không tố cáo
+    // được chính mình, bot không phải người thật).
+    if (mode === 'multi' && senderId != null && senderId !== myId) {
+      var flag = document.createElement('button');
+      flag.type = 'button'; flag.className = 'cmReport'; flag.textContent = '🚩';
+      flag.title = 'Tố cáo tin này';
+      flag.setAttribute('aria-label', 'Tố cáo tin của ' + name);
+      flag.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        showReportMenu(senderId, name, flag);
+      });
+      row.appendChild(flag);
+    }
     log.appendChild(row);
     while (log.children.length > 60) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
+  }
+  // Lý do tố cáo cố định — phải khớp REPORT_REASONS ở server/analytics.js.
+  var REPORT_REASONS = [
+    { id: 'spam', label: 'Spam / quảng cáo' },
+    { id: 'xuc-pham', label: 'Xúc phạm / chửi bậy' },
+    { id: 'gian-lan', label: 'Gian lận' },
+    { id: 'khac', label: 'Khác' },
+  ];
+  function reportReasonLabel(id) {
+    for (var i = 0; i < REPORT_REASONS.length; i++) if (REPORT_REASONS[i].id === id) return REPORT_REASONS[i].label;
+    return id;
+  }
+  // Menu chọn lý do tố cáo, hiện nổi ngay cạnh nút 🚩 vừa bấm. Bấm 1 lý
+  // do là gửi ngay; bấm ra ngoài hoặc nút Đóng thì tắt menu.
+  function showReportMenu(targetId, targetName, anchor) {
+    hideReportMenu();
+    var menu = document.createElement('div');
+    menu.id = 'reportMenu';
+    var title = document.createElement('div');
+    title.className = 'reportMenuTitle'; title.textContent = 'Tố cáo ' + targetName + ' vì:';
+    menu.appendChild(title);
+    REPORT_REASONS.forEach(function (r) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'reportReasonBtn'; b.textContent = r.label;
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        hideReportMenu();
+        reportPlayer(targetId, r.id);
+      });
+      menu.appendChild(b);
+    });
+    var close = document.createElement('button');
+    close.type = 'button'; close.className = 'reportReasonBtn reportCloseBtn'; close.textContent = 'Đóng';
+    close.addEventListener('click', function (ev) { ev.stopPropagation(); hideReportMenu(); });
+    menu.appendChild(close);
+    document.body.appendChild(menu);
+    var rect = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: 8, bottom: 8, top: 8 };
+    menu.style.left = Math.max(8, Math.min(window.innerWidth - 230, rect.left)) + 'px';
+    menu.style.top = Math.max(8, rect.top - menu.offsetHeight - 6) + 'px';
+    if (parseFloat(menu.style.top) < 8) menu.style.top = '8px';
+    setTimeout(function () {
+      document.addEventListener('click', hideReportMenu);
+    }, 0);
+  }
+  function hideReportMenu() {
+    var m = document.getElementById('reportMenu');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    document.removeEventListener('click', hideReportMenu);
+  }
+  var lastReportAck = null;
+  var lastReportReceived = null;
+  function reportPlayer(targetId, reason) {
+    if (mode !== 'multi') { toast('Chơi đơn không có tố cáo — chỉ chơi nhiều người mới tố cáo được.'); return false; }
+    var ok = false;
+    for (var i = 0; i < REPORT_REASONS.length; i++) if (REPORT_REASONS[i].id === reason) ok = true;
+    if (!ok) { toast('Lý do tố cáo không hợp lệ.'); return false; }
+    sendWS({ type: 'report', targetId: targetId, reason: reason });
+    return true;
+  }
+  function resolveReport(reportId) {
+    if (mode !== 'multi') return false;
+    sendWS({ type: 'report-resolve', reportId: reportId });
+    return true;
   }
   function addChatSystem(text) {
     var log = $('chat-log'); if (!log) return;
@@ -3097,9 +3174,23 @@
     }
     if (msg.type === 'leaderboard') { renderLeaderboard(msg); return; }
     if (msg.type === 'chat') {
-      addChatMessage(msg.name, teamColorHex(msg.team), msg.text, false);
+      addChatMessage(msg.name, teamColorHex(msg.team), msg.text, false, msg.senderId);
       var sender = msg.senderId === myId ? player : remotePlayers[msg.senderId];
       if (sender) showBubble(sender.group, msg.name, teamColorHex(msg.team), msg.text);
+      return;
+    }
+    if (msg.type === 'reportAck') {
+      lastReportAck = { reportId: msg.reportId, targetName: msg.targetName };
+      toast('Đã gửi tố cáo #' + msg.reportId + ' (chủ phòng sẽ xem xét).');
+      return;
+    }
+    if (msg.type === 'reportReceived') {
+      lastReportReceived = { reportId: msg.reportId, reason: msg.reason };
+      toast('Có tố cáo mới #' + msg.reportId + ' — ' + reportReasonLabel(msg.reason) + '.');
+      return;
+    }
+    if (msg.type === 'reportResolved') {
+      toast('Tố cáo #' + msg.reportId + ' đã được xử lý.');
       return;
     }
     if (msg.type === 'error') { toast(msg.message); return; }
@@ -4766,6 +4857,10 @@
     specLeader: specLeader, specTargets: specTargets, buildSpectatorList: buildSpectatorList,
     enterSpectator: enterSpectator, setSpecTarget: setSpecTarget, watchedPerson: watchedPerson,
     exitToMenu: exitToMenu,
+    reportPlayer: reportPlayer, resolveReport: resolveReport, REPORT_REASONS: REPORT_REASONS,
+    showReportMenu: showReportMenu, hideReportMenu: hideReportMenu,
+    get lastReportAck() { return lastReportAck; },
+    get lastReportReceived() { return lastReportReceived; },
     updateWatchedName: updateWatchedName,
     get spec() { return spec; },
     get watchedId() { return watchedId; },

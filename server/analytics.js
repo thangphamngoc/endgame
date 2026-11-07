@@ -59,6 +59,21 @@
  * (backlog #10). Chưa đo sau bước 4: KPI-08 (cần tính năng tố cáo),
  * khóa admin cho /analytics khi mở public.
  *
+ * KPI-08 — bước 5 (cycle 27, 2026-11-07): tố cáo chat. Client gửi
+ * {type:'report', targetId, reason} (reason thuộc REPORT_REASONS);
+ * server kiểm tra rồi ghi vào liveReports (chỉ RAM, mất khi restart —
+ * cùng họ với liveMatches) + đếm vào totals: reportsTotal,
+ * reportsByReason, reportsResolved (host gửi {type:'report-resolve',
+ * reportId}); phòng QC đếm riêng (qcReportsTotal/qcReportsResolved).
+ * GET /analytics thêm reportsTotal, reportsPending (= reportsTotal -
+ * reportsResolved), reportsByReason, reportsResolvedRate,
+ * qcReportsTotal. KHÔNG lưu tên người chơi hay nội dung chat — bản ghi
+ * tố cáo chỉ có id, mã phòng, id người tố cáo/bị tố cáo (id tạm theo
+ * kết nối), lý do, thời gian. Chống spam: mỗi người tố cáo mỗi người
+ * khác tối đa 1 lần/trận, tối đa 5 tố cáo/trận (server.js kiểm).
+ * Chưa làm sau bước 5: UI danh sách tố cáo cho host/mod + mute (bước 6),
+ * khóa admin cho /analytics khi mở public.
+ *
  * KPI-02 — bước 2 (cycle 23, 2026-11-07): "Phòng 20 người đủ trong
  * ≤ 5 phút (giờ cao điểm)" (BRD §2). Đo bằng liveRooms (chỉ RAM):
  *   recordRoomCreated(room) — lúc makeRoom (tạo phòng + tràn phòng đầy
@@ -153,6 +168,13 @@ function blankTotals() {
     perfLoadWithin5s: 0, // số báo cáo có loadMs <= 5000ms
     perfNoWebgl: 0, // số báo cáo có webgl === false (renderer null)
     qcPerfReports: 0, // báo cáo perf từ phòng QC (đếm riêng)
+    // KPI-08 (bước 5, cycle 27): tố cáo chat — chỉ đếm, không lưu tên
+    // hay nội dung. reportsPending = reportsTotal - reportsResolved.
+    reportsTotal: 0, // tố cáo đã nhận (phòng thường)
+    reportsResolved: 0, // tố cáo host đã đánh dấu xử lý
+    reportsByReason: { spam: 0, 'xuc-pham': 0, 'gian-lan': 0, khac: 0 },
+    qcReportsTotal: 0, // tố cáo trong phòng QC (đếm riêng)
+    qcReportsResolved: 0,
     qcMatchesStarted: 0,
     qcMatchesFinished: 0,
     updatedAt: null,
@@ -305,6 +327,62 @@ function recordPerf(room, data) {
   return true;
 }
 
+// KPI-08 (bước 5, cycle 27): tố cáo chat. Lý do cố định để đếm theo
+// nhóm; client gửi đúng 1 trong các id này, server từ chối lý do lạ.
+// Bản ghi tố cáo chỉ sống trong RAM (liveReports) — restart server thì
+// mất danh sách chờ xử lý, nhưng số đếm totals đã ghi file nên còn.
+// resolveReport là lũy tiến: xử lý 2 lần cùng id thì lần 2 trả null.
+const REPORT_REASONS = ['spam', 'xuc-pham', 'gian-lan', 'khac'];
+const liveReports = new Map(); // id -> {id, roomCode, reporterId, targetId, reason, at, qc, resolved}
+let reportSeq = 0;
+
+function recordReport(room, reporterId, targetId, reason) {
+  if (!room || reporterId == null || targetId == null) return null;
+  if (REPORT_REASONS.indexOf(reason) < 0) return null;
+  reportSeq += 1;
+  const rep = {
+    id: reportSeq,
+    roomCode: room.code,
+    reporterId,
+    targetId,
+    reason,
+    at: new Date().toISOString(),
+    qc: !!room.qc,
+    resolved: false,
+  };
+  liveReports.set(rep.id, rep);
+  if (room.qc) totals.qcReportsTotal += 1;
+  else {
+    totals.reportsTotal += 1;
+    if (totals.reportsByReason[reason] == null) totals.reportsByReason[reason] = 0;
+    totals.reportsByReason[reason] += 1;
+  }
+  save();
+  return Object.assign({}, rep);
+}
+
+function resolveReport(reportId) {
+  const id = Number(reportId);
+  if (!Number.isInteger(id)) return null;
+  const rep = liveReports.get(id);
+  if (!rep || rep.resolved) return null;
+  rep.resolved = true;
+  if (rep.qc) totals.qcReportsResolved += 1;
+  else totals.reportsResolved += 1;
+  save();
+  return Object.assign({}, rep);
+}
+
+// Chỉ dùng cho UI kiểm duyệt sau này + test: danh sách tố cáo chưa xử
+// lý (bản sao, không lộ thêm gì ngoài các trường đã lưu).
+function listPendingReports() {
+  const out = [];
+  for (const rep of liveReports.values()) {
+    if (!rep.resolved) out.push(Object.assign({}, rep));
+  }
+  return out;
+}
+
 // Chốt số đếm của 1 trận vào totals (gọi sau grace — xem recordMatchEnd).
 function flushMatch(key, m) {
   liveMatches.delete(key);
@@ -418,6 +496,14 @@ function summary() {
         : null,
       loadWithin5sRate: rate(totals.perfLoadWithin5s, totals.perfLoadReports),
       noWebglRate: rate(totals.perfNoWebgl, totals.perfReports),
+      // KPI-08: tố cáo chat (mục tiêu đề xuất: 0 vụ việc không được xử
+      // lý sau khi có tố cáo). reportsPending là số tố cáo chưa được
+      // host đánh dấu xử lý; reportsByReason đếm theo lý do.
+      reportsTotal: totals.reportsTotal,
+      reportsPending: totals.reportsTotal - totals.reportsResolved,
+      reportsByReason: Object.assign({}, totals.reportsByReason),
+      reportsResolvedRate: rate(totals.reportsResolved, totals.reportsTotal),
+      qcReportsTotal: totals.qcReportsTotal,
       avgDurationSec: totals.matchesFinished
         ? Math.round(totals.totalDurationMs / totals.matchesFinished / 100) / 10
         : null,
@@ -430,6 +516,7 @@ function summary() {
 }
 
 module.exports = {
+  REPORT_REASONS,
   recordRoomCreated,
   recordLobbyJoin,
   recordMatchStart,
@@ -439,6 +526,9 @@ module.exports = {
   recordTour,
   recordReplay,
   recordPerf,
+  recordReport,
+  resolveReport,
+  listPendingReports,
   recordMatchEnd,
   dropMatch,
   summary,
@@ -455,6 +545,8 @@ module.exports = {
     totals = blankTotals();
     liveMatches.clear();
     liveRooms.clear();
+    liveReports.clear();
+    reportSeq = 0;
     save();
   },
 };

@@ -1531,6 +1531,38 @@ wss.on('connection', (ws) => {
       analyticsSafe((a) => a.recordPerf(room, msg));
       return;
     }
+    if (msg.type === 'report') {
+      // P3-06 (KPI-08, bước 5, cycle 27): người chơi tố cáo tin chat
+      // của người khác trong cùng phòng. Không lưu tên hay nội dung —
+      // analytics chỉ giữ id tạm + lý do + thời gian (xem analytics.js).
+      // Chống spam: mỗi người tố cáo mỗi người khác tối đa 1 lần/trận,
+      // tối đa 5 tố cáo/trận. Host nhận 'reportReceived' để xử lý.
+      const target = room.players.get(msg.targetId);
+      if (!target) { send(ws, { type: 'error', message: 'Không tìm thấy người chơi này trong phòng.' }); return; }
+      if (msg.targetId === player.id) { send(ws, { type: 'error', message: 'Không tố cáo chính mình được.' }); return; }
+      const reason = String(msg.reason || '');
+      if (analytics.REPORT_REASONS.indexOf(reason) < 0) { send(ws, { type: 'error', message: 'Lý do tố cáo không hợp lệ.' }); return; }
+      if (!player.__reportKeys) player.__reportKeys = new Set();
+      const rkey = (room.code || '') + ':' + (room.matchStart || 0) + ':' + msg.targetId;
+      if (player.__reportKeys.has(rkey)) { send(ws, { type: 'error', message: 'Bạn đã tố cáo người này trong trận này rồi.' }); return; }
+      if (player.__reportKeys.size >= 5) { send(ws, { type: 'error', message: 'Bạn đã tố cáo tối đa 5 lần trong trận này.' }); return; }
+      player.__reportKeys.add(rkey);
+      const rep = analyticsSafe((a) => a.recordReport(room, player.id, msg.targetId, reason));
+      if (!rep) { send(ws, { type: 'error', message: 'Không ghi được tố cáo, thử lại sau.' }); return; }
+      send(ws, { type: 'reportAck', reportId: rep.id, targetName: target.name });
+      const host = [...room.players.values()].find((p) => p.isHost && p.ws && p.id !== player.id);
+      if (host) send(host.ws, { type: 'reportReceived', reportId: rep.id, reason });
+      return;
+    }
+    if (msg.type === 'report-resolve') {
+      // P3-06 (KPI-08, bước 5): chỉ chủ phòng đánh dấu 1 tố cáo đã xử
+      // lý (xử lý thật — mute/danh sách kiểm duyệt — là bước 6).
+      if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới xử lý tố cáo được.' }); return; }
+      const rep = analyticsSafe((a) => a.resolveReport(msg.reportId));
+      if (!rep) { send(ws, { type: 'error', message: 'Không tìm thấy tố cáo này hoặc đã xử lý rồi.' }); return; }
+      broadcast(room, { type: 'reportResolved', reportId: rep.id });
+      return;
+    }
     if (msg.type === 'replay') {
       if (room.phase !== 'finished') return;
       // P3-06 (KPI-05): đếm lượt chơi lại của trận vừa kết thúc.

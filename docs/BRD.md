@@ -66,7 +66,7 @@ chưa có trận thật chạy qua — các tỉ lệ hiện là null cho tới 
 | KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo tự động ở client — **đã có từ cycle 26 (P3-06 bước 4): `GET /analytics` cho `avgFps`/`fpsAtLeast30Rate`/`avgLoadSec`/`loadWithin5sRate`/`noWebglRate`, xem BRD §8.1** |
 | KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận — **đã có từ cycle 24 (P3-06 bước 3): `GET /analytics` cho `matchesAbandoned`/`abandonRate`, xem BRD §8.1** |
-| KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
+| KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | **Đã có bước 1 từ cycle 27 (P3-06 bước 5): gửi tố cáo từ chat + đếm qua `GET /analytics` (`reportsTotal`/`reportsPending`/`reportsByReason`/`reportsResolvedRate`), xem BRD §8.1** |
 
 **Mục tiêu kinh doanh (ĐÃ QUYẾT 2026-11-05):** mô hình kinh tế là
 **chỉ bán đồ trang trí (cosmetic-only) bằng Hội Xu**, lõi trận sinh tồn
@@ -639,7 +639,8 @@ trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / ph�
 đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
 đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
 xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
-Chưa đo: KPI-08 (cần tính năng tố cáo).
+Chưa đo: KPI-08 bước 6 (UI danh sách tố cáo + mute), khóa admin cho
+`/analytics` khi mở public.
 
 **KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
 P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
@@ -664,6 +665,40 @@ Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật 
 totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
 cách kiểm nhanh nhất.
 
+**KPI-08 tố cáo chat — ĐÃ QUYẾT (cycle 27, 2026-11-07 — backlog #14,
+P3-06 bước 5, QC/Sudo lật được):** gửi tố cáo từ panel chat: tin của
+người khác trong trận multi có nút 🚩 (`#chatMsgs .cmReport`); tin của
+mình và tin bot không có (không tố cáo được chính mình, bot không phải
+người thật). Bấm 🚩 mở menu `#reportMenu` với 4 lý do cố định — `spam`
+(Spam / quảng cáo), `xuc-pham` (Xúc phạm / chửi bậy), `gian-lan` (Gian
+lận), `khac` (Khác) — phải khớp `REPORT_REASONS` ở
+`server/analytics.js`; chọn 1 lý do là gửi ngay `{type:'report',
+targetId, reason}`. Server kiểm tra: target phải có trong cùng phòng,
+không được tố cáo chính mình, lý do phải thuộc danh sách; chống spam —
+mỗi người tố cáo mỗi người khác tối đa 1 lần/trận, tối đa 5 tố cáo/trận
+(khóa theo mã phòng + `matchStart` + target, lưu trên đối tượng người
+chơi); vi phạm thì trả `{type:'error'}` với lý do rõ ràng, không đếm.
+Tố cáo hợp lệ: người tố cáo nhận `{type:'reportAck', reportId}`, chủ
+phòng (nếu khác người tố cáo) nhận `{type:'reportReceived', reportId,
+reason}` + toast. Host đánh dấu đã xử lý bằng `{type:'report-resolve',
+reportId}` (chỉ host; server trả lỗi nếu không phải host hoặc đã xử lý
+rồi) — server broadcast `{type:'reportResolved', reportId}` cho cả
+phòng. `analytics.recordReport`/`resolveReport` ghi vào `liveReports`
+(chỉ RAM — restart server thì mất danh sách chờ xử lý, cùng họ với
+`liveMatches`; số đếm totals đã ghi file nên còn) + đếm vào totals:
+`reportsTotal`, `reportsResolved`, `reportsByReason`; phòng QC đếm
+riêng (`qcReportsTotal`/`qcReportsResolved`), không vào mẫu số KPI.
+`GET /analytics` thêm `reportsTotal`, `reportsPending` (=
+`reportsTotal - reportsResolved`), `reportsByReason`,
+`reportsResolvedRate`, `qcReportsTotal`. KHÔNG lưu tên người chơi hay
+nội dung chat — bản ghi tố cáo chỉ có id, mã phòng, id tạm của người tố
+cáo/bị tố cáo (id theo kết nối), lý do, thời gian. Chơi đơn không có WS
+nên không tố cáo được (`reportPlayer` toast báo + `sendWS` tự no-op vì
+`ws` null). Chưa làm sau bước 5: UI danh sách tố cáo cho host/mod + mute
+(bước 6), khóa admin cho `/analytics` khi mở public. Chưa đo bằng tay:
+số liệu chỉ có ý nghĩa sau khi có người chơi thật tố cáo; Sudo chơi thử
+2 người rồi xem `GET /analytics` là cách kiểm nhanh nhất.
+
 **KPI-06 hiệu năng ở client — ĐÃ QUYẾT (cycle 26, 2026-11-07 —
 backlog #14, P3-06 bước 4, QC/Sudo lật được):** client mới
 `client/js/perf.js` đo FPS trong 10 giây đầu sau khi trang tải xong
@@ -686,7 +721,8 @@ multiplayer. `GET /analytics` thêm `avgFps`, `avgFpsMin`,
 ở sảnh chờ (cảnh 3D đã chạy) chứ không phải giữa trận — chỉ là mẫu, mục
 tiêu ≥ 30 FPS / tải ≤ ~5s vẫn là mục tiêu đề xuất (BRD §2), không thay
 cho đo FPS/thời gian tải trên điện thoại thật (backlog #10). Chưa đo:
-KPI-08 (cần tính năng tố cáo), khóa admin cho `/analytics` khi mở public.
+KPI-08 bước 6 (UI danh sách tố cáo + mute), khóa admin cho `/analytics`
+khi mở public.
 Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có người chơi thật
 gửi báo cáo (hiện totals đang rỗng); Sudo chơi thử rồi xem
 `GET /analytics` là cách kiểm nhanh nhất.
