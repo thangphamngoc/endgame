@@ -486,6 +486,20 @@ body.season-tet #hud .plate{border-color:#b45309}
 
 /* --- thanh kinh tế Hội Xu --- */
 #econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px}
+/* #21 (cycle 30): cột nút kinh tế phải bấm được khi sảnh chờ mở — overlay
+   #startCard (z-index 20, phủ toàn màn hình) trước đây che cột nút phải
+   (z-index 6) nên click chuột thật không tới được CỬA HÀNG/VÉ MÙA/GIẢI
+   ĐẤU/QUÀ TẶNG/THOÁT GAME dù nút vẫn nhìn thấy được. Cho #econBar nổi lên
+   trên overlay (z-index 21) khi sảnh chờ đang mở (game.js gắn/gỡ class
+   .hidden cho #startCard; #econBar là sibling sau #startCard nên dùng
+   được ~). Vẫn dưới panel shop (33), onboarding (40) và toast (40) nên
+   onboarding vẫn chặn đúng như thiết kế. Chỉ áp khi màn hình đủ rộng
+   (≥900px): card sảnh chờ rộng tối đa 520px căn giữa nên dưới ~884px cột
+   nút bắt đầu chồng mép phải card — màn hẹp (mobile/tablet) giữ nguyên
+   trạng thái cũ, chờ sửa layout sảnh chờ ở #23/#31. */
+@media (min-width:900px){
+  #startCard:not(.hidden) ~ #econBar{z-index:21;}
+}
 #wallet-hud{font-weight:900;font-size:14px;text-align:center}
 #econBtns{display:flex;flex-direction:column;gap:6px}
 #econBtns .specBtn{width:100%;text-align:center}
@@ -514,6 +528,7 @@ body.season-tet #hud .plate{border-color:#b45309}
 .pass-table th{background:#ffedb8;color:#9c3418;font-weight:900}
 .pass-reached{background:#ffe1a1}
 .shop-error{color:#c62828;font-weight:700}
+.shop-note{font-size:13px;color:#5a4632;font-style:italic}
 #tournament-list ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.6}
 #tournament-list li{margin:4px 0}
 

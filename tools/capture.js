@@ -36,8 +36,12 @@
 //    overlay as proof the round plays (their overlays render synchronously
 //    even with the loop dead).
 //  - CHAT visibility is the .open class (CSS #chatPanel.open{display:flex}),
-//    NOT .hidden — see stage [8]. Shop buttons on the lobby are covered by
-//    the full-screen #startCard overlay (z-index 20 vs 6) — see stage [7].
+//    NOT .hidden — see stage [8]. Shop buttons in the lobby USED to be
+//    covered by the full-screen #startCard overlay (z-index 20 vs 6) —
+//    fixed cycle 30 (#21): #econBar now floats above the overlay (z 21)
+//    while the lobby is open on ≥900px screens, so stage [7] expects
+//    topElementAtButton to be the button itself and a real click to open
+//    the shop panel. Below 900px the old behaviour remains (see #23/#31).
 //  - ONBOARDING (cycle 12) auto-shows on first lobby load and blocks every
 //    click (z-index 40): every interactive stage calls dismissOnboarding()
 //    (real click on #btnObSkip, sets hoilang_onboarding_seen) right after
@@ -335,9 +339,10 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2000);
     await dismissOnboarding(page); // #30: onboarding chặn nút CỬA HÀNG
-    // Ghi lại phần tử thật sự nằm trên tâm nút CỬA HÀNG: overlay #startCard
-    // (position:fixed inset:0, z-index 20) phủ lên cột nút phải (z-index 6)
-    // nên click chuột thật không tới được nút dù nút vẫn nhìn thấy được.
+    // #21 (cycle 30): phần tử thật sự nằm trên tâm nút CỬA HÀNG phải là
+    // chính nút đó (#econBar nổi lên z 21 khi sảnh chờ mở, ≥900px) — trước
+    // sửa là overlay #startCard (z-index 20) nên click chuột thật không
+    // tới được nút dù nút vẫn nhìn thấy được.
     const shopTop = await page.evaluate(() => {
       const b = document.getElementById('btn-shop'); if (!b) return null;
       const r = b.getBoundingClientRect();

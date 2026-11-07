@@ -2992,6 +2992,9 @@
       // đã vào phòng (perf.js chỉ gửi khi đã join để server quy được về
       // phòng thường/QC; gửi trước join thì server bỏ vì không quy được).
       if (window.__perf) window.__perf.onJoined();
+      // #19 bước 1: vào phòng multi thì ví chuyển sang server — hỏi lại
+      // profile server để ví/shop không còn hiện số dư chơi đơn (local).
+      if (window.HoiShop && typeof window.HoiShop.render === 'function') window.HoiShop.render();
       var li = $('lobby-info'); if (li) li.textContent = 'Phòng ' + msg.code + (msg.spectator ? ' — bạn vào làm khán giả.' : '');
       if (!player) {
         player = createPerson((($('player-name') && $('player-name').value) || 'Người chơi').trim(), '#2196f3', false, 0, START_Z);
@@ -4740,6 +4743,12 @@
   // Kết thúc một vòng ở chế độ chơi đơn: hiện interstitial 3s rồi sang vòng sau.
   function localRoundEnd(round, survivors, eliminated) {
     if (window.Rounds) window.Rounds.endRound();
+    // #19 bước 1 — kinh tế chơi đơn (localStorage): +10 xu/vòng sống sót,
+    // +50 xu khi là người sống sót duy nhất; trận QC không thưởng (FR-46).
+    if (window.HoiLocalEconomy && player && player.alive && !qcMode) {
+      window.HoiLocalEconomy.awardRoundSurvived();
+      if (survivors <= 1) window.HoiLocalEconomy.awardWin();
+    }
     // Vòng tiếp theo bốc theo số người còn sống (không giới hạn ở vòng 6);
     // nếu chỉ còn 1 người hoặc vừa xong chung kết thì trận kết thúc.
     var nextName = (survivors > 1 && !roundIsFinal) ? localNameForRound(round + 1, survivors) : null;

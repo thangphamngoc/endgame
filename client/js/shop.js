@@ -69,6 +69,17 @@
 
   function sendEconomy(msg) {
     msg.type = 'economy';
+    // #19 bước 1: chơi đơn / sảnh chờ thì kinh tế chạy local (localStorage,
+    // HoiLocalEconomy) — không gửi WS vô ích. Đang multi thì để WS/server
+    // xử lý như trước; action chỉ có ở multi thì báo rõ, không gửi.
+    if (typeof window !== 'undefined' && window.HoiLocalEconomy) {
+      var r = window.HoiLocalEconomy.handle(msg);
+      if (r === 'handled') return true;
+      if (r === 'server-only') {
+        if (window.__game && typeof window.__game.toast === 'function') window.__game.toast('Tính năng này chỉ có ở chế độ nhiều người.');
+        return true;
+      }
+    }
     if (typeof window.__sendWS === 'function') {
       window.__sendWS(msg);
       return true;
@@ -103,6 +114,8 @@
     var owned = (profile && profile.inventory) || [];
     var html = '<h3>Cửa hàng — đồ trang trí (chỉ đổi hình thức, không đổi chỉ số)</h3>'
       + '<p>Ví của bạn: <strong>' + walletBalance + ' Hội Xu</strong> — kiếm xu bằng cách chơi: +10 xu/vòng sống sót, +50 xu khi thắng trận, +20 xu/nhiệm vụ ngày.</p>'
+      + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
+        ? '<p class="shop-note">Ví chơi đơn lưu trên trình duyệt này — không đồng bộ lên máy chủ.</p>' : '')
       + '<div class="shop-grid">';
     catalogue.forEach(function (item) {
       var isOwned = owned.indexOf(item.id) !== -1;
@@ -138,6 +151,8 @@
       + '<p>Cấp hiện tại: <strong>' + pass.level + '/20</strong> — XP: ' + pass.xp
       + ' (100 XP/vòng sống sót, 500 XP khi thắng trận). Hạng: <strong>'
       + (pass.tier === 'paid' ? 'Trả phí (demo)' : 'Miễn phí') + '</strong></p>'
+      + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
+        ? '<p class="shop-note">Chơi đơn: cấp/XP lưu trên máy này; thưởng track miễn phí tự nhận khi lên cấp.</p>' : '')
       + '<p>Thưởng toàn đồ trang trí. Mở hạng trả phí ' + STUB_LABEL
       + ' — không có thanh toán thật, chỉ mở khóa thử trong bản demo.</p>'
       + '<button type="button" id="buy-pass-btn">Mở Pass trả phí ' + STUB_LABEL + '</button>'

@@ -233,6 +233,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
 | FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Chưa làm: trò biến thể Tết (bước 2) |
+| FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, +50 xu/thắng, +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -764,6 +765,25 @@ trình duyệt có WebGL (harness headless ở VM trả WebGL null nên canvas
 trắng) — Sudo bay tới Hòn Chó Đá trên máy thật để chốt dáng chó có đọc
 ra ngay không.
 
+**Kinh tế chơi đơn (ví local) — ĐÃ QUYẾT (cycle 28, 2026-11-07 —
+backlog #19 bước 1, QC/Sudo lật được):** chơi đơn không có server nên
+ví + đồ đã mua lưu ở localStorage (`hoilang_local_profile_v1`),
+KHÔNG đồng bộ lên server. Mức thưởng y hệt multi: +10 xu/vòng sống
+sót, +50 xu khi là người sống sót duy nhất, +100 XP/vòng, +500 XP/
+thắng, 500 XP/cấp, tối đa cấp 20; lên cấp tự nhận thưởng track miễn
+phí (track trả phí không mở vì tier local luôn free). Triển khai:
+`client/js/local-economy.js` mới (`window.HoiLocalEconomy` — load/save
+có fallback RAM khi localStorage bị chặn/dữ liệu hỏng, `handle()` trả
+'handled' / 'server-only' / false); `shop.js` gọi `handle()` trước khi
+gửi WS, action chỉ có ở multi (buyPass/giải đấu/cheer/gift/vé tour)
+thì toast "chỉ có ở chế độ nhiều người" thay vì gửi WS vô ích; shop +
+pass panel ghi chú ví local không đồng bộ; `game.js` cộng xu ở
+`localRoundEnd` (chỉ khi người chơi còn sống, trận QC không thưởng) và
+hỏi lại profile server khi `joined` multi để ví không còn hiện số dư
+local. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
+Chưa đo bằng tay: mua/trang bị thật ở chơi đơn, ví giữ sau khi tải
+lại trang, cảm giác số dư khi chuyển chơi đơn ↔ nhiều người.
+
 **Panel Du lịch Hạ Long không bao giờ hiện — ĐÃ QUYẾT (cycle 21,
 2026-11-07 — backlog #37, phát hiện khi kiểm #15, QC/Sudo lật được):**
 `#tourPanel` có `display:none` trong CSS, `activateExplore()` chỉ gỡ
@@ -815,6 +835,29 @@ báo. Chưa đo bằng tay: cảm giác chủ đề Tết trên trình duyệt t
 trong cửa sổ 30/01–10/02/2027 (ngoài cửa sổ chỉ test được bằng
 `?season=tet`), Sudo chốt lại ngày âm lịch mỗi năm trước khi mở
 (cửa sổ ghi bằng ngày dương cố định).
+
+**Nút kinh tế ở sảnh chờ — ĐÃ QUYẾT (cycle 30, 2026-11-07 — backlog #21,
+QC/Sudo lật được):** cột nút phải (`#econBar`: CỬA HÀNG / VÉ MÙA / GIẢI
+ĐẤU / QUÀ TẶNG / THOÁT GAME) phải bấm được bằng chuột thật ngay từ sảnh
+chờ, không cần vào trận trước. Trước đây overlay `#startCard`
+(`position:fixed; inset:0; z-index:20`) phủ lên cột nút (`z-index:6`)
+nên `elementFromPoint` tại tâm nút trả về `startCard` — bấm chuột thật
+không mở được shop dù nút vẫn nhìn thấy (chỉ bấm được bằng JS `.click()`).
+Sửa bằng CSS, không đổi JS: `@media (min-width:900px){
+#startCard:not(.hidden) ~ #econBar{z-index:21;} }` — `#startCard` ẩn/hiện
+bằng class `.hidden` do `game.js` gắn/gỡ, `#econBar` là sibling sau nó
+nên dùng được `~`. Cột nút nổi lên trên overlay sảnh chờ (z 21) nhưng vẫn
+dưới panel shop (33), onboarding (40) và toast (40) nên onboarding vẫn
+chặn đúng như thiết kế (người mới phải bấm "Bỏ qua hướng dẫn" / "ĐÃ HIỂU"
+trước). Chỉ áp từ 900px trở lên: card sảnh chờ rộng tối đa 520px căn giữa
+nên dưới ~884px cột nút bắt đầu chồng mép phải card — màn hẹp
+(mobile/tablet) giữ nguyên trạng thái cũ (nút kinh tế vẫn bị overlay chặn
+ở sảnh chờ, vào trận rồi mới bấm được), chờ sửa layout sảnh chờ ở #23/#31.
+Không chọn `pointer-events:none` cho overlay: click sẽ xuyên qua vùng mờ
+tới canvas 3D (bấm nhầm đảo → bay tour, kéo xoay camera) trong lúc card
+sảnh chờ đang mở. Chưa đo bằng tay: bấm CỬA HÀNG thật ở sảnh chờ trên
+trình duyệt/máy thật + cảm giác cột nút nổi trên nền mờ có rõ là bấm được
+không.
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
 cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,
@@ -948,6 +991,15 @@ riêng, có thể ít hơn mục tiêu) — xem OD-11.
 Nhiệm vụ ngày (3 nhiệm vụ, xem FR-42): chơi 1 trận; sống sót 2 vòng;
 gửi 5 tin chat. Xu chỉ tiêu trong game (shop, giải thưởng giải đấu, vé
 tour). **Xu không đổi ra tiền mặt, không rút được.**
+
+**Chơi đơn — ĐÃ QUYẾT (cycle 28, 2026-11-07 — backlog #19 bước 1):**
+ví chơi đơn lưu ở localStorage (`hoilang_local_profile_v1`) trên trình
+duyệt người chơi, KHÔNG đồng bộ lên server (chống cày xu chơi đơn rồi
+mang sang multi). Mức thưởng y hệt multi (bảng trên + §10.4 XP). Shop
+mua/trang bị chạy local; Pass hiển thị cấp/XP local, thưởng track miễn
+phí tự nhận khi lên cấp; giải đấu / cổ vũ / tặng quà / vé tour chỉ có ở
+multi (bấm ở chơi đơn thì báo rõ). Trận QC chơi đơn không thưởng. Chưa
+có: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
 
 ### 10.3. Shop đồ trang trí (cosmetic-only)
 
