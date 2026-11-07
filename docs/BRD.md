@@ -569,6 +569,29 @@ tắt sạch. Hook test `HOI_TEST_CRASH=1` (mặc định tắt) chỉ để ki�
 tay: hành vi restart trên máy host thật (chưa có host production), Sudo
 chỉ cần biết `npm run supervise` là cách chạy khuyên dùng.
 
+**Gom + xoay log file ở supervisor — ĐÃ QUYẾT (cycle 22, 2026-11-07 —
+backlog #13, P3-05 bước 2, QC/Sudo lật được):** sửa lại quyết định ở
+đoạn cycle 19 ("rotate thuộc về nơi chạy, vd. systemd/journald") — ở môi
+trường triển khai hiện tại (VM, không có systemd/journald) thì supervisor
+chính là nơi chạy, nên supervisor đảm nhiệm luôn việc gom + xoay khi được
+giao file: đặt `SUPERVISOR_LOG_FILE=<đường dẫn>` thì mọi dòng log (của
+supervisor lẫn stdout/stderr của server con) ghi vào file đó; không đặt
+thì hành vi cũ giữ nguyên (stdout, con inherit). File vượt
+`SUPERVISOR_LOG_MAX_BYTES` (mặc định 5 MiB) thì xoay giữ
+`SUPERVISOR_LOG_KEEP` thế hệ (mặc định 3), thế hệ cũ nhất bị xóa; kiểm tra
+lúc khởi động, trước mỗi lần chạy lại con, và định kỳ
+`SUPERVISOR_LOG_CHECK_MS` (mặc định 30s); xoay xong ghi 1 dòng
+`supervisor_log_rotate` vào file mới. Logic xoay tách riêng thành module
+`server/log-rotate.js` (`rotateLogFile`/`needsRotation`, không bao giờ
+throw) để test trực tiếp. Mở file lỗi (sai đường dẫn, không có quyền) thì
+ghi `supervisor_log_fallback` rồi về stdout, không crash — lỗi này phải
+kiểm tra đồng bộ trước khi mở vì `createWriteStream` báo lỗi bất đồng bộ,
+bản đầu chỉ trông vào handler 'error' đã nuốt mất `supervisor_start`
+(test bắt được, đã sửa). Chưa làm (còn nợ): cảnh báo khi server chết (cần
+Sudo chọn kênh báo — chat/email/webhook). Chưa đo bằng tay: hành vi xoay
+log trên máy host thật khi log phình nhanh (chỉ mới đo bằng con test nói
+nhiều trong VM).
+
 **Harness capture tắt onboarding trước mọi stage tương tác — ĐÃ QUYẾT
 (cycle 17, 2026-11-07 — backlog #30, QC/Sudo lật được):** từ khi
 onboarding tự hiện lần đầu ở sảnh chờ (cycle 12), overlay của nó

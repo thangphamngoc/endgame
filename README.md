@@ -19,6 +19,12 @@ Mở trình duyệt tại `http://localhost:3000` (cổng mặc định, đổi 
   thay cho `npm start` — supervisor (`server/supervisor.js`) chạy lại server
   sau 1s/2s/4s... (tối đa 10s) khi server thoát khác 0; server thoát 0 (tắt
   có trật tự) thì không chạy lại. Mọi sự kiện đều là 1 dòng JSON trên stdout.
+  Gom log vào file + xoay theo kích thước (cycle 22): đặt
+  `SUPERVISOR_LOG_FILE=<đường dẫn>` khi chạy supervisor, mọi dòng log (của
+  supervisor lẫn server con) ghi vào file đó; file vượt
+  `SUPERVISOR_LOG_MAX_BYTES` (mặc định 5 MiB) thì xoay giữ
+  `SUPERVISOR_LOG_KEEP` thế hệ (mặc định 3). Cách chạy khuyên dùng ở VM:
+  `SUPERVISOR_LOG_FILE=~/workspace/endgame-server.log npm run supervise`.
 
 - Chế độ **Chơi đơn**: không cần mạng ngoài, chơi ngay với 60 bot.
   Bot luôn được ghi rõ là bot, không bao giờ giả làm người thật.
