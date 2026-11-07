@@ -2172,6 +2172,11 @@
     exploreReturn.menu = (phase === 'menu');
     exitSpectator();
     tour.active = true;
+    // P3-06 (cycle 20): báo server khi mở du lịch — server chỉ đếm khi
+    // người này đã bị loại (KPI-04); mở từ sảnh chờ không đếm. Chơi đơn
+    // không có WS nên sendWS tự bỏ qua. Gửi 1 lần mỗi lần mở tour vì
+    // hàm này return sớm khi tour.active đã true.
+    if (player && !player.alive) sendWS({ type: 'tour' });
     tour.center.set(camera.position.x * 0.3, 2, camera.position.z * 0.3);
     var tp = $('tourism'); if (tp) tp.classList.remove('hidden');
     setSpectatorBanner(false);

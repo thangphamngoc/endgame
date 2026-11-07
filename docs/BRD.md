@@ -52,16 +52,18 @@ duyệt, nhiều người chơi thật cùng một trận.
 ## 2. Mục tiêu và chỉ tiêu thành công (KPI đề xuất)
 
 Tất cả các số dưới đây là **mục tiêu đề xuất, chưa đo, cần Sudo duyệt**.
-Hiện tại chưa có hệ thống đo (analytics) trong game, nên chưa có số thực tế
-nào để đối chiếu.
+Hệ thống đo tối thiểu ở server đã có từ cycle 20 (P3-06 bước 1:
+`GET /analytics` cho KPI-01/03/04/05) nhưng chưa có số thực tế nào vì
+chưa có trận thật chạy qua — các tỉ lệ hiện là null cho tới khi có trận
+đầu tiên kết thúc.
 
 | # | Chỉ tiêu (đề xuất) | Mục tiêu đề xuất | Đo bằng gì (dự kiến) |
 |---|---|---|---|
-| KPI-01 | Tỉ lệ trận hoàn thành (trận tới được vòng 2 và có người thắng) | ≥ 80% số trận bắt đầu | Log trận (cần làm ở Phase 3) |
+| KPI-01 | Tỉ lệ trận hoàn thành (trận tới được vòng 2 và có người thắng) | ≥ 80% số trận bắt đầu | Log trận — **đã có từ cycle 20 (P3-06 bước 1): `GET /analytics`, xem BRD §8.1** |
 | KPI-02 | Thời gian lấp đầy phòng | Phòng 20 người đủ trong ≤ 5 phút (giờ cao điểm) | Log phòng (cần làm) |
-| KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) |
-| KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch (cần làm) |
-| KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay (cần làm) |
+| KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) — **đã có từ cycle 20 (P3-06 bước 1)** |
+| KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch — **đã có từ cycle 20 (P3-06 bước 1)** |
+| KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo thủ công + đo tự động ở Phase 2 |
 | KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận + báo lỗi (cần làm) |
 | KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
@@ -578,6 +580,27 @@ vòng 2–6), vòng 1 desktop/mobile, shop, chat; stage lobby (01/01b) GIỮ
 NGUYÊN onboarding để chụp đúng trải nghiệm người mới. Đây là sửa harness,
 không đổi hành vi game. Chưa đo bằng tay: không có — harness chỉ phục vụ
 kiểm chứng, Sudo không cần test tay mục này.
+
+**Analytics tối thiểu ở server — ĐÃ QUYẾT (cycle 20, 2026-11-07 —
+backlog #14, P3-06 bước 1, QC/Sudo lật được):** module mới
+`server/analytics.js` đếm tổng hợp, lưu `data/analytics.json`, xem qua
+`GET /analytics` (chỉ số tổng hợp, chưa khóa admin — TODO khi mở
+public). Không lưu tên người chơi, nội dung chat hay tọa độ. Đo được:
+KPI-01 (trận tới vòng 2 + có người thắng / trận đã kết thúc), KPI-03
+(người gửi ≥1 tin / người trong trận đã kết thúc), KPI-04 (người bị loại
+mở tour ≥1 lần / người bị loại), KPI-05 (trận có ≥1 replay / trận đã kết
+thúc). Trận QC ghi riêng (`qcMatchesStarted/Finished`), không vào mẫu số
+KPI — giống cách economy miễn thưởng phòng QC. Tour mở và replay đều xảy
+ra trên màn hình kết thúc (sau `endMatch`) nên số đếm chốt sau grace 30
+giây kể từ khi trận kết thúc; `/analytics` trong 30 giây đó chưa thấy
+trận này. Client gửi `{type:'tour'}` 1 lần mỗi lần mở tour
+(`activateExplore()`), server chỉ đếm khi người đó đã bị loại — mở tour
+từ sảnh chờ không tính. Chưa đo: KPI-02 (cần log lúc vào phòng chờ),
+KPI-06 (FPS/tải trang, đo ở client), KPI-07 (trận bỏ dở chưa đếm — trận
+bỏ dở hiện bị hủy khi phòng trống), KPI-08 (cần tính năng tố cáo).
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
+totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
+cách kiểm nhanh nhất.
 
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 

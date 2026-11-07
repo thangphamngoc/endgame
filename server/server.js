@@ -96,6 +96,12 @@ let economy = null;
 try { economy = require('./economy'); } catch (e) { economy = null; }
 function econSafe(fn) { if (!economy) return; try { fn(economy); } catch (e) { logEvent('error', { kind: 'economy_hook', message: String(e && e.message) }); } }
 
+// Analytics tối thiểu P3-06 (cycle 20, bước 1): đếm tổng hợp, không lưu
+// tên người chơi hay nội dung chat. analyticsSafe bọc giống econSafe để
+// analytics hỏng không bao giờ làm chết trận.
+const analytics = require('./analytics');
+function analyticsSafe(fn) { try { return fn(analytics); } catch (e) { logEvent('error', { kind: 'analytics_hook', message: String(e && e.message) }); return null; } }
+
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_DIR = path.join(__dirname, '..', 'client');
 const START_Z = 35;
@@ -168,6 +174,15 @@ function serveStatic(req, res) {
     for (const r of rooms.values()) players += r.players.size;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true, rooms: rooms.size, players, uptime: Math.floor((Date.now() - STARTED_AT) / 1000), pid: process.pid, startedAt: new Date(STARTED_AT).toISOString() }));
+    return;
+  }
+  // P3-06 (cycle 20, bước 1): số đếm tổng hợp + tỉ lệ KPI-01/03/04/05.
+  // Chỉ số tổng hợp, không có tên người chơi hay nội dung chat.
+  // TODO (bước sau): chỉ cho admin/host xem khi mở public.
+  if (urlPath === '/analytics') {
+    const data = analyticsSafe(() => analytics.summary());
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(data || { totals: {}, kpi: {}, liveMatches: 0 }));
     return;
   }
   let p = urlPath === '/' ? '/index.html' : urlPath;
@@ -436,6 +451,8 @@ function eliminatePlayer(room, player, reason) {
     return false;
   }
   player.alive = false; player.spectator = true;
+  // P3-06: ghi nhận người bị loại (mẫu số KPI-04).
+  analyticsSafe((a) => a.recordElimination(room, player.id));
   logEvent('elimination', { room: room.code, matchId: room.matchId, round: room.round, playerId: player.id, name: player.name, reason });
   broadcast(room, { type: 'eliminated', id: player.id, reason });
   // Bảng trực tiếp (P1-09): ghi lại người vừa bị loại (mới nhất trước,
@@ -554,6 +571,8 @@ function startMatch(room) {
     p.x = (rng() * 16 - 8); p.z = START_Z; p.gongX = p.x; p.gongZ = p.z;
   }
   logEvent('match_start', { room: room.code, matchId: room.matchId, players: starters.length, targets: room.targets, plan: room.roundPlan.map((r) => r.game), qc: !!room.qc, qcStartRound: room.qcStartRound });
+  // P3-06: ghi nhận trận bắt đầu (trận QC tách riêng, không vào mẫu số KPI).
+  analyticsSafe((a) => a.recordMatchStart(room));
   // Trận QC không ghi "đã chơi trận" vào kinh tế (không thưởng, không XP).
   if (!room.qc) starters.forEach((pl) => econSafe((ec) => ec.recordMatchPlayed(pl.id, pl.name)));
   broadcast(room, { type: 'phase', phase: 'countdown', players: publicPlayers(room) });
@@ -627,6 +646,8 @@ function startRound(room, n) {
   room.round = n;
   room.roundGame = plan.game;
   room.roundName = plan.name;
+  // P3-06: vòng >= 2 nghĩa là trận đã tới được vòng 2 (KPI-01).
+  if (n >= 2) analyticsSafe((a) => a.recordRoundStart(room, n));
   room.roundTimeLimit = plan.timeLimit;
   room.isFinal = plan.game === 'rong-ran';
   room.roundTarget = room.isFinal ? 1
@@ -1009,6 +1030,8 @@ function endMatch(room, reason) {
     if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50, profile: res.profile });
   }
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length, reason: reason || 'last-standing' });
+  // P3-06: chốt số đếm của trận (trận QC tách riêng, không vào KPI).
+  analyticsSafe((a) => a.recordMatchEnd(room, reason, winner));
   broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null, reason: reason || undefined });
   broadcastLobbyList();
 }
@@ -1125,7 +1148,7 @@ function removePlayerFromRoom(room, playerId, reason) {
   const wasLeader = room.bridges && Object.values(room.bridges).some((b) => b.leader === playerId);
   const wasHost = player.isHost;
   room.players.delete(playerId);
-  if (room.players.size === 0) { rooms.delete(room.code); broadcastLobbyList(); return; }
+  if (room.players.size === 0) { rooms.delete(room.code); analyticsSafe((a) => a.dropMatch(room)); broadcastLobbyList(); return; }
   if (wasHost) {
     const first = [...room.players.values()].find((p) => p.ws);
     if (first) first.isHost = true;
@@ -1324,6 +1347,8 @@ wss.on('connection', (ws) => {
       if (now - player.lastChat < 2000) { send(ws, { type: 'error', message: 'Gửi chậm lại một chút (2 giây/tin).' }); return; }
       player.lastChat = now;
       if (!room.qc) econSafe((ec) => ec.recordChatSent(player.id, player.name));
+      // P3-06: đếm người gửi chat (chỉ đếm, không lưu nội dung).
+      analyticsSafe((a) => a.recordChat(room, player.id));
       broadcast(room, {
         type: 'chat', senderId: player.id, name: player.name,
         team: player.team, text: rawText, time: new Date(now).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
@@ -1481,8 +1506,17 @@ wss.on('connection', (ws) => {
       if (!qcJumpToRound(room, n)) { send(ws, { type: 'error', message: 'Chưa nhảy vòng được (trận đã kết thúc hoặc đang ở sảnh).' }); return; }
       return;
     }
+    if (msg.type === 'tour') {
+      // P3-06 (KPI-04): client báo khi mở du lịch; chỉ đếm khi người đó
+      // đã bị loại (mở từ sảnh chờ / còn sống thì không tính).
+      if (!room || !player || player.alive) return;
+      analyticsSafe((a) => a.recordTour(room, player.id));
+      return;
+    }
     if (msg.type === 'replay') {
       if (room.phase !== 'finished') return;
+      // P3-06 (KPI-05): đếm lượt chơi lại của trận vừa kết thúc.
+      analyticsSafe((a) => a.recordReplay(room));
       room.phase = 'lobby'; room.ranking = []; room.bridges = {}; room.round = 0; room.roundPlan = [];
       room.subArenas = []; room.roundDeadline = 0;
       for (const p of room.players.values()) {
