@@ -100,8 +100,10 @@ sau khi có số người chơi thật.
   từng cầu, ván yếu vỡ thì loại cá nhân, ván vỡ thành khoảng trống nhảy qua
   bằng Space, về đích xếp hạng cá nhân theo thời gian.
 - Khán giả: 4 góc nhìn (Toàn cảnh / Theo dõi / Sát vai / Tự do), chuyển người xem.
-- Du lịch Hạ Long: 7 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
-  Hòn Đỉnh Hương, Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ), mỗi đảo có cây, chim
+- Du lịch Hạ Long: 12 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
+  Vịnh Tháp Đá, Đảo Yên Ngựa, Đảo Hang Vòm, Cầu Khỉ Sương Mù, Hòn Đỉnh Hương,
+  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá — thêm cycle 21, P4-01
+  bước 1/3), mỗi đảo có cây, chim
   thú, hình dáng và câu chuyện riêng có gắn nhãn; 260 silhouette đảo xa;
   click đảo trong 3D / chấm trên minimap / danh sách để bay-zoom tới xem
   chi tiết; nút quay lại toàn cảnh / quay lại trận.
@@ -229,6 +231,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-45 | Không pay-to-win / không cá cược / không loot box | Không món nào mua bằng tiền/xu cho chỉ số hay lợi thế trận đấu; không đặt tiền vào kết quả trận; không hộp quà ngẫu nhiên trả phí | Đã làm (bản stub) — catalogue toàn cosmetic; giải thưởng chỉ bằng xu, không đổi ra tiền mặt; xem §10 |
 | FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
+| FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -598,9 +601,43 @@ trận này. Client gửi `{type:'tour'}` 1 lần mỗi lần mở tour
 từ sảnh chờ không tính. Chưa đo: KPI-02 (cần log lúc vào phòng chờ),
 KPI-06 (FPS/tải trang, đo ở client), KPI-07 (trận bỏ dở chưa đếm — trận
 bỏ dở hiện bị hủy khi phòng trống), KPI-08 (cần tính năng tố cáo).
+
+**Nút THOÁT GAME ở menu phải — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
+backlog #33, theo yêu cầu Sudo, QC/Sudo lật được):** nút `THOÁT GAME`
+(`#btn-exit`, đỏ) cuối cột `#econBtns`, cùng hàng với 4 nút kinh tế.
+Người bị loại/khán giả/người xem tour/người đã xong trận bấm là thoát
+thẳng về màn chính, không hỏi. Người còn sống trong trận thì hỏi lại
+bằng `confirm()` vì rời trận = bị loại khỏi trận này, không nhận thưởng
+vòng này. Trận QC không hỏi (không thưởng, thoát tự do để test). Thoát
+xong: sim vòng 3-6 dừng, mọi overlay/panel của trận ẩn, tour +
+spectator + banner + chat tắt, fog về preset sân làng, phase về
+'menu', startCard hiện lại. Multi đóng WS — server giữ slot 30 giây
+grace rồi xóa, chưa có message 'leave' riêng (backlog #34). Chưa làm:
+nút thoát trên màn hình kết thúc trận (overlay teamCard che cột menu,
+backlog #35).
 Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
 totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
 cách kiểm nhanh nhất.
+
+**Đảo du lịch mới Hòn Chó Đá — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
+backlog #15, P4-01 bước 1/3, QC/Sudo lật được):** thêm đảo thứ 12 vào
+du lịch Hạ Long (P4-01 yêu cầu ít nhất 3 đảo mới; cycle này làm 1 đảo,
+còn nợ 2 đảo cho cycle sau). Hòn Chó Đá là đảo đá thật trong vịnh, nhãn
+nguồn "Tư liệu thật": hình dáng chó ngồi chồm hỗm, mõm hướng ra khơi;
+câu chuyện ghi rõ phần nào là tư liệu (hình dáng thật) và phần nào là
+truyền thuyết dân gian (chó trung thành đợi chủ đi biển). Vị trí
+(-285, 245) ở góc tây nam vịnh, cách đảo gần nhất (Đảo Soi Sim) và dãy
+núi đá vôi gần nhất đều trên 100 đơn vị — không chồng lấn. Đảo có đủ:
+hình voxel riêng (thân ngồi thấp bè, ngực dựng, đầu ngẩng, mõm + chóp
+mũi nhô hướng tây nam, hai tai, đuôi vểnh, bãi cát chân trước), cây/bụi/
+dây leo/hoa trên lưng, đèn dấu đỏ, biển tên, thuyền neo gần bờ, đàn chim
+bay vòng quanh, icon `dog` riêng trong danh sách tour. Danh sách tour,
+proxy bấm 3D, chấm minimap và nút bay tới đều chạy theo dữ liệu
+`TOUR_ISLANDS` nên đảo mới tự có đủ đường vào, không sửa riêng từng
+chỗ. Chưa đo bằng tay: hình dáng voxel thật của đảo chỉ xem được trên
+trình duyệt có WebGL (harness headless ở VM trả WebGL null nên canvas
+trắng) — Sudo bay tới Hòn Chó Đá trên máy thật để chốt dáng chó có đọc
+ra ngay không.
 
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 

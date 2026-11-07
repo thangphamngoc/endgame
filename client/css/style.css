@@ -88,6 +88,8 @@
       }
       .specBtn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--edge), inset 0 0 0 2px rgba(255,205,120,.2);}
       .specBtn.on{background:#d63c2f; border-color:var(--edge); color:#fff; box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px #ffd34d;}
+      .specBtn.danger{background:#991b1b; border-color:#450a0a; box-shadow:0 4px 0 #450a0a, inset 0 0 0 2px rgba(255,205,120,.2);}
+      .specBtn.danger:active{transform:translateY(3px); box-shadow:0 1px 0 #450a0a, inset 0 0 0 2px rgba(255,205,120,.2);}
       #specTargetName{font-size:14px; font-weight:900; color:#ffd34d; min-width:150px; display:flex; align-items:center; justify-content:center;}
       .specHint{font-size:11px; font-weight:500; opacity:.75; margin-top:7px; line-height:1.4;}
       /* bảng xếp hạng trực tiếp trong banner khán giả (P1-09) */
@@ -214,6 +216,10 @@
         width:min(600px,95vw); max-height:52vh; overflow:auto;
         box-shadow:inset 0 0 0 2px rgba(120,220,200,.25), 0 6px 0 rgba(0,0,0,.3);
       }
+      /* Panel tour chi hien qua class .open (giong #chatPanel, backlog #20):
+         display:none o tren thang .hidden vi panel khong co class .hidden
+         luc dau — chi go .hidden thi panel van an (loi #33, cycle 21). */
+      #tourPanel.open{display:block;}
       #tourPanel .tourTitle{font-weight:900; font-size:16px; color:#aef2dd; letter-spacing:.4px;}
       #tourPanel .tourNote{font-size:11px; opacity:.8; margin-top:2px; line-height:1.4;}
       #tourList{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}

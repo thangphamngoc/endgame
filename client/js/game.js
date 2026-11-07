@@ -18,7 +18,7 @@
   var TEAM_NAMES = ['Đỏ', 'Vàng', 'Xanh lá'];
   var VILLAGES = ['Hải Hậu', 'Hải Lý', 'Hải Tiến', 'Hải Châu', 'Hải Anh', 'Hải Quang', 'Hải Đông', 'Hải Tây'];
 
-  // ---- Dữ liệu đảo du lịch: 11 đảo, mỗi đảo một hình dáng, icon, góc camera
+  // ---- Dữ liệu đảo du lịch: 12 đảo, mỗi đảo một hình dáng, icon, góc camera
   // và câu chuyện riêng (port từ POIS của bản prototype).
   var TOUR_ISLANDS = [
     { id: 'hoi-lang', name: 'Đảo Hội Làng', label: 'Chuyện trong game', x: 0, z: 0, size: 34, y: 2, yaw: 0.7, pitch: 0.42, dist: 95, icon: 'village',
@@ -53,7 +53,10 @@
       story: 'Tư liệu thật: Soi Sim là đảo thật ở phía tây nam Vịnh Hạ Long, nổi tiếng với rừng sim tự nhiên — mùa hè hoa sim nở tím cả sườn đảo, sau đó là mùa quả sim chín mọng. Trong game: đảo thoai thoải thay vì vách dựng đứng, bụi sim tím điểm khắp sườn, dừa ở bãi cát, bướm bay quanh hoa cả ngày và đàn chim lượn trên đỉnh.' },
     { id: 'dao-khi', name: 'Đảo Khỉ', label: 'Chuyện trong game', x: 300, z: 170, size: 24, y: 5, yaw: -0.9, pitch: 0.32, dist: 72, icon: 'monkey',
       feat: 'Hai mỏm đá có cây, đàn khỉ voxel ngồi trên đá vẫy tay',
-      story: 'Chuyện trong thế giới game: Đây là đảo của đàn khỉ — khỉ ngồi trên mỏm đá ngắm thuyền qua lại, một con gãi đầu, hai con vẫy tay, thỉnh thoảng một con nhảy phóc sang mỏm đá bên kia. Ngoài đời, vùng Cát Bà — Hạ Long cũng có đảo khỉ thật với khỉ sống tự nhiên. Trong game cứ ghé đảo là thấy khỉ chuyển động, không con nào đứng yên như tượng.' }
+      story: 'Chuyện trong thế giới game: Đây là đảo của đàn khỉ — khỉ ngồi trên mỏm đá ngắm thuyền qua lại, một con gãi đầu, hai con vẫy tay, thỉnh thoảng một con nhảy phóc sang mỏm đá bên kia. Ngoài đời, vùng Cát Bà — Hạ Long cũng có đảo khỉ thật với khỉ sống tự nhiên. Trong game cứ ghé đảo là thấy khỉ chuyển động, không con nào đứng yên như tượng.' },
+    { id: 'cho-da', name: 'Hòn Chó Đá', label: 'Tư liệu thật', x: -285, z: 245, size: 20, y: 4, yaw: 0.85, pitch: 0.3, dist: 62, icon: 'dog',
+      feat: 'Khối đá ngồi chồm hỗm như chó trông biển, mõm hướng ra khơi',
+      story: 'Tư liệu thật: Hòn Chó Đá là đảo đá thật trong vịnh — nhìn từ xa giống hệt một chú chó ngồi chồm hỗm giữa biển, mõm hướng ra khơi như đang trông chủ đi biển trở về. Truyền thuyết dân gian kể đó là chú chó trung thành của một ngư dân, ngày ngày ngồi đợi chủ đến hóa đá. Trong game: thân chó là khối đá xám ngồi thấp bè, đầu ngẩng cao, mõm nhô ra hướng tây nam; lưng phủ cây, bãi cát nhỏ ở chân trước, thuyền neo gần bờ và đèn dấu đỏ để thuyền đêm nhận ra từ xa.' }
   ];
 
   var scene, camera, renderer, raycaster, pointer;
@@ -1107,11 +1110,35 @@
       monkey(kh, 8, 10.5, 4.5, 0.9, 'wave');
       var jumper = monkey(kh, -7, 12.5, -4, 0.8, 'jump');
       jumper.a = { x: -7, y: 12.5, z: -4 }; jumper.b = { x: 6, y: 10.5, z: 0 };
+      /* HÒN CHÓ ĐÁ (-285,245): chó ngồi chồm hỗm trông biển — thân thấp bè,
+         ngực dựng, đầu ngẩng, mõm nhô ra hướng tây nam (xoay nhóm 0.8 rad
+         để trục -x cục bộ chỉ ra khơi). Thêm ở cycle 21 (#15 bước 1/3). */
+      var cd = new THREE.Group(); cd.position.set(-285, -1.3, 245); cd.rotation.y = 0.8;
+      box(24, 2, 18, dark, 0, 0.5, 0, cd, false);
+      box(12, 5, 14, rock2, 5, 3.5, 0, cd, false);          // mông ngồi (sau)
+      box(10, 8, 12, rock, -4, 5, 0, cd, false);            // ngực dựng (trước)
+      box(9, 4, 11, rock2, -2, 10, 0, cd, false);           // vai
+      box(7, 6, 7, rock, -7, 15, 0, cd, false);             // đầu ngẩng
+      box(4.5, 2.2, 3.5, rock2, -11.5, 13.8, 0, cd, false); // mõm nhô ra khơi
+      box(1.4, 1.4, 1.6, dark, -14, 14.2, 0, cd, false);    // chóp mũi
+      box(1.8, 2.6, 1.8, rock2, -8.5, 18.6, -2.2, cd, false); // tai trái
+      box(1.8, 2.6, 1.8, rock2, -5.5, 18.6, 2.2, cd, false);  // tai phải
+      box(1, 3, 1, dark, 11, 3, 0, cd, false);              // đuôi vểnh
+      box(8, 0.5, 5, sand, -13, 0.9, 6, cd, false);         // bãi cát chân trước
+      vxTree(cd, 5, 6.5, 0, 1.0, 'canopy'); vxTree(cd, 8, 6, -3, 0.8, 'bamboo');
+      vxTree(cd, -2, 12, 3, 0.75, 'bamboo');
+      vxBush(cd, -6, 9.2, 5, 0.9); vxBush(cd, 7, 3.5, 6, 0.8);
+      vxVine(cd, -9.2, 8, 5.5, 4);
+      vxFlowers(cd, -12, 1.2, 8, 4, [0xf2b01e, 0xf28bb4]);
+      vxBeacon(cd, 12, 1.6, -6, 0xe2483a);
+      scene.add(cd);
+      isleSign('HÒN CHÓ ĐÁ', -271, 232, 3.2);
+      miniBoat(-262, 258, 0.9, 0xf6ead0);
     })();
     /* ================= SỰ SỐNG QUANH ĐẢO: chim, bướm, cá nhảy, cua ================= */
     (function wildlife() {
       var birdCols = [0xf6f2e8, 0xdfe8ee, 0xf2b01e];
-      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4]].forEach(function (f, fi) {
+      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4], [-285, 22, 245, 18, 4]].forEach(function (f, fi) {
         for (var i = 0; i < f[4]; i++) {
           var g = new THREE.Group();
           var bm = mat(birdCols[fi % 3], 0.7);
@@ -1929,6 +1956,14 @@
     } else if (type === 'monkey') {
       R(4, 14, 10, 8, rock); R(20, 12, 12, 10, rock); R(6, 9, 6, 6, veg); R(23, 7, 7, 6, veg);
       cx.fillStyle = '#8a5a2b'; cx.fillRect(8, 10, 3, 3); cx.fillRect(25, 8, 3, 3);
+    } else if (type === 'dog') {
+      // Chó ngồi chồm hỗm, mõm hướng trái (ra khơi): đầu + mõm + tai bên trái,
+      // thân ngồi thấp bè, đuôi vểnh sau lưng, cây trên lưng.
+      R(10, 13, 20, 9, rock); R(13, 11, 6, 3, veg);
+      R(5, 6, 7, 8, rock); R(6, 3, 3, 3, rock); R(9, 3, 2, 3, rock);
+      R(1, 10, 4, 3, rock); R(0, 11, 2, 2, dark);
+      R(29, 10, 3, 5, dark);
+      R(3, 21, 12, 2, sand);
     } else {
       R(4, 16, 28, 6, veg);
       R(9, 11, 6, 5, '#f3e2c0'); R(8, 9, 8, 3, '#b5451b');
@@ -2178,7 +2213,7 @@
     // hàm này return sớm khi tour.active đã true.
     if (player && !player.alive) sendWS({ type: 'tour' });
     tour.center.set(camera.position.x * 0.3, 2, camera.position.z * 0.3);
-    var tp = $('tourism'); if (tp) tp.classList.remove('hidden');
+    var tp = $('tourism'); if (tp) { tp.classList.remove('hidden'); tp.classList.add('open'); } // hien panel qua .open (#tourPanel mac dinh display:none — giong #chatPanel, #33)
     setSpectatorBanner(false);
     if (exploreReturn.menu) { var m = $('menu'); if (m) m.classList.add('hidden'); }
     return true;
@@ -2189,7 +2224,7 @@
     flyToPOI(tour.poi || 0);
   }
   function exitTour(backToSpec) {
-    var tp = $('tourism'); if (tp) tp.classList.add('hidden');
+    var tp = $('tourism'); if (tp) { tp.classList.add('hidden'); tp.classList.remove('open'); } // an panel: go ca .open (#33)
     if (!tour.active) return;
     tour.active = false;
     tour.custom = null;
@@ -2747,6 +2782,48 @@
       var j = $('joystick'); if (j) j.classList.toggle('hidden', !show);
       var bj = $('btn-jump'); if (bj) bj.classList.toggle('hidden', !show);
     }
+  }
+
+  // ---- Thoát game về màn chính (cycle 21, #33 — theo yêu cầu Sudo 2026-11-07) ----
+  // Nút THOÁT GAME ở cột menu phải (#econBtns). Người bị loại / khán giả /
+  // người xem tour / người đã xong trận thoát thẳng, không hỏi. Người còn sống
+  // trong trận thì hỏi lại vì rời trận = bị loại khỏi trận này, không nhận
+  // thưởng vòng này. QC không hỏi (trận QC không thưởng, thoát tự do để test).
+  // Multi: đóng WS, server giữ slot 30s grace rồi xóa (chưa có message
+  // 'leave' riêng — xem backlog #34). Chơi đơn: chỉ reset state local.
+  function exitToMenu() {
+    if (phase === 'menu') return false;
+    var inMatch = phase === 'flyover' || phase === 'countdown' ||
+      phase.indexOf('round') === 0 || phase === 'team' || phase === 'interstitial';
+    if (inMatch && player && player.alive && !qcMode) {
+      if (!window.confirm('Rời trận ngay? Bạn sẽ bị loại khỏi trận này và không nhận thưởng vòng này.')) return false;
+    }
+    // Dừng sim vòng 3-6 nếu đang chạy (dọn overlay + teardown).
+    if (window.Rounds && typeof window.Rounds.endRound === 'function') { try { window.Rounds.endRound(); } catch (e) {} }
+    hideInterstitial();
+    exitTour(false);
+    exitSpectator();
+    setSpectatorBanner(false);
+    closeChat(true);
+    // Ẩn mọi panel/overlay của trận.
+    ['team-screen', 'team-panel', 'round-overlay', 'blind-overlay', 'shop-panel', 'pass-panel', 'tournament-panel', 'gift-panel'].forEach(function (id) {
+      var el = $(id); if (el) el.classList.add('hidden');
+    });
+    if (flyoverTitleEl) flyoverTitleEl.style.display = 'none';
+    if (countdownEl) countdownEl.style.display = 'none';
+    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    mode = null; roomCode = null; myId = null; isHost = false;
+    matchStartAt = 0; matchTimeLimit = 0;
+    if (player) { player.alive = true; player.spectator = false; player.finished = false; }
+    clearFogOverride();
+    applyFogPreset('yard');
+    phase = 'menu';
+    showHUD(false);
+    syncBodyMode();
+    syncQcBar();
+    var menu = $('menu'); if (menu) menu.classList.remove('hidden');
+    toast('Đã thoát về màn chính.');
+    return true;
   }
   function startSingle(qcRound) {
     ensureAudio();
@@ -4446,6 +4523,9 @@
       if (target) target.classList.remove('hidden');
     };
   });
+  // Nút THOÁT GAME ở cột menu phải (cycle 21, #33).
+  var btnExit = $('btn-exit');
+  if (btnExit) btnExit.onclick = function () { exitToMenu(); };
   // Fallback để shop.js (khi có) cập nhật số dư qua window.HoiWallet.set(balance).
   if (!window.HoiWallet) {
     window.HoiWallet = { set: function (balance) { var el = $('wallet-hud'); if (el) el.textContent = 'Hội Xu: ' + balance; } };
@@ -4672,6 +4752,7 @@
     get roundHintMs() { return ROUND_HINT_MS; },
     specLeader: specLeader, specTargets: specTargets, buildSpectatorList: buildSpectatorList,
     enterSpectator: enterSpectator, setSpecTarget: setSpecTarget, watchedPerson: watchedPerson,
+    exitToMenu: exitToMenu,
     updateWatchedName: updateWatchedName,
     get spec() { return spec; },
     get watchedId() { return watchedId; },
