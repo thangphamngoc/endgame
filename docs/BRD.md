@@ -64,7 +64,7 @@ chưa có trận thật chạy qua — các tỉ lệ hiện là null cho tới 
 | KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay — **đã có từ cycle 20 (P3-06 bước 1)** |
-| KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo thủ công + đo tự động ở Phase 2 |
+| KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo tự động ở client — **đã có từ cycle 26 (P3-06 bước 4): `GET /analytics` cho `avgFps`/`fpsAtLeast30Rate`/`avgLoadSec`/`loadWithin5sRate`/`noWebglRate`, xem BRD §8.1** |
 | KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận — **đã có từ cycle 24 (P3-06 bước 3): `GET /analytics` cho `matchesAbandoned`/`abandonRate`, xem BRD §8.1** |
 | KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
 
@@ -238,8 +238,8 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 
 | ID | Yêu cầu | Mục tiêu (đề xuất / ước tính, chưa đo) | Trạng thái |
 |---|---|---|---|
-| NFR-01 | Hiệu năng render | ≥ 30 FPS trên điện thoại tầm trung ở chế độ chơi; đảo xa dùng instancing khi mở rộng | Một phần (chưa đo FPS thực tế) |
-| NFR-02 | Thời gian tải trang đầu | ≤ ~5 giây trên mạng 4G (ước tính) | Chưa đo |
+| NFR-01 | Hiệu năng render | ≥ 30 FPS trên điện thoại tầm trung ở chế độ chơi; đảo xa dùng instancing khi mở rộng | Đo tự động từ cycle 26 (KPI-06: `avgFps` qua `GET /analytics`); chưa có số trên điện thoại thật |
+| NFR-02 | Thời gian tải trang đầu | ≤ ~5 giây trên mạng 4G (ước tính) | Đo tự động từ cycle 26 (KPI-06: `avgLoadSec`/`loadWithin5sRate` qua `GET /analytics`); chưa có số trên 4G thật |
 | NFR-03 | Quy mô phòng | Demo: 20 người/phòng. Mục tiêu: 456 người/phòng | Demo đạt 20; 456 là dự kiến |
 | NFR-04 | Độ trễ điều khiển | Nhấn phím → nhân vật phản hồi dưới ~100 ms trên mạng thường (ước tính) | Chưa đo |
 | NFR-05 | Tương thích trình duyệt | Chạy trên Chrome, Safari, Firefox, Edge bản mới, cả desktop và mobile | Một phần (chưa test đủ trình duyệt) |
@@ -639,7 +639,7 @@ trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / ph�
 đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
 đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
 xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
-Chưa đo: KPI-06 (FPS/tải trang, đo ở client), KPI-08 (cần tính năng tố cáo).
+Chưa đo: KPI-08 (cần tính năng tố cáo).
 
 **KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
 P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
@@ -663,6 +663,33 @@ thúc có kết quả.
 Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
 totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
 cách kiểm nhanh nhất.
+
+**KPI-06 hiệu năng ở client — ĐÃ QUYẾT (cycle 26, 2026-11-07 —
+backlog #14, P3-06 bước 4, QC/Sudo lật được):** client mới
+`client/js/perf.js` đo FPS trong 10 giây đầu sau khi trang tải xong
+(trung bình + thấp nhất theo từng giây; bucket nào kéo dài > 2s do tab
+bị ẩn thì bỏ, không tính vào trung bình) và thời gian tải trang đầu
+(Navigation Timing: `loadEventEnd` — phải đọc SAU khi sự kiện load kết
+thúc, đọc ngay trong handler load thì vẫn là 0) rồi gửi 1 báo cáo
+`{type:'perf'}` sau khi vào phòng (`game.js` gọi `onJoined()` khi nhận
+`'joined'`); server chỉ nhận 1 báo cáo mỗi kết nối WS và bỏ báo cáo gửi
+trước khi vào phòng (không quy được về phòng thường hay QC).
+`analytics.recordPerf` kiểm tra khoảng hợp lệ (FPS 0–240, loadMs
+0–300000ms): fpsAvg ngoài khoảng thì bỏ cả báo cáo; loadMs ngoài khoảng
+thì chỉ bỏ số tải trang, vẫn đếm FPS; fpsMin ngoài khoảng thì lấy bằng
+fpsAvg. Phòng QC chỉ đếm riêng (`qcPerfReports`), không vào mẫu số KPI.
+Chơi đơn không có WS nên không gửi — KPI-06 chỉ đo người chơi
+multiplayer. `GET /analytics` thêm `avgFps`, `avgFpsMin`,
+`fpsAtLeast30Rate` (fpsAvg ≥ 30 / báo cáo), `avgLoadSec`,
+`loadWithin5sRate` (loadMs ≤ 5s / báo cáo có loadMs), `noWebglRate`
+(renderer null — headless VM hoặc buildWorld lỗi, backlog #24). FPS đo
+ở sảnh chờ (cảnh 3D đã chạy) chứ không phải giữa trận — chỉ là mẫu, mục
+tiêu ≥ 30 FPS / tải ≤ ~5s vẫn là mục tiêu đề xuất (BRD §2), không thay
+cho đo FPS/thời gian tải trên điện thoại thật (backlog #10). Chưa đo:
+KPI-08 (cần tính năng tố cáo), khóa admin cho `/analytics` khi mở public.
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có người chơi thật
+gửi báo cáo (hiện totals đang rỗng); Sudo chơi thử rồi xem
+`GET /analytics` là cách kiểm nhanh nhất.
 
 **Nút THOÁT GAME ở menu phải — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
 backlog #33, theo yêu cầu Sudo, QC/Sudo lật được):** nút `THOÁT GAME`

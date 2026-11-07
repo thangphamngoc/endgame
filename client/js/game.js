@@ -2911,6 +2911,10 @@
       if (qcMode) toast('Phòng QC — trận test, không thưởng Hội Xu / XP.');
       var menu = $('menu'); if (menu) menu.classList.add('hidden');
       showHUD(true);
+      // P3-06 (KPI-06): báo FPS + thời gian tải trang về server sau khi
+      // đã vào phòng (perf.js chỉ gửi khi đã join để server quy được về
+      // phòng thường/QC; gửi trước join thì server bỏ vì không quy được).
+      if (window.__perf) window.__perf.onJoined();
       var li = $('lobby-info'); if (li) li.textContent = 'Phòng ' + msg.code + (msg.spectator ? ' — bạn vào làm khán giả.' : '');
       if (!player) {
         player = createPerson((($('player-name') && $('player-name').value) || 'Người chơi').trim(), '#2196f3', false, 0, START_Z);

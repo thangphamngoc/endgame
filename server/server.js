@@ -309,6 +309,9 @@ function makeRoom() {
     subArenas: [], targets: [], inputQueue: [],
   };
   rooms.set(room.code, room);
+  // P3-06 bước 2 (KPI-02, cycle 23): ghi lúc tạo phòng để đo thời gian
+  // lấp đầy tới 20 người (tạo phòng + tràn phòng đầy 456 đều qua đây).
+  analyticsSafe((a) => a.recordRoomCreated(room));
   return room;
 }
 function makePlayer(id, name, ws, isHost) {
@@ -1221,6 +1224,8 @@ wss.on('connection', (ws) => {
       player.reconnectToken = makeReconnectToken();
       reconnectTokens.set(player.reconnectToken, { roomCode: room.code, playerId: id, expiresAt: Date.now() + RECONNECT_GRACE_MS, timeout: null });
       room.players.set(id, player);
+      // P3-06 bước 2 (KPI-02): chủ phòng là người đầu tiên vào sảnh chờ.
+      analyticsSafe((a) => a.recordLobbyJoin(room));
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
       send(ws, { type: 'joined', code: room.code, isHost: true, players: publicPlayers(room),
         qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim,
@@ -1256,6 +1261,9 @@ wss.on('connection', (ws) => {
         return;
       }
       room.players.set(id, player);
+      // P3-06 bước 2 (KPI-02): lần đầu phòng đạt 20 người thì chốt thời
+      // gian lấp đầy (nhánh này chỉ chạy khi phòng đang ở sảnh chờ).
+      analyticsSafe((a) => a.recordLobbyJoin(room));
       broadcast(room, { type: 'players', players: publicPlayers(room) });
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
       send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room),
@@ -1511,6 +1519,16 @@ wss.on('connection', (ws) => {
       // đã bị loại (mở từ sảnh chờ / còn sống thì không tính).
       if (!room || !player || player.alive) return;
       analyticsSafe((a) => a.recordTour(room, player.id));
+      return;
+    }
+    if (msg.type === 'perf') {
+      // P3-06 (KPI-06): client báo FPS + thời gian tải trang sau khi đã
+      // vào phòng; 1 báo cáo mỗi kết nối. Chưa vào phòng thì bỏ (không
+      // quy được về phòng thường hay QC). Phòng QC chỉ đếm riêng.
+      if (ws.__perfReported) return;
+      ws.__perfReported = true;
+      if (!room) return;
+      analyticsSafe((a) => a.recordPerf(room, msg));
       return;
     }
     if (msg.type === 'replay') {

@@ -41,6 +41,24 @@
  * Chưa đo sau bước 3: KPI-06 (FPS/tải trang, đo ở client), KPI-08
  * (cần tính năng tố cáo).
  *
+ * KPI-06 — bước 4 (cycle 26, 2026-11-07): hiệu năng ở client (BRD §2:
+ * ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G
+ * — cả hai đều là mục tiêu đề xuất, chưa đo). Client
+ * (client/js/perf.js) đo FPS trong 10 giây đầu sau khi trang tải xong
+ * (trung bình + thấp nhất theo từng giây, bucket nào kéo dài > 2s do
+ * tab bị ẩn thì bỏ) và thời gian tải trang (Navigation Timing:
+ * loadEventEnd) rồi gửi 1 báo cáo {type:'perf'} sau khi vào phòng;
+ * server chỉ nhận 1 báo cáo mỗi kết nối WS và bỏ báo cáo gửi trước khi
+ * vào phòng (không quy được về phòng thường/QC). recordPerf kiểm tra
+ * khoảng hợp lệ (FPS 0–240, loadMs 0–300000ms): fpsAvg ngoài khoảng
+ * thì bỏ cả báo cáo; loadMs ngoài khoảng thì chỉ bỏ số tải trang, vẫn
+ * đếm FPS. Phòng QC chỉ đếm riêng (qcPerfReports), không vào mẫu số
+ * KPI. Chơi đơn không có WS nên không gửi — KPI-06 chỉ đo người chơi
+ * multiplayer. FPS đo ở sảnh chờ (cảnh 3D đã chạy) chứ không phải giữa
+ * trận — chỉ là mẫu, không thay cho đo FPS trên điện thoại thật
+ * (backlog #10). Chưa đo sau bước 4: KPI-08 (cần tính năng tố cáo),
+ * khóa admin cho /analytics khi mở public.
+ *
  * KPI-02 — bước 2 (cycle 23, 2026-11-07): "Phòng 20 người đủ trong
  * ≤ 5 phút (giờ cao điểm)" (BRD §2). Đo bằng liveRooms (chỉ RAM):
  *   recordRoomCreated(room) — lúc makeRoom (tạo phòng + tràn phòng đầy
@@ -124,6 +142,17 @@ function blankTotals() {
     matchesAbandoned: 0, // trận đã bắt đầu nhưng phòng bị xóa trước khi kết thúc
     abandonedPlayersTotal: 0, // số người trong các trận bỏ dở
     qcMatchesAbandoned: 0,
+    // KPI-06 (bước 4, cycle 26): hiệu năng ở client — 1 báo cáo mỗi
+    // lượt tải trang đã vào phòng (không tính QC).
+    perfReports: 0, // số báo cáo perf đã nhận (mẫu số các tỉ lệ FPS/tải)
+    perfFpsSum: 0, // tổng fpsAvg (để tính trung bình)
+    perfFpsMinSum: 0, // tổng fpsMin (trung bình FPS thấp nhất)
+    perfFpsAtLeast30: 0, // số báo cáo có fpsAvg >= 30
+    perfLoadReports: 0, // số báo cáo có loadMs hợp lệ
+    perfLoadSum: 0, // tổng loadMs (để tính trung bình)
+    perfLoadWithin5s: 0, // số báo cáo có loadMs <= 5000ms
+    perfNoWebgl: 0, // số báo cáo có webgl === false (renderer null)
+    qcPerfReports: 0, // báo cáo perf từ phòng QC (đếm riêng)
     qcMatchesStarted: 0,
     qcMatchesFinished: 0,
     updatedAt: null,
@@ -242,6 +271,40 @@ function recordReplay(room) {
   m.replays += 1;
 }
 
+// KPI-06 (bước 4, cycle 26): 1 báo cáo hiệu năng từ client. data =
+// { fpsAvg, fpsMin, loadMs (null nếu không đo được), sampleSec, webgl }.
+// Trả về true nếu đã đếm (kể cả QC, đếm riêng), false nếu bỏ.
+// Bỏ khi: chưa vào phòng (room null — client chỉ gửi sau join, nhưng
+// phòng thủ ở đây vì không quy được về QC hay thường), fpsAvg không
+// phải số trong [0, 240]. loadMs ngoài [0, 300000] thì chỉ bỏ số tải
+// trang, vẫn đếm FPS. fpsMin ngoài khoảng thì lấy bằng fpsAvg.
+function recordPerf(room, data) {
+  if (!room || !data || typeof data !== 'object') return false;
+  const fpsAvg = Number(data.fpsAvg);
+  if (!Number.isFinite(fpsAvg) || fpsAvg < 0 || fpsAvg > 240) return false;
+  let fpsMin = Number(data.fpsMin);
+  if (!Number.isFinite(fpsMin) || fpsMin < 0 || fpsMin > 240) fpsMin = fpsAvg;
+  let loadMs = data.loadMs == null ? null : Number(data.loadMs);
+  if (loadMs != null && (!Number.isFinite(loadMs) || loadMs < 0 || loadMs > 300000)) loadMs = null;
+  if (room.qc) {
+    totals.qcPerfReports += 1;
+    save();
+    return true;
+  }
+  totals.perfReports += 1;
+  totals.perfFpsSum += fpsAvg;
+  totals.perfFpsMinSum += fpsMin;
+  if (fpsAvg >= 30) totals.perfFpsAtLeast30 += 1;
+  if (loadMs != null) {
+    totals.perfLoadReports += 1;
+    totals.perfLoadSum += loadMs;
+    if (loadMs <= 5000) totals.perfLoadWithin5s += 1;
+  }
+  if (data.webgl === false) totals.perfNoWebgl += 1;
+  save();
+  return true;
+}
+
 // Chốt số đếm của 1 trận vào totals (gọi sau grace — xem recordMatchEnd).
 function flushMatch(key, m) {
   liveMatches.delete(key);
@@ -338,6 +401,23 @@ function summary() {
       // KPI-07: tỉ lệ trận bỏ dở trong số trận đã có kết cục (đã kết thúc
       // + bỏ dở); trận đang chạy chưa tính. Mục tiêu đề xuất < 0.05.
       abandonRate: rate(totals.matchesAbandoned, totals.matchesFinished + totals.matchesAbandoned),
+      // KPI-06: hiệu năng ở client (mục tiêu đề xuất: FPS >= 30, tải
+      // trang <= 5s). avgFps/avgFpsMin tính trên báo cáo đã nhận; các
+      // tỉ lệ null khi chưa có báo cáo nào. FPS đo ở sảnh chờ trong
+      // 10s đầu sau khi tải trang — chỉ là mẫu, không thay cho đo trên
+      // điện thoại thật (backlog #10).
+      avgFps: totals.perfReports
+        ? Math.round((totals.perfFpsSum / totals.perfReports) * 10) / 10
+        : null,
+      avgFpsMin: totals.perfReports
+        ? Math.round((totals.perfFpsMinSum / totals.perfReports) * 10) / 10
+        : null,
+      fpsAtLeast30Rate: rate(totals.perfFpsAtLeast30, totals.perfReports),
+      avgLoadSec: totals.perfLoadReports
+        ? Math.round(totals.perfLoadSum / totals.perfLoadReports / 100) / 10
+        : null,
+      loadWithin5sRate: rate(totals.perfLoadWithin5s, totals.perfLoadReports),
+      noWebglRate: rate(totals.perfNoWebgl, totals.perfReports),
       avgDurationSec: totals.matchesFinished
         ? Math.round(totals.totalDurationMs / totals.matchesFinished / 100) / 10
         : null,
@@ -358,6 +438,7 @@ module.exports = {
   recordChat,
   recordTour,
   recordReplay,
+  recordPerf,
   recordMatchEnd,
   dropMatch,
   summary,
