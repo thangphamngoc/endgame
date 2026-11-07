@@ -1351,6 +1351,10 @@ wss.on('connection', (ws) => {
       const rawText = String(msg.text || '').trim();
       if (!rawText) return;
       if (rawText.length > 120) { send(ws, { type: 'error', message: 'Tin nhắn tối đa 120 ký tự.' }); return; }
+      // P3-06 (KPI-08, bước 6, cycle 31): người bị chủ phòng tắt chat
+      // trong trận này (room.__muted) thì tin không được gửi đi, không
+      // đếm vào KPI chat — chặn trước khi ghi số liệu.
+      if (room.__muted && room.__muted.has(player.id)) { send(ws, { type: 'error', message: 'Bạn đã bị chủ phòng tắt chat trong trận này.' }); return; }
       const now = Date.now();
       if (now - player.lastChat < 2000) { send(ws, { type: 'error', message: 'Gửi chậm lại một chút (2 giây/tin).' }); return; }
       player.lastChat = now;
@@ -1551,7 +1555,40 @@ wss.on('connection', (ws) => {
       if (!rep) { send(ws, { type: 'error', message: 'Không ghi được tố cáo, thử lại sau.' }); return; }
       send(ws, { type: 'reportAck', reportId: rep.id, targetName: target.name });
       const host = [...room.players.values()].find((p) => p.isHost && p.ws && p.id !== player.id);
-      if (host) send(host.ws, { type: 'reportReceived', reportId: rep.id, reason });
+      // Bước 6 (cycle 31): host nhận kèm targetId + targetName (chỉ trong
+      // message WS trực tiếp, không lưu vào analytics — cùng chính sách
+      // "không lưu tên" của cycle 27) để panel danh sách hiển thị được
+      // ai bị tố cáo mà không cần hỏi lại server.
+      if (host) send(host.ws, { type: 'reportReceived', reportId: rep.id, reason, targetId: target.id, targetName: target.name });
+      return;
+    }
+    if (msg.type === 'report-list') {
+      // P3-06 (KPI-08, bước 6, cycle 31): chỉ chủ phòng xem danh sách
+      // tố cáo chờ xử lý của phòng mình. Tên lấy từ người đang trong
+      // phòng; người đã rời thì targetName null (client hiện "đã rời
+      // phòng", nút mute bị vô hiệu vì server cũng không mute được nữa).
+      if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới xem được danh sách tố cáo.' }); return; }
+      const pending = analyticsSafe((a) => a.listPendingReports()) || [];
+      const reports = pending.filter((r) => r.roomCode === room.code).map((r) => {
+        const t = room.players.get(r.targetId);
+        return { id: r.id, targetId: r.targetId, targetName: t ? t.name : null, reason: r.reason, at: r.at };
+      });
+      send(ws, { type: 'reportList', reports });
+      return;
+    }
+    if (msg.type === 'mute') {
+      // P3-06 (KPI-08, bước 6, cycle 31): chỉ chủ phòng tắt/bật chat của
+      // 1 người trong phòng; có hiệu lực tới hết trận (replay xóa
+      // room.__muted). Không mute chính mình. Cả phòng nhận 'playerMuted'
+      // để cập nhật UI (người bị mute nhận toast riêng ở client).
+      if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới tắt chat được.' }); return; }
+      const target = room.players.get(msg.targetId);
+      if (!target) { send(ws, { type: 'error', message: 'Không tìm thấy người chơi này trong phòng.' }); return; }
+      if (msg.targetId === player.id) { send(ws, { type: 'error', message: 'Không tắt chat chính mình được.' }); return; }
+      const muted = !!msg.muted;
+      if (!room.__muted) room.__muted = new Set();
+      if (muted) room.__muted.add(target.id); else room.__muted.delete(target.id);
+      broadcast(room, { type: 'playerMuted', targetId: target.id, targetName: target.name, muted });
       return;
     }
     if (msg.type === 'report-resolve') {
@@ -1569,6 +1606,8 @@ wss.on('connection', (ws) => {
       analyticsSafe((a) => a.recordReplay(room));
       room.phase = 'lobby'; room.ranking = []; room.bridges = {}; room.round = 0; room.roundPlan = [];
       room.subArenas = []; room.roundDeadline = 0;
+      // KPI-08 bước 6: trận mới thì mute hết hiệu lực (mute chỉ tới hết trận).
+      if (room.__muted) room.__muted.clear();
       for (const p of room.players.values()) {
         p.alive = true; p.finished = false; p.finishTime = null; p.spectator = false;
         p.team = null; p.bridgeStep = 0; p.round2Finished = false; p.x = 0; p.z = START_Z;

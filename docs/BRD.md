@@ -215,7 +215,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-29 | Trận đầy đủ (số vòng không giới hạn, OD-11), kho 18–20 trò | Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò, không lặp trong chu kỳ; chung kết Rồng Rắn chỉ khi ≤ 6 người sống lúc bắt đầu vòng; mỗi vòng loại ít nhất 1 người | Đã làm (PR #3, nhánh feat/reverse-team-order) |
 | FR-30 | Tài khoản / đăng nhập | Người chơi có hồ sơ, lịch sử trận | Dự kiến |
 | FR-31 | Bảng xếp hạng lưu lâu dài | Xếp hạng theo mùa/tuần, xem lại được sau khi tắt game | Dự kiến |
-| FR-32 | Kiểm duyệt chat (tố cáo, mute, lọc) | Người chơi tố cáo được, host/mod mute được, từ xấu bị lọc | Dự kiến |
+| FR-32 | Kiểm duyệt chat (tố cáo, mute, lọc) | Người chơi tố cáo được, host/mod mute được, từ xấu bị lọc | Đã làm tố cáo + mute (cycle 27 bước 5 + cycle 31 bước 6, PR #3); còn lại: lọc từ xấu |
 | FR-33 | Voice chat | Nói chuyện bằng giọng nói trong phòng | Dự kiến (chưa quyết có làm không) |
 | FR-34 | Ví Hội Xu | Mỗi người chơi có ví Hội Xu; số dư hiện ở HUD (#wallet-hud); xu kiếm được cộng ngay sau sự kiện trận đấu | Đã làm (bản stub) — `server/economy.js` (kiếm xu +10/vòng, +50/thắng, +20/nhiệm vụ ngày, +5/cheer) + `client/js/shop.js` (`window.HoiWallet.set`); HUD #wallet-hud và nối WebSocket do workstream client/server sở hữu, chưa xong |
 | FR-35 | Shop đồ trang trí | Shop có ~16 món cosmetic mua bằng xu (áo bà ba 3 màu, nón lá, cờ team, bong bóng chat, emote, đồ trang trí đảo); mua xong vào inventory | Đã làm (bản stub) — catalogue trong `economy.js` + giao diện trong `shop.js` (#shop-panel); container #shop-panel do workstream client sở hữu, chưa xong |
@@ -640,8 +640,8 @@ trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / ph�
 đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
 đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
 xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
-Chưa đo: KPI-08 bước 6 (UI danh sách tố cáo + mute), khóa admin cho
-`/analytics` khi mở public.
+Chưa đo: khóa admin cho `/analytics` khi mở public (KPI-08 bước 6 đã
+xong ở cycle 31).
 
 **KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
 P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
@@ -695,10 +695,51 @@ riêng (`qcReportsTotal`/`qcReportsResolved`), không vào mẫu số KPI.
 nội dung chat — bản ghi tố cáo chỉ có id, mã phòng, id tạm của người tố
 cáo/bị tố cáo (id theo kết nối), lý do, thời gian. Chơi đơn không có WS
 nên không tố cáo được (`reportPlayer` toast báo + `sendWS` tự no-op vì
-`ws` null). Chưa làm sau bước 5: UI danh sách tố cáo cho host/mod + mute
-(bước 6), khóa admin cho `/analytics` khi mở public. Chưa đo bằng tay:
-số liệu chỉ có ý nghĩa sau khi có người chơi thật tố cáo; Sudo chơi thử
-2 người rồi xem `GET /analytics` là cách kiểm nhanh nhất.
+`ws` null). Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có người
+chơi thật tố cáo; Sudo chơi thử 2 người rồi xem `GET /analytics` là cách
+kiểm nhanh nhất.
+
+**KPI-08 bước 6, UI danh sách tố cáo + mute — ĐÃ QUYẾT (cycle 31,
+2026-11-07 — backlog #14, P3-06 bước 6, QC/Sudo lật được):** chỉ chủ
+phòng ở chế độ nhiều người mới thấy nút `TỐ CÁO` ở cột menu phải
+(`#btn-reports`, ẩn với người thường/chơi đơn; có tố cáo chờ thì nút
+đỏ + đếm số, ví dụ "TỐ CÁO (2)"). Bấm nút gửi `{type:'report-list'}`
+và mở panel `#report-panel` (bắt đầu với class `.hidden` — không lặp
+lỗi #20/#37); server trả `{type:'reportList', reports:[{id, targetId,
+targetName, reason, at}]}` chỉ của phòng mình (người đã rời phòng thì
+`targetName` null, client hiện "đã rời phòng"). Mỗi hàng: "#id · tên ·
+lý do · giờ" + 2 nút — "Tắt chat"/"Bật lại chat" gửi
+`{type:'mute', targetId, muted}` (chỉ host; server trả lỗi nếu không
+phải host, mute chính mình, hoặc target không còn trong phòng; nút mute
+bị vô hiệu với người đã rời phòng) và "Đã xử lý" gửi
+`{type:'report-resolve'}` như bước 5. Mute có hiệu lực tới hết trận
+(`room.__muted`, server chặn tin chat của người bị mute ở handler
+`'chat'` trước khi ghi số liệu — tin bị chặn không đếm vào KPI chat;
+replay xóa mute). Server broadcast `{type:'playerMuted', targetId,
+targetName, muted}` cho cả phòng (người bị mute nhận toast riêng).
+`reportReceived` nay gửi kèm `targetId` + `targetName` cho host để
+panel cập nhật ngay khi có tố cáo mới mà không cần hỏi lại server —
+chỉ trong message WS trực tiếp, KHÔNG lưu tên vào analytics (giữ chính
+sách "không lưu tên" của cycle 27); `reportResolved` xóa hàng khỏi
+panel ở mọi client. Chưa làm sau bước 6: khóa admin cho `/analytics`
+khi mở public. Chưa đo bằng tay: Sudo chơi thử 2 người thật — 1 người
+tố cáo, host mở panel, mute rồi xem người bị mute có gửi được tin
+không + mở lại chat được không.
+
+**Nút THOÁT GAME ở sảnh chờ multi không thoát được — ĐÃ QUYẾT (cycle
+31, 2026-11-07 — phát hiện khi kiểm probe G, backlog #38, QC/Sudo lật
+được):** sau khi vào phòng multi, `phase` vẫn là `'menu'` (handler
+`'joined'` không đặt phase sảnh chờ) nên `exitToMenu()` gặp điều kiện
+`phase === 'menu'` là return luôn — nút THOÁT GAME ở sảnh chờ không làm
+gì, người chơi kẹt trong phòng, chỉ còn cách tải lại trang. Sửa tối
+thiểu: `exitToMenu()` chỉ no-op khi đang ở màn chính thật
+(`phase === 'menu' && mode !== 'multi'`); ở sảnh chờ multi
+(`mode === 'multi'`, phase vẫn `'menu'`) thì thoát bình thường, không
+hỏi xác nhận (chưa vào trận). Không đổi `phase` thành `'lobby'` ở cycle
+này vì `canExplore()` (cho phép du lịch từ sảnh), camera menu ở vòng
+lặp animate và `exploreReturn.menu` đều đang dựa vào
+`phase === 'menu'` — đổi phase cần sửa cả 3 chỗ, để lại cho backlog
+#38 làm gọn sau.
 
 **KPI-06 hiệu năng ở client — ĐÃ QUYẾT (cycle 26, 2026-11-07 —
 backlog #14, P3-06 bước 4, QC/Sudo lật được):** client mới

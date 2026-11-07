@@ -2435,6 +2435,84 @@
     sendWS({ type: 'report-resolve', reportId: reportId });
     return true;
   }
+  // KPI-08 (bước 6, cycle 31): danh sách tố cáo cho chủ phòng + mute.
+  // pendingReports chỉ có ở client host (nhận qua 'reportReceived' lúc
+  // có tố cáo mới + 'reportList' khi mở panel); server mới là nguồn
+  // thật — client chỉ hiển thị. Mute chỉ có hiệu lực khi server chặn
+  // tin chat (server/server.js, handler 'chat' + 'mute'); client không
+  // tự chặn tin của người khác.
+  var pendingReports = [];
+  var mutedIds = {};
+  function updateReportsButton() {
+    var b = $('btn-reports'); if (!b) return;
+    var show = (mode === 'multi' && isHost);
+    b.classList.toggle('hidden', !show);
+    var n = pendingReports.length;
+    b.textContent = n > 0 ? 'TỐ CÁO (' + n + ')' : 'TỐ CÁO';
+    b.classList.toggle('hasPending', n > 0);
+  }
+  function reportPlayerName(r) {
+    return r.targetName || 'đã rời phòng';
+  }
+  function renderReportPanel() {
+    var list = $('report-list'); if (!list) return;
+    list.innerHTML = '';
+    if (pendingReports.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'reportEmpty';
+      empty.textContent = 'Không có tố cáo nào chờ xử lý.';
+      list.appendChild(empty);
+      return;
+    }
+    pendingReports.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'reportRow';
+      var info = document.createElement('div');
+      info.className = 'reportInfo';
+      var t = document.createElement('div');
+      t.className = 'reportTarget';
+      t.textContent = '#' + r.id + ' · ' + reportPlayerName(r);
+      var rs = document.createElement('div');
+      rs.className = 'reportReason';
+      rs.textContent = reportReasonLabel(r.reason) + ' · ' + (r.at ? new Date(r.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '');
+      info.appendChild(t); info.appendChild(rs);
+      row.appendChild(info);
+      var muteBtn = document.createElement('button');
+      muteBtn.type = 'button'; muteBtn.className = 'reportBtn';
+      var isMuted = !!mutedIds[r.targetId];
+      muteBtn.textContent = isMuted ? 'Bật lại chat' : 'Tắt chat';
+      // Người đã rời phòng thì server cũng không mute được nữa.
+      muteBtn.disabled = !r.targetName;
+      muteBtn.addEventListener('click', function () { mutePlayer(r.targetId, !mutedIds[r.targetId]); });
+      row.appendChild(muteBtn);
+      var doneBtn = document.createElement('button');
+      doneBtn.type = 'button'; doneBtn.className = 'reportBtn';
+      doneBtn.textContent = 'Đã xử lý';
+      doneBtn.addEventListener('click', function () { resolveReport(r.id); });
+      row.appendChild(doneBtn);
+      list.appendChild(row);
+    });
+  }
+  function openReportPanel() {
+    if (mode !== 'multi' || !isHost) { toast('Chỉ chủ phòng nhiều người mới xem được tố cáo.'); return; }
+    requestReportList();
+    var p = $('report-panel'); if (!p) return;
+    p.classList.remove('hidden');
+    renderReportPanel();
+  }
+  function closeReportPanel() {
+    var p = $('report-panel'); if (p) p.classList.add('hidden');
+  }
+  function requestReportList() {
+    if (mode !== 'multi' || !isHost) return false;
+    sendWS({ type: 'report-list' });
+    return true;
+  }
+  function mutePlayer(targetId, muted) {
+    if (mode !== 'multi' || !isHost) { toast('Chỉ chủ phòng mới tắt chat được.'); return false; }
+    sendWS({ type: 'mute', targetId: targetId, muted: !!muted });
+    return true;
+  }
   function addChatSystem(text) {
     var log = $('chat-log'); if (!log) return;
     var row = document.createElement('div');
@@ -2876,7 +2954,13 @@
   // Multi: đóng WS, server giữ slot 30s grace rồi xóa (chưa có message
   // 'leave' riêng — xem backlog #34). Chơi đơn: chỉ reset state local.
   function exitToMenu() {
-    if (phase === 'menu') return false;
+    // P0 (phát hiện cycle 31 khi kiểm probe G): sau khi vào phòng multi,
+    // phase vẫn là 'menu' (handler 'joined' không đặt phase sảnh chờ,
+    // xem backlog #38) nên điều kiện cũ `phase === 'menu'` chặn luôn nút
+    // THOÁT GAME ở sảnh chờ — người chơi kẹt trong phòng, chỉ còn cách
+    // tải lại trang. Chỉ no-op khi ĐANG ở màn chính thật (không trong
+    // phòng nào): mode === 'multi' nghĩa là đang ở sảnh chờ của phòng.
+    if (phase === 'menu' && mode !== 'multi') return false;
     var inMatch = phase === 'flyover' || phase === 'countdown' ||
       phase.indexOf('round') === 0 || phase === 'team' || phase === 'interstitial';
     if (inMatch && player && player.alive && !qcMode) {
@@ -2897,6 +2981,11 @@
     if (countdownEl) countdownEl.style.display = 'none';
     if (ws) { try { ws.close(); } catch (e) {} ws = null; }
     mode = null; roomCode = null; myId = null; isHost = false;
+    // KPI-08 bước 6: về menu thì xóa danh sách tố cáo/mute ở client
+    // (server giữ mute theo phòng; phòng cũ không còn nữa).
+    pendingReports = []; mutedIds = {};
+    closeReportPanel();
+    updateReportsButton();
     matchStartAt = 0; matchTimeLimit = 0;
     if (player) { player.alive = true; player.spectator = false; player.finished = false; }
     clearFogOverride();
@@ -2985,6 +3074,9 @@
       // ở client để hiện thanh QC; phòng thường thì qcMode = false.
       qcMode = !!msg.qc; qcStartRound = msg.startRound || 1; qcNoElim = !!msg.noElim;
       qcPlan = msg.plan || null; renderQcButtons();
+      // KPI-08 bước 6: host vào phòng thì hiện nút TỐ CÁO (số chờ = 0
+      // lúc mới vào; có tố cáo mới thì nút tự cập nhật qua reportReceived).
+      updateReportsButton();
       if (qcMode) toast('Phòng QC — trận test, không thưởng Hội Xu / XP.');
       var menu = $('menu'); if (menu) menu.classList.add('hidden');
       showHUD(true);
@@ -3188,12 +3280,37 @@
       return;
     }
     if (msg.type === 'reportReceived') {
-      lastReportReceived = { reportId: msg.reportId, reason: msg.reason };
+      // Bước 6: server gửi kèm targetId/targetName để host hiển thị
+      // được ai bị tố cáo; thêm vào danh sách chờ (tránh trùng khi mở
+      // panel đã xin reportList trước đó).
+      lastReportReceived = { reportId: msg.reportId, reason: msg.reason, targetId: msg.targetId, targetName: msg.targetName };
+      var already = pendingReports.some(function (r) { return r.id === msg.reportId; });
+      if (!already) pendingReports.push({ id: msg.reportId, targetId: msg.targetId, targetName: msg.targetName, reason: msg.reason, at: new Date().toISOString() });
+      updateReportsButton();
+      renderReportPanel();
       toast('Có tố cáo mới #' + msg.reportId + ' — ' + reportReasonLabel(msg.reason) + '.');
       return;
     }
+    if (msg.type === 'reportList') {
+      pendingReports = (msg.reports || []).map(function (r) {
+        return { id: r.id, targetId: r.targetId, targetName: r.targetName, reason: r.reason, at: r.at };
+      });
+      updateReportsButton();
+      renderReportPanel();
+      return;
+    }
     if (msg.type === 'reportResolved') {
+      pendingReports = pendingReports.filter(function (r) { return r.id !== msg.reportId; });
+      updateReportsButton();
+      renderReportPanel();
       toast('Tố cáo #' + msg.reportId + ' đã được xử lý.');
+      return;
+    }
+    if (msg.type === 'playerMuted') {
+      if (msg.muted) mutedIds[msg.targetId] = true; else delete mutedIds[msg.targetId];
+      renderReportPanel();
+      if (msg.targetId === myId) toast(msg.muted ? 'Bạn đã bị chủ phòng tắt chat trong trận này.' : 'Chat của bạn đã được mở lại.');
+      else if (isHost) toast((msg.targetName || 'Người chơi') + (msg.muted ? ' đã bị tắt chat.' : ' đã được mở lại chat.'));
       return;
     }
     if (msg.type === 'error') { toast(msg.message); return; }
@@ -4632,6 +4749,11 @@
   // Nút THOÁT GAME ở cột menu phải (cycle 21, #33).
   var btnExit = $('btn-exit');
   if (btnExit) btnExit.onclick = function () { exitToMenu(); };
+  // Nút TỐ CÁO + panel danh sách tố cáo cho host (KPI-08 bước 6, cycle 31).
+  var btnReports = $('btn-reports');
+  if (btnReports) btnReports.onclick = function () { openReportPanel(); };
+  var btnReportClose = $('btn-report-close');
+  if (btnReportClose) btnReportClose.onclick = function () { closeReportPanel(); };
   // Fallback để shop.js (khi có) cập nhật số dư qua window.HoiWallet.set(balance).
   if (!window.HoiWallet) {
     window.HoiWallet = { set: function (balance) { var el = $('wallet-hud'); if (el) el.textContent = 'Hội Xu: ' + balance; } };
@@ -4870,6 +4992,12 @@
     showReportMenu: showReportMenu, hideReportMenu: hideReportMenu,
     get lastReportAck() { return lastReportAck; },
     get lastReportReceived() { return lastReportReceived; },
+    get pendingReports() { return pendingReports.slice(); },
+    get mutedIds() { return Object.assign({}, mutedIds); },
+    requestReportList: requestReportList, mutePlayer: mutePlayer,
+    openReportPanel: openReportPanel, closeReportPanel: closeReportPanel,
+    renderReportPanel: renderReportPanel, updateReportsButton: updateReportsButton,
+    get reportPanelVisible() { var p = $('report-panel'); return !!p && !p.classList.contains('hidden'); },
     updateWatchedName: updateWatchedName,
     get spec() { return spec; },
     get watchedId() { return watchedId; },

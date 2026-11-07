@@ -151,6 +151,17 @@ document.addEventListener('DOMContentLoaded', function () {
       <div id="chatHint">Enter: mở chat / gửi · Esc: đóng · tối đa 120 ký tự · mỗi tin cách nhau ít nhất 2 giây.</div>
     </div>
 
+    <!-- Danh sách tố cáo cho chủ phòng (KPI-08 bước 6, cycle 31, backlog #14):
+         chỉ host ở chế độ nhiều người mới thấy nút TỐ CÁO; panel bắt đầu
+         với class .hidden (không lặp lỗi #20/#37: panel mặc định display:none
+         mà chỉ gỡ .hidden thì vẫn ẩn). -->
+    <div id="report-panel" class="hidden" aria-label="Danh sách tố cáo">
+      <h3>TỐ CÁO CHỜ XỬ LÝ</h3>
+      <p class="reportNote">Chỉ chủ phòng thấy danh sách này. Tắt chat có hiệu lực tới hết trận; bấm “Đã xử lý” thì tố cáo biến khỏi danh sách.</p>
+      <div id="report-list"></div>
+      <button id="btn-report-close" class="btn" type="button">ĐÓNG</button>
+    </div>
+
     <div id="joyBase"><div id="joyKnob"></div></div>
     <button id="btnJump" type="button">NHẢY</button>
 
@@ -260,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <button id="btn-pass" class="specBtn" type="button">VÉ MÙA</button>
         <button id="btn-tournament" class="specBtn" type="button">GIẢI ĐẤU</button>
         <button id="btn-gift" class="specBtn" type="button">QUÀ TẶNG</button>
+        <button id="btn-reports" class="specBtn hidden" type="button">TỐ CÁO</button>
         <button id="btn-exit" class="specBtn danger" type="button">THOÁT GAME</button>
       </div>
     </div>
