@@ -126,7 +126,7 @@ giữ người chơi quay lại. Chỉ làm sau khi Phase 3 xong và game đã c
 | P4-03 | Polish mobile: joystick, nút bấm, chữ, hiệu năng trên điện thoại tầm trung | P1 | Dự kiến (bước 1 xong cycle 14, 2026-11-07: joystick/NHẢY chỉ hiện trên cảm ứng; overlay Rồng Rắn + dê Bịt Mắt thành dải trên, không đè joystick — bước 2a xong cycle 15, 2026-11-07: HUD mobile 2 hàng, xếp chồng gợi ý/team/move-mode không đè nhau, tiêu đề flyover 1 dòng — còn lại: đo FPS/thời gian tải thật trên điện thoại tầm trung) | P0-09 | M | Chơi trọn một trận trên điện thoại tầm trung không tràn màn hình, ≥ 30 FPS (số đo thực tế) |
 | P4-04 | Accessibility: tương phản, cỡ chữ, không chỉ dùng màu để truyền luật | P2 | Dự kiến | — | S | Mọi luật quan trọng đều có chữ kèm theo, không chỉ màu; nút đủ lớn trên mobile |
 | P4-05 | Voice chat (chỉ làm nếu Sudo chốt OD-06 là làm) | P2 | Dự kiến | OD-06, P3-04 | L | Nói được trong phòng; có nút tắt tiếng từng người; kiểm duyệt voice theo chính sách đã chốt |
-| P4-06 | Sự kiện theo mùa / chủ đề hội làng (ví dụ Tết, lễ hội) | P2 | Dự kiến | P1-06 | M | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game |
+| P4-06 | Sự kiện theo mùa / chủ đề hội làng (ví dụ Tết, lễ hội) | P2 | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` + Tết Hội Làng 2027 (30/01–10/02/2027, badge sảnh chờ + tông đỏ/vàng + toast lúc bắt đầu trận, ghi đè `?season=` / localStorage) — còn lại: trò biến thể Tết (bước 2) | P1-06 | M | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game |
 
 ## 3. Checklist play-test thật — còn outstanding (chưa làm)
 

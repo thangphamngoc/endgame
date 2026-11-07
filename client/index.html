@@ -157,6 +157,8 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="overlay" id="startCard">
       <div class="card">
         <h1>TRỐNG HỘI</h1>
+        <!-- Badge sự kiện theo mùa (#16, P4-06): seasonal.js điền chữ khi có sự kiện đang chạy. -->
+        <div id="seasonBadge" class="hidden"></div>
         <p><b>Nhiều vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng sau bốc từ kho trò dân gian: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê, Ô Ăn Quan, Nhảy Bao Bố. Trận chỉ kết thúc khi còn 1 người — khi còn 6 người trở xuống, vòng tiếp theo là chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
         <div class="rules">
           <b>VÒNG 1 · TRỐNG ĐÁNH</b> — được chạy thoải mái. <b>CHIÊNG VANG</b> — phải <b>đứng yên tuyệt đối</b>, cử động là bị loại!<br />
@@ -283,6 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <!-- Ghi chú vận hành / deploy: server chạy bằng npm start, kiểm tra sống qua /health -->
     <div id="deployNote">Server: <b>npm start</b> · http://localhost:3000 (đổi cổng bằng biến môi trường PORT) · Kiểm tra sống: <b>GET /health</b> → {ok, rooms, players, uptime}</div>
+<script src="js/seasonal.js"></script>
 <script src="js/game.js"></script>
 <script src="js/rounds.js"></script>
 <script src="js/sim/sim-keoco.js"></script>

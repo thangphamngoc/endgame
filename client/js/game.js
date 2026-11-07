@@ -325,6 +325,13 @@
     t.textContent = msg; t.style.display = 'block';
     clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = 'none'; }, 3000);
   }
+  // Sự kiện theo mùa (#16, P4-06, bước 1): áp dụng chủ đề ở DOMContentLoaded,
+  // thông báo 1 lần mỗi lần tải trang, lúc người chơi bấm bắt đầu trận.
+  // Trì hoãn 3.5s: toast flyover "Bay tổng quan…" chiếm toast 3s đầu trận,
+  // hiện ngay sẽ bị ghi đè; toast mùa hiện sau, trong lúc camera đang bay.
+  function announceSeasonOnce() {
+    if (window.__seasonal && window.__season) setTimeout(function () { window.__seasonal.announceSeason(window.__season, toast); }, 3500);
+  }
   // P3-07 (cycle 18): lọc tên người chơi — mirror của server validateName
   // (server/server.js); server vẫn là nguồn chuẩn, client chỉ báo sớm để
   // người chơi khỏi chờ vòng về. Luật ĐÃ QUYẾT xem BRD §6.
@@ -2826,6 +2833,7 @@
     return true;
   }
   function startSingle(qcRound) {
+    announceSeasonOnce();
     ensureAudio();
     mode = 'single';
     var menu = $('menu'); if (menu) menu.classList.add('hidden');
@@ -4318,7 +4326,7 @@
   var btnList = $('btn-list');
   if (btnList) btnList.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'list' }); }, 300); };
   var btnStart = $('btn-start');
-  if (btnStart) btnStart.onclick = function () { if (mode === 'multi' || (ws && ws.readyState === WebSocket.OPEN)) sendWS({ type: 'start' }); else if (!window.THREE) toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); else startSingle(qcMode ? qcStartRound : 1); };
+  if (btnStart) btnStart.onclick = function () { if (mode === 'multi' || (ws && ws.readyState === WebSocket.OPEN)) { announceSeasonOnce(); sendWS({ type: 'start' }); } else if (!window.THREE) toast('Chưa tải được Three.js, kiểm tra mạng rồi tải lại trang.'); else startSingle(qcMode ? qcStartRound : 1); };
   var btnTourLobby = $('btn-tour-lobby');
   // ---- CHẾ ĐỘ QC: bật/tắt panel, ?qc=1, thanh nhảy vòng trong lúc chơi ----
   var qcTgl = $('btnQcToggle');
@@ -4729,6 +4737,7 @@
     get mode() { return mode; },
     get phase() { return phase; },
     set phase(v) { phase = v; },
+    get season() { return (typeof window !== 'undefined' && window.__season) || null; },
     get myId() { return myId; },
     get myTeam() { return myTeam; },
     get player() { return player; },
@@ -4945,6 +4954,10 @@
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  // Sự kiện theo mùa (#16): áp chủ đề ngay khi tải trang (badge sảnh chờ).
+  // Script nằm cuối body nên #seasonBadge đã có trong DOM; không chờ
+  // DOMContentLoaded, vì nhánh THREE đầy đủ chạy ngay tại đây.
+  if (window.__seasonal) window.__season = window.__seasonal.applySeason(window.__seasonal.detectSeason(new Date()));
   if (window.THREE) {
     buildWorld();
     buildPoiProxies();

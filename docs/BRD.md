@@ -232,6 +232,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
+| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Chưa làm: trò biến thể Tết (bước 2) |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -719,6 +720,38 @@ Chưa đo bằng tay: danh sách 12 đảo trong panel chỉ hiện khi
 `buildTourList()` chạy được, tức là trên trình duyệt có WebGL thật
 (headless ở VM trả WebGL null nên danh sách trống trong ảnh chụp) —
 Sudo mở tour trên máy thật để chốt danh sách hiện đủ 12 đảo.
+
+**Sự kiện theo mùa — ĐÃ QUYẾT (cycle 25, 2026-11-07 — backlog #16,
+P4-06 bước 1, QC/Sudo lật được):** khung sự kiện trong
+`client/js/seasonal.js`: mỗi sự kiện có `id`, tên, badge, cửa sổ ngày
+dương cố định theo từng năm (`start`/`end` dạng YYYY-MM-DD), thông báo
+và class CSS riêng. Phát hiện theo thứ tự: ghi đè URL `?season=<id>` /
+`?season=none` thắng localStorage `hoilang_season` (`<id>` / `none`),
+thắng ngày hiện tại (so chuỗi ngày địa phương của trình duyệt — người
+chơi ở múi giờ khác có thể lệch tối đa 1 ngày ở biên cửa sổ, chấp nhận
+được vì chỉ là chủ đề trang trí, không ảnh hưởng luật chơi); giá trị lạ
+thì bỏ qua, rơi về logic theo ngày. `applySeason()` gắn class mùa vào
+`body` + điền badge `#seasonBadge` trong sảnh chờ; `announceSeason()`
+gọi toast đúng 1 lần mỗi lần tải trang. Sự kiện đầu tiên: **Tết Hội
+Làng 2027** — cửa sổ 30/01–10/02/2027 (mốc đã kiểm chứng qua web:
+mùng 1 Tết Đinh Mùi thứ Bảy 06/02/2027, giao thừa tối 05/02/2027 vì
+tháng Chạp chỉ 29 ngày, ông Công ông Táo 30/01/2027, nghỉ lễ chính
+thức 04/02–10/02/2027 theo TB 11483/TB-BNV). Chủ đề: badge đỏ/vàng
+\"🧧 TẾT HỘI LÀNG · 30/01 – 10/02/2027\" dưới tiêu đề sảnh chờ, viền
+card + HUD chuyển tông đỏ/vàng; thông báo toast lúc bắt đầu trận
+(\"🧧 Tết Hội Làng — làng đón Tết Đinh Mùi, từ 30/01 đến 10/02/2027!\").
+Hai lỗi thật bắt được khi kiểm chứng: (a) hook áp chủ đề lần đầu đặt
+trong nhánh `else` của `if (window.THREE)` trong `game.js` nên chỉ
+chạy khi THREE lỗi — nay áp vô điều kiện trước khối `if/else` (script
+nằm cuối body nên `#seasonBadge` đã có trong DOM); (b) toast mùa bị
+toast flyover \"Bay tổng quan…\" ghi đè ngay (cùng dùng một `#toast`
+3 giây) — nay `announceSeasonOnce()` trì hoãn 3.5 giây, toast mùa
+hiện sau, trong lúc camera đang bay. Chưa làm (bước 2): trò biến thể
+Tết (ví dụ lì xì Hội Xu, trống Tết) — P4-06 mới xong chủ đề + thông
+báo. Chưa đo bằng tay: cảm giác chủ đề Tết trên trình duyệt thật
+trong cửa sổ 30/01–10/02/2027 (ngoài cửa sổ chỉ test được bằng
+`?season=tet`), Sudo chốt lại ngày âm lịch mỗi năm trước khi mở
+(cửa sổ ghi bằng ngày dương cố định).
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
 cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,
