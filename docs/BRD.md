@@ -60,12 +60,12 @@ chưa có trận thật chạy qua — các tỉ lệ hiện là null cho tới 
 | # | Chỉ tiêu (đề xuất) | Mục tiêu đề xuất | Đo bằng gì (dự kiến) |
 |---|---|---|---|
 | KPI-01 | Tỉ lệ trận hoàn thành (trận tới được vòng 2 và có người thắng) | ≥ 80% số trận bắt đầu | Log trận — **đã có từ cycle 20 (P3-06 bước 1): `GET /analytics`, xem BRD §8.1** |
-| KPI-02 | Thời gian lấp đầy phòng | Phòng 20 người đủ trong ≤ 5 phút (giờ cao điểm) | Log phòng (cần làm) |
+| KPI-02 | Thời gian lấp đầy phòng | Phòng 20 người đủ trong ≤ 5 phút (giờ cao điểm) | Log phòng — **đã có từ cycle 23 (P3-06 bước 2): `GET /analytics` cho `fill20Rate`/`fill20Within5MinRate`/`avgFill20Sec`/`under20StartRate`, xem BRD §8.1** |
 | KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay — **đã có từ cycle 20 (P3-06 bước 1)** |
 | KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo thủ công + đo tự động ở Phase 2 |
-| KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận + báo lỗi (cần làm) |
+| KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận — **đã có từ cycle 24 (P3-06 bước 3): `GET /analytics` cho `matchesAbandoned`/`abandonRate`, xem BRD §8.1** |
 | KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
 
 **Mục tiêu kinh doanh (ĐÃ QUYẾT 2026-11-05):** mô hình kinh tế là
@@ -621,9 +621,47 @@ ra trên màn hình kết thúc (sau `endMatch`) nên số đếm chốt sau gra
 giây kể từ khi trận kết thúc; `/analytics` trong 30 giây đó chưa thấy
 trận này. Client gửi `{type:'tour'}` 1 lần mỗi lần mở tour
 (`activateExplore()`), server chỉ đếm khi người đó đã bị loại — mở tour
-từ sảnh chờ không tính. Chưa đo: KPI-02 (cần log lúc vào phòng chờ),
-KPI-06 (FPS/tải trang, đo ở client), KPI-07 (trận bỏ dở chưa đếm — trận
-bỏ dở hiện bị hủy khi phòng trống), KPI-08 (cần tính năng tố cáo).
+từ sảnh chờ không tính.
+
+**KPI-02 lấp đầy phòng — ĐÃ QUYẾT (cycle 23, 2026-11-07 — backlog #14,
+P3-06 bước 2, QC/Sudo lật được):** `server/analytics.js` thêm `liveRooms`
+(chỉ RAM, key = mã phòng): `recordRoomCreated` lúc `makeRoom` (tạo phòng
++ tràn phòng đầy 456 đều qua đây), `recordLobbyJoin` sau mỗi lần thêm
+người vào phòng đang ở sảnh chờ — lần đầu đạt 20 người (không tính khán
+giả) thì chốt `filled20Ms` = thời gian từ lúc tạo phòng tới lúc đủ 20.
+`recordMatchStart` chốt vào totals: `roomsFilled20`, `roomsFilled20Within5Min`
+(đủ 20 trong ≤ 5 phút), `totalFill20Ms`, `matchesStartedUnder20` (trận bắt
+đầu khi chưa đủ 20). `GET /analytics` thêm `fill20Rate` (phòng đủ 20 /
+trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / phòng đã đủ
+20), `avgFill20Sec`, `under20StartRate`. Quy ước: "đủ 20" tính theo LẦN
+ĐẦU đạt 20 — phòng đủ 20 rồi có người rời trước khi bắt đầu vẫn tính là
+đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
+đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
+xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
+Chưa đo: KPI-06 (FPS/tải trang, đo ở client), KPI-08 (cần tính năng tố cáo).
+
+**KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
+P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
+(`recordMatchStart` đã chạy) nhưng phòng bị xóa (`dropMatch`) trước khi
+`recordMatchEnd` — mọi người rời phòng giữa trận, trận không có kết quả.
+Đếm vào `totals.matchesAbandoned` (+ `abandonedPlayersTotal` = số người
+trong các trận bỏ dở); phòng QC tách riêng (`qcMatchesAbandoned`), không
+vào mẫu số KPI. `GET /analytics` thêm `abandonRate` =
+`matchesAbandoned / (matchesFinished + matchesAbandoned)` — tỉ lệ trong
+số trận đã có kết cục; trận đang chạy chưa tính. Mục tiêu đề xuất < 5%
+(BRD §2). Sửa kèm trong `dropMatch`: trận đã kết thúc (đang trong grace
+30s) mà phòng bị xóa thì chốt ngay số đếm như trận đã kết thúc thay vì
+hủy timer — trước đây trận đó mất khỏi thống kê nếu mọi người rời phòng
+trong 30s sau màn hình kết thúc. Phòng chưa bắt đầu trận mà bị xóa thì
+không tính bỏ dở. `dropMatch` 2 lần trên cùng trận chỉ đếm 1 lần.
+Giới hạn: server restart giữa trận làm mất bản ghi RAM nên trận đó không
+đếm được vào bỏ dở — chỉ đếm được trận bỏ dở do phòng trống. "Bỏ dở" ở
+đây là mọi người rời phòng; trận kẹt do lỗi mà không ai rời thì không
+kẹt được lâu vì đã có deadline vòng + deadline trận tổng (P1-07) ép kết
+thúc có kết quả.
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
+totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
+cách kiểm nhanh nhất.
 
 **Nút THOÁT GAME ở menu phải — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
 backlog #33, theo yêu cầu Sudo, QC/Sudo lật được):** nút `THOÁT GAME`
