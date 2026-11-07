@@ -322,6 +322,48 @@
     t.textContent = msg; t.style.display = 'block';
     clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = 'none'; }, 3000);
   }
+  // P3-07 (cycle 18): lọc tên người chơi — mirror của server validateName
+  // (server/server.js); server vẫn là nguồn chuẩn, client chỉ báo sớm để
+  // người chơi khỏi chờ vòng về. Luật ĐÃ QUYẾT xem BRD §6.
+  var NAME_BANNED_WORDS = [
+    'fuck', 'shit', 'bitch', 'dick', 'pussy', 'cunt', 'whore',
+    'dm', 'dcm', 'dit', 'lon', 'cac', 'buoi', 'du ma', 'duma', 'clgt', 'vcl',
+    'đm', 'đcm', 'địt', 'lồn', 'cặc', 'buồi', 'đụ', 'đù má'
+  ];
+  function stripDiacriticsName(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+  }
+  function validatePlayerName(raw) {
+    var name = String(raw == null ? '' : raw)
+      .normalize('NFC')
+      .replace(/[\u0000-\u001f\u007f\u200b-\u200d\ufeff]/g, '')
+      .trim();
+    if (!name) return { ok: true, name: 'Người chơi' };
+    if (name.length > 24) return { ok: false, reason: 'Tên tối đa 24 ký tự.' };
+    if (!/[\p{L}\p{N}]/u.test(name)) return { ok: false, reason: 'Tên phải có ít nhất một chữ cái hoặc chữ số.' };
+    var specials = 0, run = 0, i, w;
+    for (var ch of name) {
+      if (/[\p{L}\p{N} ]/u.test(ch)) { run = 0; continue; }
+      specials++; run++;
+      if (run >= 3) return { ok: false, reason: 'Tên không được có 3 ký tự đặc biệt liên tiếp.' };
+    }
+    if (specials > 3) return { ok: false, reason: 'Tên có quá nhiều ký tự đặc biệt (tối đa 3 ký tự như - _ .).' };
+    var lower = name.toLowerCase();
+    var plain = stripDiacriticsName(lower);
+    for (i = 0; i < NAME_BANNED_WORDS.length; i++) {
+      w = NAME_BANNED_WORDS[i];
+      if (w && (lower.indexOf(w) !== -1 || plain.indexOf(stripDiacriticsName(w)) !== -1)) return { ok: false, reason: 'Tên chứa từ không phù hợp.' };
+    }
+    return { ok: true, name: name };
+  }
+  // Kiểm tra tên trước khi tạo/vào phòng multi; tên sai thì toast lý do và
+  // không gửi — server vẫn kiểm lại và trả {type:'error'} nếu lọt qua.
+  function checkedPlayerName() {
+    var raw = ($('player-name') && $('player-name').value) || 'Người chơi';
+    var v = validatePlayerName(raw);
+    if (!v.ok) { toast(v.reason); return null; }
+    return v.name;
+  }
   function rand(a, b) { return a + Math.random() * (b - a); }
   function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
   function fmtTime(sec) {
@@ -2986,8 +3028,9 @@
   }
   window.__joinRoom = function (code) {
     var rc = $('room-code'); if (rc) rc.value = code;
+    var nm = checkedPlayerName(); if (nm == null) return;
     connectWS();
-    setTimeout(function () { sendWS({ type: 'join', code: code, name: ($('player-name') && $('player-name').value) || 'Người chơi' }); }, 300);
+    setTimeout(function () { sendWS({ type: 'join', code: code, name: nm }); }, 300);
   };
   // ---- Bảng xếp hạng trực tiếp cho khán giả (P1-09, cycle 8) ----
   // Panel #leaderboard nằm trong #specBanner nên chỉ hiện cùng banner khán
@@ -4182,12 +4225,13 @@
   var btnMulti = $('btn-multi');
   if (btnMulti) btnMulti.onclick = startMultiUI;
   var btnCreate = $('btn-create');
-  if (btnCreate) btnCreate.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'create', name: ($('player-name') && $('player-name').value) || 'Người chơi', qc: qcMode, startRound: qcStartRound, noElim: qcNoElim }); }, 300); };
+  if (btnCreate) btnCreate.onclick = function () { var nm = checkedPlayerName(); if (nm == null) return; connectWS(); setTimeout(function () { sendWS({ type: 'create', name: nm, qc: qcMode, startRound: qcStartRound, noElim: qcNoElim }); }, 300); };
   var btnJoin = $('btn-join');
   if (btnJoin) btnJoin.onclick = function () {
     var code = ($('room-code') && $('room-code').value || '').trim().toUpperCase();
     if (!code) { toast('Nhập mã phòng trước.'); return; }
-    connectWS(); setTimeout(function () { sendWS({ type: 'join', code: code, name: ($('player-name') && $('player-name').value) || 'Người chơi' }); }, 300);
+    var nm = checkedPlayerName(); if (nm == null) return;
+    connectWS(); setTimeout(function () { sendWS({ type: 'join', code: code, name: nm }); }, 300);
   };
   var btnList = $('btn-list');
   if (btnList) btnList.onclick = function () { connectWS(); setTimeout(function () { sendWS({ type: 'list' }); }, 300); };
@@ -4610,7 +4654,7 @@
     get matchStartAt() { return matchStartAt; },
     get matchTimeLimit() { return matchTimeLimit; },
     matchTimeLeft: matchTimeLeft, endMatchOnTimeoutIfNeeded: endMatchOnTimeoutIfNeeded,
-    allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast,
+    allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast, validatePlayerName: validatePlayerName,
     renderLeaderboard: renderLeaderboard,
     get lastLeaderboard() { return lastLeaderboard; },
     setTag: setTag, clearTag: clearTag, updateAliveHUD: updateAliveHUD,

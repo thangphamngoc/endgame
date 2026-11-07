@@ -80,7 +80,7 @@ ngân sách hosting, chính sách kiểm duyệt).
 | P3-04 | Kiểm duyệt chat: tố cáo, mute, lọc từ, dashboard kiểm duyệt tối thiểu | P0 | Dự kiến | OD-05 | L | Người chơi tố cáo được; host/mod mute được; từ trong danh sách cấm không hiện cho người khác |
 | P3-05 | Health check `/health` + log có cấu trúc + giám sát + cảnh báo + tự khởi động lại khi crash | P1 | Dự kiến | P3-02 | M | `/health` trả trạng thái + số phòng; server crash thì tự chạy lại; có cảnh báo khi server chết |
 | P3-06 | Analytics tối thiểu: số trận, số người chơi, tỉ lệ hoàn thành, tỉ lệ dùng chat/du lịch (theo KPI trong BRD §2) | P1 | Dự kiến | P3-01 | M | Có số đo thật cho KPI-01..KPI-05 sau 1 tuần chạy (số đo thực tế, không ước tính) |
-| P3-07 | Lọc tên người chơi + giới hạn ký tự đặc biệt | P2 | Dự kiến | — | S | Tên có từ cấm hoặc ký tự đặc biệt quá mức bị từ chối với thông báo rõ |
+| P3-07 | Lọc tên người chơi + giới hạn ký tự đặc biệt | P2 | Đã làm (cycle 18, 2026-11-07) | — | S | Tên có từ cấm hoặc ký tự đặc biệt quá mức bị từ chối với thông báo rõ |
 | P3-08 | Tài khoản / đăng nhập (chỉ làm nếu Sudo chốt OD-08 là làm) | P2 | Dự kiến | OD-08, P3-01 | L | Đăng nhập được, hồ sơ lưu lịch sử trận; chơi không đăng nhập vẫn được (khách) |
 
 ## Phase 3b — Kinh tế trong game (monetization, bản stub)

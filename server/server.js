@@ -108,6 +108,10 @@ const ARENA_X = 20;
 const ARENA_Z_MIN = -40;
 const ARENA_Z_MAX = 40;
 const RECONNECT_GRACE_MS = 30000;
+// Timer trận tổng P1-07 (giây): server là nguồn chuẩn; client chỉ hiển thị.
+// Mặc định lấy từ games.MATCH_TIME_LIMIT (30 phút); đổi bằng env khi test.
+// Phòng QC được miễn (matchDeadline = 0).
+const MATCH_TIME_LIMIT_S = Number(process.env.MATCH_TIME_LIMIT_S || games.MATCH_TIME_LIMIT);
 const BANNED_WORDS = [
   'fuck', 'shit', 'bitch', 'dick', 'pussy', 'cunt', 'whore',
   'dm', 'dcm', 'dit', 'lon', 'cac', 'buoi', 'du ma', 'duma', 'clgt', 'vcl',
@@ -172,15 +176,37 @@ function broadcast(room, obj, exceptWs) {
     if (p.ws && p.ws !== exceptWs) send(p.ws, obj);
   }
 }
+// P3-07 (cycle 18): lọc tên người chơi — server là nguồn chuẩn; client kiểm
+// trước bằng cùng luật để báo ngay (xem client/js/game.js validatePlayerName).
+// Luật ĐÃ QUYẾT (BRD §6): tối đa 24 ký tự (khớp maxlength của ô nhập);
+// phải có ít nhất 1 chữ cái/chữ số; ký tự đặc biệt tối đa 3 và không 3 cái
+// liên tiếp (emoji cũng tính là ký tự đặc biệt); từ cấm kiểm cả dạng bỏ dấu
+// để chống lách bằng dấu tổ hợp/ký tự zero-width.
+const NAME_MAX_LEN = 24;
+const NAME_MAX_SPECIALS = 3;
+function stripDiacritics(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
 function validateName(raw) {
-  let name = String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const name = String(raw == null ? '' : raw)
+    .normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200d\ufeff]/g, '')
+    .trim();
   if (!name) return { ok: true, name: 'Người chơi' };
-  if (name.length > 30) name = name.slice(0, 30);
-  const lower = name.toLowerCase();
-  for (const w of BANNED_WORDS) {
-    if (w && lower.includes(w)) return { ok: false, reason: 'Tên chứa từ không phù hợp.' };
+  if (name.length > NAME_MAX_LEN) return { ok: false, reason: 'Tên tối đa 24 ký tự.' };
+  if (!/[\p{L}\p{N}]/u.test(name)) return { ok: false, reason: 'Tên phải có ít nhất một chữ cái hoặc chữ số.' };
+  let specials = 0, run = 0;
+  for (const ch of name) {
+    if (/[\p{L}\p{N} ]/u.test(ch)) { run = 0; continue; }
+    specials++; run++;
+    if (run >= 3) return { ok: false, reason: 'Tên không được có 3 ký tự đặc biệt liên tiếp.' };
   }
-  if (!name) return { ok: true, name: 'Người chơi' };
+  if (specials > NAME_MAX_SPECIALS) return { ok: false, reason: 'Tên có quá nhiều ký tự đặc biệt (tối đa 3 ký tự như - _ .).' };
+  const lower = name.toLowerCase();
+  const plain = stripDiacritics(lower);
+  for (const w of BANNED_WORDS) {
+    if (w && (lower.includes(w) || plain.includes(stripDiacritics(w)))) return { ok: false, reason: 'Tên chứa từ không phù hợp.' };
+  }
   return { ok: true, name };
 }
 function rateLimitPos(info) {
@@ -207,6 +233,20 @@ function publicPlayers(room) {
 function roomSummary(room) {
   return { code: room.code, count: room.players.size, phase: room.phase, qc: !!room.qc };
 }
+// Trạng thái trận cho người vào giữa trận (khán giả / reconnect, P1-07):
+// HUD của họ phải hiện đúng vòng + trò đang chơi và đúng đồng hồ (tổng +
+// vòng) thay vì mặc định vòng 1 / 0:00. Trả null khi đang ở sảnh (chưa có
+// trận) để client bỏ qua.
+function matchStateForClient(room) {
+  if (!room || room.phase === 'lobby' || !room.matchStart) return null;
+  return {
+    round: room.round, roundGame: room.roundGame, roundName: room.roundName,
+    matchElapsed: Date.now() - room.matchStart,
+    matchTimeLimit: room.qc ? 0 : MATCH_TIME_LIMIT_S,
+    roundTimeLimit: room.roundTimeLimit || 0,
+    roundEndsIn: room.roundDeadline ? Math.max(0, room.roundDeadline - Date.now()) : 0,
+  };
+}
 function broadcastLobbyList() {
   const list = [...rooms.values()].filter((r) => r.phase === 'lobby').map(roomSummary);
   for (const [ws, info] of clients.entries()) {
@@ -217,12 +257,13 @@ function makeRoom() {
   const room = {
     code: randomCode(), players: new Map(), phase: 'lobby',
     drumState: 'drum', phaseEnd: 0, startedAt: 0, matchStart: 0,
-    bridges: {}, ranking: [], matchId: 0, round: 0, roundPlan: [],
+    bridges: {}, ranking: [], recentEliminations: [], matchId: 0, round: 0, roundPlan: [],
     roundGame: null, roundName: null, roundSeed: '', roundSeedNum: 0,
     // CHẾ ĐỘ QC (test-only, xem BRD FR-46): phòng QC cho phép nhảy thẳng tới
     // vòng bất kỳ; trận QC không thưởng Hội Xu / XP và không tính vào BXH.
     qc: false, qcStartRound: 1, qcNoElim: false,
     roundDeadline: 0, roundTimeLimit: 0, roundState: null, roundStartCount: 0,
+    matchDeadline: 0, // P1-07: hết giờ tổng thì trận kết thúc có kết quả (0 = QC, miễn)
     subArenas: [], targets: [], inputQueue: [],
   };
   rooms.set(room.code, room);
@@ -334,6 +375,31 @@ function sendTurn(room, team) {
     turnLimit: games.R2_TURN_TIME_LIMIT,
   });
 }
+// Bảng xếp hạng trực tiếp cho khán giả (P1-09, cycle 8): trạng thái gọn
+// nhẹ — số người còn lại, người đã về đích theo thứ tự, 5 người vừa bị
+// loại gần nhất (kèm vòng + lý do). Không gửi toàn bộ danh sách người
+// chơi (phòng đông 456 người sẽ nặng).
+function leaderboardState(room) {
+  return {
+    round: room.round,
+    roundName: room.roundName || null,
+    aliveCount: [...room.players.values()].filter((p) => p.alive && !p.spectator).length,
+    finished: room.ranking.map((r) => ({ id: r.id, name: r.name, team: r.team, time: r.time })),
+    eliminated: room.recentEliminations.slice(),
+  };
+}
+// Gộp nhiều lần gọi trong cùng 1 tick (vòng kết thúc loại hàng loạt) thành
+// 1 lần broadcast, để không spam 456 client × N lần loại. setImmediate nên
+// tin tới sau sự kiện gốc 1 nhịp — khán giả vẫn thấy cập nhật gần như ngay.
+function broadcastLeaderboard(room) {
+  if (room._lbScheduled) return;
+  room._lbScheduled = true;
+  setImmediate(() => {
+    room._lbScheduled = false;
+    if (!room || room.phase === 'finished') return;
+    broadcast(room, { type: 'leaderboard', ...leaderboardState(room) });
+  });
+}
 function eliminatePlayer(room, player, reason) {
   if (!player.alive) return false;
   // QC "Không loại (chỉ test giao diện)": chặn mọi lần loại do server gọi.
@@ -345,6 +411,11 @@ function eliminatePlayer(room, player, reason) {
   player.alive = false; player.spectator = true;
   logEvent('elimination', { room: room.code, matchId: room.matchId, round: room.round, playerId: player.id, name: player.name, reason });
   broadcast(room, { type: 'eliminated', id: player.id, reason });
+  // Bảng trực tiếp (P1-09): ghi lại người vừa bị loại (mới nhất trước,
+  // tối đa 5) để khán giả thấy ngay, không phải chờ hết vòng.
+  room.recentEliminations.unshift({ id: player.id, name: player.name, round: room.round, reason });
+  if (room.recentEliminations.length > 5) room.recentEliminations.length = 5;
+  broadcastLeaderboard(room);
   return true;
 }
 function finishRound2Player(room, player) {
@@ -352,6 +423,7 @@ function finishRound2Player(room, player) {
   player.finishTime = Date.now() - room.matchStart;
   room.ranking.push({ id: player.id, name: player.name, team: player.team, time: player.finishTime });
   broadcast(room, { type: 'ranking', ranking: room.ranking });
+  broadcastLeaderboard(room);
   advanceLeader(room, player.team);
   const anyoneLeft = [...room.players.values()].some((p) => p.alive && !p.round2Finished);
   if (!anyoneLeft) endRound(room, 2, 'all-finished');
@@ -438,7 +510,10 @@ function startMatch(room) {
   // tên các vòng 3-5 đã bốc trước khi bắt đầu) — không bốc lại ở đây.
   if (!room.qc) { room.matchId = nextMatchId++; buildRoundPlan(room); }
   room.matchStart = Date.now();
+  // Timer trận tổng P1-07: phòng thường có deadline, phòng QC miễn (0).
+  room.matchDeadline = room.qc ? 0 : room.matchStart + MATCH_TIME_LIMIT_S * 1000;
   room.ranking = [];
+  room.recentEliminations = [];
   room.targets = games.scaledTargets([...room.players.values()].filter((p) => !p.spectator).length || 1);
   const starters = [...room.players.values()].filter((p) => !p.spectator);
   // Shard Round 1 into sub-arenas of ~57 players.
@@ -627,7 +702,7 @@ function startRound(room, n) {
   }
   room.roundState = state;
   logEvent('round_start', { room: room.code, matchId: room.matchId, round: n, game: plan.game, timeLimit: plan.timeLimit, seed: room.roundSeed, players: room.roundStartCount });
-  broadcast(room, { type: 'roundStart', round: n, game: plan.game, name: plan.name, timeLimit: plan.timeLimit, seed: room.roundSeed, target: room.roundTarget, isFinal: room.isFinal });
+  broadcast(room, { type: 'roundStart', round: n, game: plan.game, name: plan.name, timeLimit: plan.timeLimit, seed: room.roundSeed, target: room.roundTarget, isFinal: room.isFinal, matchTimeLimit: room.qc ? 0 : MATCH_TIME_LIMIT_S });
   broadcast(room, { type: 'phase', phase: phaseName, game: plan.game, name: plan.name, players: publicPlayers(room) });
   if (plan.game === 'to-he') {
     broadcast(room, { type: 'traceTarget', shape: state.shape, points: state.points });
@@ -840,6 +915,7 @@ function endRound(room, n, reason) {
   broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated,
     nextRound: nextEntry ? nextEntry.round : null, nextGame: nextEntry ? nextEntry.game : null, nextName: nextEntry ? nextEntry.name : null });
   broadcast(room, { type: 'players', players: publicPlayers(room) });
+  broadcastLeaderboard(room);
   room.roundDeadline = 0;
   // KHÔNG còn điều kiện n >= 6: trận chỉ kết thúc khi còn 1 người, hoặc
   // khi vừa xong vòng chung kết Rồng Rắn (kể cả phòng QC "Không loại",
@@ -875,12 +951,24 @@ function endRound(room, n, reason) {
   startRound(room, n + 1);
 }
 
-function endMatch(room) {
+function endMatch(room, reason) {
   if (room.phase === 'finished') return;
   room.phase = 'finished';
   room.roundDeadline = 0;
+  room.matchDeadline = 0;
   // Winner: last survivor, or flag holder, or fastest ranking entry.
   let winner = survivorsOf(room)[0] || null;
+  if (reason === 'match-timeout') {
+    // P1-07 — hết giờ tổng: trận kết thúc có kết quả, xếp theo tiến độ
+    // vòng hiện tại (tốt nhất trước): rankWorstFirst trả về tệ → tốt nên
+    // đảo lại. Người dẫn đầu vòng hiện tại thắng, kể cả khi còn nhiều
+    // người sống; không loại ai thêm, chỉ xếp hạng.
+    const ranked = rankWorstFirst(room, room.roundGame, survivorsOf(room)).reverse();
+    if (ranked.length) {
+      winner = ranked[0];
+      room.ranking = ranked.map((p) => ({ id: p.id, name: p.name, team: p.team, time: Date.now() - room.matchStart }));
+    }
+  }
   if (!winner && room.ranking.length) {
     const top = room.ranking[0];
     winner = room.players.get(top.id) || null;
@@ -893,8 +981,8 @@ function endMatch(room) {
     econSafe((ec) => { res = ec.awardWin(winner.id, winner.name); });
     if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50, profile: res.profile });
   }
-  logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length });
-  broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null });
+  logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length, reason: reason || 'last-standing' });
+  broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null, reason: reason || undefined });
   broadcastLobbyList();
 }
 
@@ -1055,7 +1143,7 @@ wss.on('connection', (ws) => {
       player.reconnectToken = newToken;
       reconnectTokens.set(newToken, { roomCode: room.code, playerId: player.id, expiresAt: Date.now() + RECONNECT_GRACE_MS, timeout: null });
       send(ws, { type: 'reconnectToken', token: newToken });
-      send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room), phase: room.phase, reconnected: true });
+      send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room), phase: room.phase, reconnected: true, match: matchStateForClient(room) });
       broadcast(room, { type: 'players', players: publicPlayers(room) }, ws);
       logEvent('reconnect', { room: room.code, playerId: player.id });
       return;
@@ -1111,7 +1199,10 @@ wss.on('connection', (ws) => {
         room.players.set(id, player);
         send(ws, { type: 'reconnectToken', token: player.reconnectToken });
         send(ws, { type: 'joined', code: room.code, isHost: false, spectator: true, players: publicPlayers(room), phase: room.phase,
-          qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined });
+          qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined, match: matchStateForClient(room) });
+        // Vào giữa trận làm khán giả: gửi ngay bảng hiện tại để không phải
+        // chờ sự kiện loại/về đích tiếp theo mới thấy.
+        send(ws, { type: 'leaderboard', ...leaderboardState(room) });
         return;
       }
       room.players.set(id, player);
@@ -1455,6 +1546,13 @@ setInterval(() => {
     // 3) Round timers (every round gets a deadline; no round stalls forever).
     if (room.roundDeadline && room.phase !== 'round1' && room.phase !== 'finished' && room.phase !== 'lobby' && room.phase !== 'countdown' && room.phase !== 'team') {
       if (now >= room.roundDeadline) { endRound(room, room.round, 'timeout'); continue; }
+    }
+    // 3a) Timer trận tổng (P1-07): hết giờ tổng thì trận kết thúc có kết
+    // quả (xếp theo tiến độ vòng hiện tại) thay vì kẹt mãi. Phòng QC miễn
+    // (matchDeadline = 0). Kiểm tra ở mọi phase trong trận, kể cả 'team'
+    // (5,5 giây chia đội) và 'countdown', vì deadline tính từ lúc bắt đầu trận.
+    if (room.matchDeadline && room.phase !== 'lobby' && room.phase !== 'finished' && now >= room.matchDeadline) {
+      endMatch(room, 'match-timeout'); continue;
     }
     // 3b) Round 2 per-turn timer (30s): tới lượt mà không đi, hoặc đi quá
     // chậm không qua hết cầu trong 30 giây, thì bị loại và lượt chuyển cho
