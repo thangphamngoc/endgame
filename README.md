@@ -15,6 +15,11 @@ npm start
 
 Mở trình duyệt tại `http://localhost:3000` (cổng mặc định, đổi bằng biến môi trường `PORT`).
 
+- Chạy có tự khởi động lại khi crash (P3-05, cycle 19): `npm run supervise`
+  thay cho `npm start` — supervisor (`server/supervisor.js`) chạy lại server
+  sau 1s/2s/4s... (tối đa 10s) khi server thoát khác 0; server thoát 0 (tắt
+  có trật tự) thì không chạy lại. Mọi sự kiện đều là 1 dòng JSON trên stdout.
+
 - Chế độ **Chơi đơn**: không cần mạng ngoài, chơi ngay với 60 bot.
   Bot luôn được ghi rõ là bot, không bao giờ giả làm người thật.
 - Chế độ **Multiplayer**: nhập tên, tạo phòng hoặc nhập mã phòng 6 ký tự để vào phòng.

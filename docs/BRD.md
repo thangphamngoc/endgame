@@ -541,6 +541,29 @@ khi fallback thành công — probe bắt được, đã sửa). Chưa đo bằn
 tải trang trên trình duyệt thật khi mất mạng CDN, cảm giác tải có chậm
 hơn không (bản local 652 KB do server mình phục vụ).
 
+**Log có cấu trúc + tự khởi động lại khi crash — ĐÃ QUYẾT (cycle 19,
+2026-11-07 — backlog #13, P3-05 bước 1, QC/Sudo lật được):** mọi sự kiện
+server đều là 1 dòng JSON trên stdout qua `logEvent` (đã có từ trước cho
+các sự kiện trận: `match_start`, `round_start`, `round_end`, `match_end`,
+`elimination`...). Cycle này thêm: (a) access log — `http_request`
+`{method, path, status, ms}` cho mọi request HTTP (kể cả `/health`, 403,
+404), ghi ở `res 'finish'`; (b) lỗi chết người — `uncaughtException` /
+`unhandledRejection` ghi 1 dòng `fatal` `{kind, message, stack}` rồi thoát
+mã 1 (trước đây crash là chết lặng, không dòng log nào, không ai chạy
+lại); (c) tắt có trật tự — SIGTERM/SIGINT ghi `server_stop`, đóng WS +
+HTTP rồi thoát 0; (d) `/health` thêm `pid` + `startedAt` (ISO) để giám
+sát biết process nào, chạy từ bao giờ; (e) supervisor mới
+`server/supervisor.js` (`npm run supervise`): spawn `node server/server.js`,
+con thoát != 0 thì chạy lại với backoff 1s/2s/4s... tối đa 10s, con sống
+ổn định đủ 60s thì reset bộ đếm; con thoát 0 thì supervisor thoát 0 theo,
+không chạy lại; supervisor nhận SIGTERM/SIGINT thì gửi SIGTERM cho con và
+tắt sạch. Hook test `HOI_TEST_CRASH=1` (mặc định tắt) chỉ để kiểm chứng
+đường fatal → exit(1) thật. Chưa làm (còn nợ): cảnh báo khi server chết
+(cần Sudo chọn kênh báo — chat/email/webhook), gom/rotate log file (log
+đang ra stdout, thuộc về nơi chạy, vd. systemd/journald). Chưa đo bằng
+tay: hành vi restart trên máy host thật (chưa có host production), Sudo
+chỉ cần biết `npm run supervise` là cách chạy khuyên dùng.
+
 **Harness capture tắt onboarding trước mọi stage tương tác — ĐÃ QUYẾT
 (cycle 17, 2026-11-07 — backlog #30, QC/Sudo lật được):** từ khi
 onboarding tự hiện lần đầu ở sảnh chờ (cycle 12), overlay của nó

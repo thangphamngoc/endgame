@@ -125,6 +125,26 @@ function logEvent(event, data) {
   } catch (e) { /* never crash on logging */ }
 }
 
+// P3-05 (cycle 19, bước 1): lỗi chết người phải để lại 1 dòng log có cấu
+// trúc rồi thoát với mã != 0 để supervisor (server/supervisor.js) chạy
+// lại server — trước đây crash là chết lặng, không dòng log nào, không ai
+// chạy lại. Không try/catch ở đây: exit(1) là hành vi cố ý.
+process.on('uncaughtException', (err) => {
+  logEvent('fatal', {
+    kind: 'uncaught_exception',
+    message: String(err && err.message),
+    stack: String(err && err.stack || '').split('\n').slice(0, 5).join(' | '),
+  });
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  logEvent('fatal', {
+    kind: 'unhandled_rejection',
+    message: String(reason && reason.message ? reason.message : reason),
+  });
+  process.exit(1);
+});
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -135,12 +155,19 @@ const MIME = {
 };
 
 function serveStatic(req, res) {
+  // P3-05 (cycle 19, bước 1): access log có cấu trúc — 1 dòng JSON mỗi
+  // request (method, path, status, ms). Dùng res 'finish' nên cả /health,
+  // 403, 404 đều được ghi; logEvent không bao giờ throw.
+  const reqStartedAt = Date.now();
   const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  res.on('finish', () => {
+    logEvent('http_request', { method: req.method, path: urlPath, status: res.statusCode, ms: Date.now() - reqStartedAt });
+  });
   if (urlPath === '/health') {
     let players = 0;
     for (const r of rooms.values()) players += r.players.size;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, players, uptime: Math.floor((Date.now() - STARTED_AT) / 1000) }));
+    res.end(JSON.stringify({ ok: true, rooms: rooms.size, players, uptime: Math.floor((Date.now() - STARTED_AT) / 1000), pid: process.pid, startedAt: new Date(STARTED_AT).toISOString() }));
     return;
   }
   let p = urlPath === '/' ? '/index.html' : urlPath;
@@ -1647,3 +1674,24 @@ server.listen(PORT, () => {
   console.log('Trống Hội & Cầu Khỉ chạy tại http://localhost:' + PORT);
   console.log('Chế độ chơi đơn không cần server, nhưng mở qua địa chỉ trên là tiện nhất.');
 });
+
+// P3-05 (cycle 19, bước 1): tắt có trật tự — ghi log rồi đóng WS + HTTP
+// rồi mới thoát 0 (supervisor chỉ chạy lại khi exit != 0). setTimeout dự
+// phòng: WS đang mở giữ server.close() treo thì vẫn thoát sau 2s.
+let shuttingDown = false;
+function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logEvent('server_stop', { signal });
+  try { wss.close(); } catch (e) { /* already closed */ }
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 2000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Hook CHỈ DÙNG CHO TEST (mặc định tắt): HOI_TEST_CRASH=1 thì tự throw 1
+// lỗi uncaught sau 500ms để kiểm chứng đường fatal -> exit(1) thật.
+if (process.env.HOI_TEST_CRASH === '1') {
+  setTimeout(() => { throw new Error('HOI_TEST_CRASH'); }, 500);
+}
