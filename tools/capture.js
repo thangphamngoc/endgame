@@ -354,6 +354,46 @@ async function startSingleQc(page, round) {
     }));
     results.shop.topElementAtButton = shopTop;
     await page.close();
+
+    console.log('[9] tour — dao moi Hon Cho Da (#15)');
+    page = await newPage(browser, 1280, 800, log);
+    await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
+    await sleep(2000);
+    await dismissOnboarding(page); // #30: onboarding chan nut DU LICH TU SANH CHO
+    // Mo tour tu sảnh chờ (focusIsland(1) -> activateExplore + flyToPOI(1)).
+    // O headless (WebGL null) buildWorld() chet truoc buildTourList() nen
+    // #tourList DOM rong — do la he qua cua #24, khong phai loi tour. Stage
+    // nay ghi ro listCount=0 khi do, dong thoi kiem du lieu TOUR_ISLANDS
+    // trong file game.js trinh duyet vua tai (12 dao, co cho-da).
+    try { await page.click('#btn-tour-lobby'); } catch (e) { await page.evaluate(() => document.getElementById('btn-tour-lobby').click()); results.tourClickFallback = 'js-click: ' + String(e.message || e); }
+    await sleep(1500);
+    await shot(page, '09-tour');
+    results.tour = await page.evaluate(async () => {
+      const list = document.querySelectorAll('#tourList > *');
+      const detail = (document.getElementById('tourInfo') || {}).textContent || '';
+      let data = null;
+      try {
+        const t = await fetch('/js/game.js').then((r) => r.text());
+        const a = t.indexOf('var TOUR_ISLANDS = [');
+        let i = t.indexOf('[', a), depth = 0, j = i;
+        for (; j < t.length; j++) { if (t[j] === '[') depth++; else if (t[j] === ']') { depth--; if (depth === 0) break; } }
+        const arr = eval(t.slice(i, j + 1));
+        const cd = arr.find((d) => d.id === 'cho-da') || null;
+        data = { count: arr.length, ids: arr.map((d) => d.id), choDa: cd ? { name: cd.name, label: cd.label, x: cd.x, z: cd.z, icon: cd.icon } : null };
+      } catch (e) { data = { error: String(e.message || e) }; }
+      return {
+        // Do bang computed display + rect, KHONG do class .hidden (bai hoc
+        // #20 + #33: go .hidden khong hien panel vi CSS goc display:none).
+        panelDisplay: getComputedStyle(document.getElementById('tourPanel')).display,
+        panelRect: (() => { const r = document.getElementById('tourPanel').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })(),
+        panelHasOpen: document.getElementById('tourPanel').classList.contains('open'),
+        listCount: list.length,
+        listNames: [...list].map((b) => b.textContent.slice(0, 40)),
+        detailHead: detail.slice(0, 300),
+        data,
+      };
+    });
+    await page.close();
   } finally {
     await browser.close();
   }

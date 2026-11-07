@@ -639,7 +639,25 @@ trình duyệt có WebGL (harness headless ở VM trả WebGL null nên canvas
 trắng) — Sudo bay tới Hòn Chó Đá trên máy thật để chốt dáng chó có đọc
 ra ngay không.
 
-### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
+**Panel Du lịch Hạ Long không bao giờ hiện — ĐÃ QUYẾT (cycle 21,
+2026-11-07 — backlog #37, phát hiện khi kiểm #15, QC/Sudo lật được):**
+`#tourPanel` có `display:none` trong CSS, `activateExplore()` chỉ gỡ
+class `.hidden` — nhưng panel không hề có class `.hidden` từ đầu nên
+lệnh gỡ là no-op và panel giữ nguyên 0×0. Bấm DU LỊCH (từ sảnh chờ hay
+trong trận) vẫn bay camera + ghi tên/câu chuyện đảo vào `#tourInfo`,
+chỉ là không ai nhìn thấy vì panel ẩn — toàn bộ du lịch (danh sách 12
+đảo + câu chuyện) không tới được người chơi. Đây là cùng họ lỗi với
+panel chat (#20, cycle 5) và banner khán giả: đo hiển thị bằng class
+`.hidden` là sai, phải đo bằng computed display — stage capture tour
+mới ([9]) nay đo đúng cách đó. Sửa theo đúng mẫu #20:
+`#tourPanel.open{display:block}` trong CSS, `activateExplore()` thêm
+`.open` khi mở, `exitTour()` gỡ `.open` khi đóng. Cùng lúc sửa ghi chú
+`.note` trong panel: màu nâu đậm `#5a4632` (làm cho nền sáng) trên nền
+tour tối đọc không ra — nay `#tourInfo .note` màu sáng `#aef2dd`.
+Chưa đo bằng tay: danh sách 12 đảo trong panel chỉ hiện khi
+`buildTourList()` chạy được, tức là trên trình duyệt có WebGL thật
+(headless ở VM trả WebGL null nên danh sách trống trong ảnh chụp) —
+Sudo mở tour trên máy thật để chốt danh sách hiện đủ 12 đảo.
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
 cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,

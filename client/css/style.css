@@ -232,6 +232,10 @@
       .tourBtn.on{background:#0f766e; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
       .tourBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
       #tourInfo{background:rgba(255,243,217,.1); border:2px solid rgba(174,242,221,.35); border-radius:3px; padding:8px 11px; margin-top:9px;}
+      /* Ghi chu trong #tourInfo: .note goc mau nau dam (#5a4632) lam cho nen
+         sang — tren nen tour toi om la doc khong ra (thay o anh 09-tour
+         cycle 21). Cho chu ghi chu mau sang rieng trong tour. */
+      #tourInfo .note{color:#aef2dd; opacity:.85;}
       #tourInfoName{font-weight:900; font-size:14.5px; color:#ffd34d;}
       #tourInfoText{font-size:12.5px; line-height:1.5; margin-top:2px;}
       .tourRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px;}
