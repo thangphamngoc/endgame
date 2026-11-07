@@ -63,6 +63,11 @@
   var mode = null, ws = null, myId = null, isHost = false, roomCode = null;
   var phase = 'menu'; // menu | flyover | countdown | round1 | team | round2 | round3..6 | interstitial | spectator | finished | tourism
   var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0;
+  // Timer trận tổng (P1-07, ĐÃ QUYẾT tạm 2026-11-06 — 30 phút, QC lật
+  // được): server là nguồn chuẩn và gửi matchTimeLimit theo từng tin
+  // roundStart; hằng số dưới đây là mặc định cho chơi đơn (và fallback).
+  // matchTimeLimit = 0 nghĩa là không giới hạn (phòng QC / chưa vào trận).
+  var MATCH_TIME_LIMIT_S = 30 * 60, matchTimeLimit = 0;
   var aliveCount = 0, aliveBefore = 0;
   // ---- Luồng số vòng KHÔNG giới hạn (Sudo 2026-11-06) ----
   // Vòng 1-2 cố định; từ vòng 3, trò bốc theo chu kỳ kho 5 trò (không lặp
@@ -251,7 +256,7 @@
     player.x = 0; player.z = START_Z; player.group.position.set(0, 0, START_Z);
     player.group.visible = true;
     exitSpectator();
-    var sp = $('spectator'); if (sp) sp.classList.add('hidden');
+    setSpectatorBanner(false);
     myTeam = null; myBridgeStep = 0; localBridges = {}; localRanking = [];
     brokenSteps = {}; teams = [];
     leaderArrows.forEach(function (a) { a.visible = false; });
@@ -1816,7 +1821,7 @@
       elimSound();
       phase = 'spectator';
       enterSpectator();
-      var sp = $('spectator'); if (sp) sp.classList.remove('hidden');
+      setSpectatorBanner(true);
       buildSpectatorList();
       toast('Bạn bị loại: ' + reason);
       var hd = $('hud-drum'); if (hd) hd.textContent = 'BỊ LOẠI — Chế độ khán giả';
@@ -1825,8 +1830,14 @@
   }
   function buildSpectatorList() {
     spectatorList = allPersons().filter(function (p) { return p.alive; });
+    // Dự phòng cuối loại chính mình khi mình đã chết (xem specTargets, bug #29).
+    if (!spectatorList.length) spectatorList = allPersons().filter(function (p) { return p !== player || p.alive; });
     if (!spectatorList.length) spectatorList = allPersons();
-    if (spectatorList.length) watchedId = spectatorList[0].id;
+    // Đừng ghi đè watchedId khi camera đang theo một người còn sống hợp lệ
+    // (enterSpectator vừa chọn leader theo z): trước đây buildSpectatorList
+    // luôn đặt watchedId = spectatorList[0] nên banner "Đang xem" có thể
+    // ghi tên người khác với người camera đang theo.
+    if (spectatorList.length && !(spec.target && spec.target.alive)) watchedId = spectatorList[0].id;
     updateWatchedName();
   }
   function watchedPerson() {
@@ -1917,6 +1928,11 @@
   function specTargets() {
     var list = allPersons().filter(function (p) { return p.alive && !p.finished; });
     if (!list.length) list = allPersons().filter(function (p) { return p.alive; });
+    // Dự phòng cuối: loại chính mình khi mình đã chết (khán giả vào giữa
+    // trận) — nếu không, khán giả mới vào sẽ "Đang xem" chính mình (bug
+    // #29: lúc joined chưa có remotePlayers, allPersons() chỉ có mình).
+    // Chỉ khi trong phòng thật sự chỉ còn mình thì mới trả về chính mình.
+    if (!list.length) list = allPersons().filter(function (p) { return p !== player || p.alive; });
     if (!list.length) list = allPersons();
     return list;
   }
@@ -1957,7 +1973,16 @@
     if (m === 'follow' && spec.target) spec.yaw = spec.target.face + Math.PI;
     updateSpecUI();
   }
+  // Banner khán giả: CSS #specBanner mặc định display:none nên chỉ gỡ class
+  // .hidden là chưa đủ (cùng họ lỗi với #teamPanel / #chatPanel) — phải set
+  // cả style.display. Mọi chỗ hiện/ẩn banner đều qua helper này.
+  function setSpectatorBanner(show) {
+    var sp = $('spectator'); if (!sp) return;
+    sp.classList.toggle('hidden', !show);
+    sp.style.display = show ? 'block' : 'none';
+  }
   function enterSpectator() {
+    hideRoundHint(); // khán giả không điều khiển nhân vật — ẩn gợi ý phím
     spec.active = true;
     spec.mode = 'follow'; spectatorView = 'follow';
     spec.yaw = camYawCur; spec.pitch = 0.34; spec.dist = 9;
@@ -2107,7 +2132,7 @@
     tour.active = true;
     tour.center.set(camera.position.x * 0.3, 2, camera.position.z * 0.3);
     var tp = $('tourism'); if (tp) tp.classList.remove('hidden');
-    var sp = $('spectator'); if (sp) sp.classList.add('hidden');
+    setSpectatorBanner(false);
     if (exploreReturn.menu) { var m = $('menu'); if (m) m.classList.add('hidden'); }
     return true;
   }
@@ -2129,7 +2154,7 @@
     }
     if (backToSpec && player && !player.alive) {
       enterSpectator();
-      var sp = $('spectator'); if (sp) sp.classList.remove('hidden');
+      setSpectatorBanner(true);
     }
   }
   // ---- Bấm thẳng vào đảo trong thế giới 3D ----
@@ -2190,7 +2215,7 @@
   function backToMatch() {
     exitTour(false);
     if (player && player.alive) { phase = phase === 'tourism' ? 'round1' : phase; }
-    else if (player) { phase = 'spectator'; var sp = $('spectator'); if (sp) sp.classList.remove('hidden'); }
+    else if (player) { phase = 'spectator'; setSpectatorBanner(true); }
   }
 
   // ================= CHAT PHÒNG (port từ prototype, map sang DOM của repo) =================
@@ -2566,9 +2591,54 @@
     }
     setPhaseUI();
   }
+  // ---- Timer trận tổng (P1-07) ----
+  // Số giây còn lại của trận, hoặc null khi không có giới hạn (QC / chưa
+  // vào trận). Server áp deadline thật ở multi; chơi đơn tự áp ở client.
+  function matchTimeLeft() {
+    if (!matchTimeLimit || !matchStartAt) return null;
+    return Math.max(0, matchTimeLimit - (Date.now() - matchStartAt) / 1000);
+  }
+  // Chơi đơn: hết giờ tổng thì trận kết thúc có kết quả — xếp người còn
+  // sống theo tiến độ vòng hiện tại (về đích trước theo finishTime, rồi
+  // tới quãng đường đã đi). Gọi mỗi frame từ updateHUD; chỉ chạy 1 lần
+  // vì showRanking đổi phase sang 'finished'.
+  function endMatchOnTimeoutIfNeeded() {
+    if (mode !== 'single' || qcMode) return false;
+    // Chạy cả khi đang xem (spectator): trận vẫn chạy nền cho bot, hết giờ
+    // tổng thì trận vẫn phải kết thúc có kết quả.
+    if (phase.indexOf('round') !== 0 && phase !== 'spectator') return false;
+    if (matchTimeLeft() === null || matchTimeLeft() > 0) return false;
+    var alive = allPersons().filter(function (p) { return p.alive; });
+    alive.sort(function (a, b) {
+      var aFin = a.finished ? (a.finishTime || 0) : Infinity;
+      var bFin = b.finished ? (b.finishTime || 0) : Infinity;
+      if (aFin !== bFin) return aFin - bFin;
+      return (b.dist || 0) - (a.dist || 0);
+    });
+    showRanking(alive.map(function (p) { return { name: p.name, time: Date.now() - matchStartAt }; }),
+      'Hết giờ trận (giới hạn ' + fmtTime(matchTimeLimit || MATCH_TIME_LIMIT_S) + ') — xếp hạng theo tiến độ vòng hiện tại.');
+    return true;
+  }
   function updateHUD() {
     var ht = $('hud-time');
-    if (ht && phase.indexOf('round') === 0) ht.textContent = fmtTime((Date.now() - matchStartAt) / 1000);
+    if (ht && phase.indexOf('round') === 0) {
+      // Ô THỜI GIAN hiện thời gian CÒN LẠI của trận khi có giới hạn tổng
+      // (đỏ khi ≤ 60 giây); không giới hạn (QC) thì hiện thời gian đã chơi
+      // như trước. Tooltip giữ số đã chơi / giới hạn để không mất thông tin.
+      var left = matchTimeLeft();
+      if (left === null) {
+        ht.textContent = fmtTime((Date.now() - matchStartAt) / 1000);
+        ht.title = '';
+      } else {
+        ht.textContent = fmtTime(left);
+        ht.title = 'Đã chơi ' + fmtTime((Date.now() - matchStartAt) / 1000) + ' / giới hạn trận ' + fmtTime(matchTimeLimit);
+      }
+      ht.classList.toggle('urgent', left !== null && left <= 60);
+    }
+    // Chơi đơn tự áp deadline tổng (multi do server áp). Đặt ngoài khối
+    // trên để cả phase spectator (đang xem bot chơi tiếp) cũng kết thúc
+    // đúng giờ — updateHUD chỉ được gọi trong các nhánh round/spectator.
+    endMatchOnTimeoutIfNeeded();
     if (currentRound === 2 && player) {
       var pf = $('progress-fill');
       if (pf) {
@@ -2585,9 +2655,16 @@
   // ---- Flyover + đếm ngược (port từ prototype) ----
   function ensureFlyoverEls() {
     if (!flyoverTitleEl) {
+      // Tiêu đề bay tổng quan co theo màn hình (cycle 15, #10): 52px cố định
+      // làm "ĐẢO HỘI LÀNG" gãy 3 dòng ở 360px và đè lên cột kinh tế phải.
+      // Ở 360px còn ~40px, vừa 1 dòng (nowrap); top 28% để khối tiêu đề
+      // kết thúc trước cột econBar (top 300px).
+      var vw = window.innerWidth || 360;
+      var titleFs = Math.max(30, Math.min(52, Math.round(vw * 0.11)));
+      var titleTop = vw <= 620 ? '28%' : '34%';
       flyoverTitleEl = document.createElement('div');
-      flyoverTitleEl.style.cssText = 'position:fixed;left:50%;top:34%;transform:translate(-50%,-50%);z-index:40;pointer-events:none;text-align:center;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.55);display:none';
-      flyoverTitleEl.innerHTML = '<div style="font-size:52px;font-weight:900;letter-spacing:2px">ĐẢO HỘI LÀNG</div><div style="font-size:18px;margin-top:6px">Vịnh Hạ Long · 1.969 đảo đá vôi</div>';
+      flyoverTitleEl.style.cssText = 'position:fixed;left:50%;top:' + titleTop + ';transform:translate(-50%,-50%);z-index:40;pointer-events:none;text-align:center;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.55);display:none';
+      flyoverTitleEl.innerHTML = '<div style="font-size:' + titleFs + 'px;font-weight:900;letter-spacing:2px;white-space:nowrap">ĐẢO HỘI LÀNG</div><div style="font-size:18px;margin-top:6px">Vịnh Hạ Long · 1.969 đảo đá vôi</div>';
       document.body.appendChild(flyoverTitleEl);
     }
     if (!countdownEl) {
@@ -2615,6 +2692,7 @@
 
   // ---- Chế độ chơi ----
   function showHUD(show) {
+    if (!show) hideRoundHint(); // về menu thì gợi ý phím cũng ẩn
     var hud = $('hud'); if (hud) hud.classList.toggle('hidden', !show);
     var mm = $('minimap-box'); if (mm) mm.classList.toggle('hidden', !show);
     var bc = $('btn-chat-open'); if (bc) bc.style.display = show ? 'block' : 'none';
@@ -2637,12 +2715,14 @@
     teams = [];
     leaderArrows.forEach(function (a) { a.visible = false; });
     drumState = 'drum'; drumTimer = 2.5;
+    // P1-07: chơi đơn tự áp giới hạn trận tổng 30 phút; QC miễn (0).
+    matchTimeLimit = qcMode ? 0 : MATCH_TIME_LIMIT_S;
     r1Phase = 'drum'; r1PhaseT = 0; r1DrumBeatT = 0; r1GongAge = 0;
     randomizeBridge();
     fogOverride = null; applyFogPreset('yard');
     var tp = $('team-panel'); if (tp) tp.classList.add('hidden');
     var ts = $('team-screen'); if (ts) ts.classList.add('hidden');
-    var sp = $('spectator'); if (sp) sp.classList.add('hidden');
+    setSpectatorBanner(false);
     showHUD(true); updateAliveHUD();
     updateSingleR1._teamTimer = 0; updateSingleR1._r1TimeoutDone = false;
     startAmbient();
@@ -2675,7 +2755,11 @@
     // Tin nhắn riêng của các vòng 3-6 do rounds.js xử lý trước.
     if (window.Rounds && window.Rounds.onServerMessage && window.Rounds.onServerMessage(msg)) return;
     if (msg.type === 'welcome') { myId = msg.id; return; }
-    if (msg.type === 'roundStart') { startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed, msg.target, msg.isFinal); return; }
+    if (msg.type === 'roundStart') {
+      // Server gửi kèm matchTimeLimit (0 = phòng QC, không giới hạn tổng).
+      if (typeof msg.matchTimeLimit === 'number') matchTimeLimit = msg.matchTimeLimit;
+      startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed, msg.target, msg.isFinal); return;
+    }
     if (msg.type === 'economy' && window.HoiShop && window.HoiShop.onMessage) { window.HoiShop.onMessage(msg); return; }
     if (msg.type === 'roundEnd') { onRoundEnd(msg); return; }
     if (msg.type === 'tick') { onTick(msg); return; }
@@ -2700,16 +2784,51 @@
         player = createPerson((($('player-name') && $('player-name').value) || 'Người chơi').trim(), '#2196f3', false, 0, START_Z);
         player.id = 'me';
       }
+      // Đồng bộ người chơi từ xa TRƯỚC khi vào chế độ khán giả (bug #29):
+      // enterSpectator()/buildSpectatorList() chọn mục tiêu từ allPersons();
+      // nếu sync chạy sau thì lúc đó remotePlayers còn rỗng, danh sách chỉ
+      // có chính mình (đã chết) nên banner ghi "Đang xem: <tên mình>".
+      syncRemotePlayers(msg.players || []);
       if (msg.spectator) {
         player.alive = false; player.spectator = true;
-        var sp = $('spectator'); if (sp) sp.classList.remove('hidden');
+        setSpectatorBanner(true);
         enterSpectator(); buildSpectatorList();
       }
-      syncRemotePlayers(msg.players || []);
+      // Vào giữa trận (khán giả / reconnect, P1-07): đồng bộ trạng thái
+      // trận để HUD hiện đúng vòng + trò đang chơi và đúng đồng hồ (tổng +
+      // vòng) thay vì mặc định vòng 1 / 0:00. Chỉ áp khi server báo đang
+      // ở trong một vòng (phase 'round*'); ở sảnh hoặc phase 'team' thì
+      // msg.match là null / không áp, chờ tin phase/roundStart tiếp theo.
+      // startRoundCommon đặt phase='round*' nhưng không phá camera khán
+      // giả (camera chạy theo spec.active) và updatePlayerMovement bỏ qua
+      // người đã chết.
+      if (msg.match && msg.phase && msg.phase.indexOf('round') === 0) {
+        matchTimeLimit = msg.match.matchTimeLimit || 0;
+        var endsIn = (msg.match.roundEndsIn || 0) / 1000;
+        startRoundCommon(msg.match.round, msg.match.roundGame, msg.match.roundName,
+          endsIn > 0 ? endsIn : (msg.match.roundTimeLimit || 90));
+        // startRoundCommon(1, ...) ghi đè matchStartAt = now — trả lại mốc
+        // thật của trận để đồng hồ tổng đếm đúng thời gian đã chơi.
+        matchStartAt = Date.now() - (msg.match.matchElapsed || 0);
+        updateAliveHUD();
+      }
       var bs = $('btn-start'); if (bs) bs.classList.toggle('hidden', !isHost);
       return;
     }
-    if (msg.type === 'players') { syncRemotePlayers(msg.players); updateAliveHUD(); return; }
+    if (msg.type === 'players') {
+      syncRemotePlayers(msg.players); updateAliveHUD();
+      // Khán giả vào giữa trận: danh sách người chơi có thể tới sau tin
+      // 'joined' (lúc đó chỉ có mình) nên mục tiêu đang xem có thể là
+      // chính mình đã chết — chọn lại người dẫn đầu khi mục tiêu hiện tại
+      // không còn xem được. Vòng lặp animate cũng làm việc này mỗi frame,
+      // nhưng khi WebGL null (VM) / tab ẩn thì rAF không chạy, banner kẹt
+      // ở tên mình (bug #29). Không đụng tới mục tiêu đang xem tốt.
+      if (spec.active) {
+        var cur = spec.target || watchedPerson();
+        if (!cur || !cur.alive) { buildSpectatorList(); var nl = specLeader(); if (nl) setSpecTarget(nl); }
+      }
+      return;
+    }
     if (msg.type === 'playerPos') {
       var rp = remotePlayers[msg.id];
       if (rp) { rp.x = msg.x; rp.z = msg.z; rp.group.position.set(msg.x, rp.y || 0, msg.z); rp.alive = msg.alive; rp.team = msg.team; }
@@ -2723,6 +2842,7 @@
         // bị che mất 3 giây đầu trong tổng số 5,5 giây của bước chia team.
         hideInterstitial();
         var ts2 = $('team-screen'); if (ts2) ts2.classList.remove('hidden');
+        setTeamCardMode('team'); // khôi phục màn CHIA TEAM sau lần hiện bảng cuối trận trước đó
         // Lưu thứ tự lượt từng đội (server đã đảo ngược thứ tự về đích vòng 1) + tên theo id.
         teamQueues = msg.queues || {};
         teamNames = {};
@@ -2769,7 +2889,9 @@
         }
       }
       if (msg.phase === 'finished') {
-        showRanking(msg.ranking || []);
+        showRanking(msg.ranking || [], msg.reason === 'match-timeout'
+          ? 'Hết giờ trận (giới hạn ' + fmtTime(matchTimeLimit || MATCH_TIME_LIMIT_S) + ') — xếp hạng theo tiến độ vòng hiện tại.'
+          : null);
       }
       if (msg.players) syncRemotePlayers(msg.players);
       updateAliveHUD();
@@ -2829,7 +2951,15 @@
       updateAliveHUD();
       return;
     }
-    if (msg.type === 'ranking') { showRanking(msg.ranking); return; }
+    if (msg.type === 'ranking') {
+      // Trước đây gọi showRanking() ngay khi có người qua cầu vòng 2 — chiếm
+      // màn hình + set phase='finished' cho cả người còn đang chơi (lỗi).
+      // Nay chỉ cập nhật bảng trực tiếp; bảng cuối trận vẫn do tin phase
+      // 'finished' gọi showRanking.
+      renderLeaderboard({ finished: msg.ranking });
+      return;
+    }
+    if (msg.type === 'leaderboard') { renderLeaderboard(msg); return; }
     if (msg.type === 'chat') {
       addChatMessage(msg.name, teamColorHex(msg.team), msg.text, false);
       var sender = msg.senderId === myId ? player : remotePlayers[msg.senderId];
@@ -2859,14 +2989,61 @@
     connectWS();
     setTimeout(function () { sendWS({ type: 'join', code: code, name: ($('player-name') && $('player-name').value) || 'Người chơi' }); }, 300);
   };
-  function showRanking(ranking) {
+  // ---- Bảng xếp hạng trực tiếp cho khán giả (P1-09, cycle 8) ----
+  // Panel #leaderboard nằm trong #specBanner nên chỉ hiện cùng banner khán
+  // giả; chơi đơn không có server nên không có dữ liệu bảng (giữ ẩn).
+  var lastLeaderboard = null;
+  function renderLeaderboard(data) {
+    if (!data) return;
+    // Gộp từng phần: tin 'ranking' chỉ mang finished, tin 'leaderboard'
+    // mang đủ — giữ lại phần tin mới không có.
+    lastLeaderboard = {
+      round: data.round !== undefined ? data.round : (lastLeaderboard && lastLeaderboard.round),
+      roundName: data.roundName !== undefined ? data.roundName : (lastLeaderboard && lastLeaderboard.roundName),
+      aliveCount: data.aliveCount !== undefined ? data.aliveCount : (lastLeaderboard && lastLeaderboard.aliveCount),
+      finished: data.finished || (lastLeaderboard && lastLeaderboard.finished) || [],
+      eliminated: data.eliminated || (lastLeaderboard && lastLeaderboard.eliminated) || [],
+    };
+    var lb = $('leaderboard'); if (!lb) return;
+    if (mode !== 'multi') { lb.style.display = 'none'; return; }
+    var b = lastLeaderboard;
+    var title = 'BẢNG TRỰC TIẾP' + (b.round ? ' · VÒNG ' + b.round + (b.roundName ? ' — ' + b.roundName : '') : '');
+    var leaders = b.finished.length
+      ? b.finished.slice(0, 5).map(function (r, i) {
+          return '<div class="lbRow"><span><span class="lbRank">' + (i + 1) + '.</span> ' + escapeHtml(r.name) + '</span><span class="lbTime">' + (r.time / 1000).toFixed(1) + 's</span></div>';
+        }).join('')
+      : '<div class="lbEmpty">Chưa ai về đích.</div>';
+    var elim = b.eliminated.length
+      ? b.eliminated.slice(0, 5).map(function (e) {
+          return '<div class="lbRow"><span>✕ ' + escapeHtml(e.name) + '</span><span class="lbWhy">V' + (e.round || '?') + ' — ' + escapeHtml(e.reason || 'Bị loại') + '</span></div>';
+        }).join('')
+      : '<div class="lbEmpty">Chưa ai bị loại.</div>';
+    lb.innerHTML = '<div class="lbTitle">' + escapeHtml(title) + '</div>' +
+      '<div class="lbRow"><span>Còn lại:</span><b>' + (b.aliveCount === undefined || b.aliveCount === null ? '—' : b.aliveCount) + ' người</b></div>' +
+      '<div class="lbHead">DẪN ĐẦU</div>' + leaders +
+      '<div class="lbHead">VỪA BỊ LOẠI</div>' + elim;
+    lb.style.display = 'block';
+  }
+  // Màn kết thúc trận tái dùng #teamCard: chế độ 'ranking' ẩn tiêu đề +
+  // luật chia team + dòng tự chuyển, hiện tiêu đề kết quả, bảng xếp hạng
+  // thành 1 cột rộng (CSS #teamCard.ranking). Chế độ 'team' khôi phục lại
+  // màn CHIA TEAM — gọi mỗi khi hiện màn chia team (chơi đơn + multi),
+  // vì cùng một overlay dùng cho cả hai màn.
+  function setTeamCardMode(mode) {
+    var tc = $('team-screen'); if (!tc) return;
+    tc.classList.toggle('ranking', mode === 'ranking');
+  }
+  function showRanking(ranking, note) {
     phase = 'finished';
-    var html = '<h2>BẢNG XẾP HẠNG — theo thời gian cá nhân</h2>' +
+    var html =
+      '<p class="note">Xếp theo thời gian cá nhân — nhanh nhất đứng đầu.</p>' +
+      (note ? '<p class="note">' + escapeHtml(note) + '</p>' : '') +
       (ranking.length ? ranking.map(function (r, i) {
-        return '<div>' + (i + 1) + '. ' + escapeHtml(r.name) + ' — ' + (r.time / 1000).toFixed(1) + 's</div>';
-      }).join('') : '<div>Chưa có ai về đích.</div>') +
+        return '<div class="rankRow' + (i === 0 ? ' first' : '') + '">' + (i + 1) + '. ' + escapeHtml(r.name) + ' — ' + (r.time / 1000).toFixed(1) + 's</div>';
+      }).join('') : '<div class="rankRow">Chưa có ai về đích.</div>') +
       '<p class="note">Không có xếp hạng team. Chia team chỉ để chia lượt.</p>';
     var ts = $('team-screen'); if (ts) ts.classList.remove('hidden');
+    setTeamCardMode('ranking');
     var tl = $('team-list'); if (tl) tl.innerHTML = html;
     var btb = $('btn-to-bridge'); if (btb) btb.textContent = 'Chơi lại từ vòng 1';
   }
@@ -3102,6 +3279,7 @@
       tl.innerHTML = '<div><b>QC — NHẢY THẲNG VÒNG 2:</b> không có thời gian về đích Vòng 1 nên thứ tự lượt xáo trộn theo seed ' + matchStartAt + ' (không phải ngược thứ tự về đích). Đồng hồ lượt 30 giây vẫn áp dụng.</div>' + tl.innerHTML;
     }
     var ts = $('team-screen'); if (ts) ts.classList.remove('hidden');
+    setTeamCardMode('team'); // khôi phục màn CHIA TEAM sau lần hiện bảng cuối trận trước đó
     var btb = $('btn-to-bridge'); if (btb) btb.textContent = 'Vào cầu ngay';
     // Tự chuyển sang vòng 2 sau vài giây như dòng chữ trên màn hình đã hứa —
     // trước đây màn hình chỉ chuyển khi bấm nút, nên nếu nút không bấm được thì kẹt ở đây.
@@ -3125,6 +3303,7 @@
     toast('VÒNG 2 — CẦU KHỈ · ĐI THEO LƯỢT THEO ĐỘI');
     updateTeamPanel();
     syncQcBar();
+    showRoundHint('cau-khi'); // gợi ý phím theo vòng (P4-02 bước 2)
   }
   function teleportToBridge() {
     if (player && player.alive && myTeam !== null) {
@@ -3971,6 +4150,11 @@
     downPos = null;
   });
 
+  // Thiết bị cảm ứng: gắn class 'touch' để CSS chỉ hiện joystick + nút NHẢY
+  // trên điện thoại/máy tính bảng (P4-03, cycle 14). isTouchDevice() khai
+  // báo dạng function nên gọi được dù định nghĩa ở dưới.
+  if (isTouchDevice()) document.body.classList.add('touch');
+
   // Joystick mobile.
   var joyEl = $('joystick'), knob = $('joy-knob');
   if (joyEl && knob) {
@@ -4033,8 +4217,100 @@
   var qcRe = $('qcRestartBtn');
   if (qcRe) qcRe.onclick = function () { qcSkipTo(currentRound || 1); };
   if (btnTourLobby) btnTourLobby.onclick = function () { ensureAudio(); startAmbient(); focusIsland(1, true); };
+  // ---- Onboarding người mới (P4-02, cycle 12 bước 1): 3 bước, tự hiện lần đầu ----
+  var OB_KEY = 'hoilang_onboarding_seen';
+  var OB_STEPS = [
+    { title: 'BƯỚC 1 · TRỐNG ĐÁNH — CHIÊNG LÀ LỆNH',
+      body: '<b>VÒNG 1 · TRỐNG HỘI:</b> nghe <b>trống đánh</b> thì chạy thoải mái về sân đình. Nghe <b>chiêng vang</b> thì phải <b>đứng yên tuyệt đối</b> — cử động là bị loại ngay!<br />Chạy qua lũy tre, ao sen, hồ cá để về đích trước khi hết giờ vòng (120 giây). Về đích càng nhanh, vòng sau càng có lợi.' },
+    { title: 'BƯỚC 2 · CẦU KHỈ — ĐI THEO LƯỢT',
+      body: 'Trước <b>VÒNG 2</b> có bước <b>CHIA TEAM</b>: tối đa 3 đội (Đỏ / Vàng / Xanh lá), mỗi đội một cầu riêng, <b>đi theo lượt</b> — chỉ người dẫn đầu của đội được lên cầu, người sau chờ trên bệ an toàn, không chen lấn nhảy vượt.<br />Mỗi bước có 2 tấm ván: <b>một chắc, một yếu</b>, ngẫu nhiên riêng cho từng cầu mỗi trận. Giẫm ván yếu là rơi xuống biển, <b>bị loại cá nhân</b>. Ván đã vỡ thành khoảng trống — phải <b>nhảy (Space)</b> qua.' },
+    { title: 'BƯỚC 3 · CHAT, KHÁN GIẢ, PHÍM TẮT',
+      body: '<b>Chat:</b> phím <b>Enter</b> mở ô chat và gửi tin, <b>Esc</b> đóng — tin hiện thành bong bóng trên đầu nhân vật và trong panel CHAT.<br /><b>Bị loại</b> vẫn xem tiếp như khán giả (phím <b>1–4</b> đổi góc camera, <b>Tab</b> đổi người xem) hoặc bấm <b>Du lịch Hạ Long</b> để bay tham quan vịnh trong lúc trận vẫn chạy.<br /><b>Phím tắt:</b> WASD / phím mũi tên để chạy · kéo chuột xoay camera · <b>Space</b> nhảy · điện thoại: joystick ảo bên trái, nút NHẢY bên phải.' }
+  ];
+  var obStep = 0;
+  function obSeen() { try { return localStorage.getItem(OB_KEY) === '1'; } catch (e) { return false; } }
+  function obMarkSeen() { try { localStorage.setItem(OB_KEY, '1'); } catch (e) { /* chế độ riêng tư: lần sau hiện lại, không vỡ game */ } }
+  function showOnboarding(step) {
+    var card = $('onboardingCard'); if (!card) return false;
+    obStep = Math.max(0, Math.min(OB_STEPS.length - 1, (typeof step === 'number' ? step : 0)));
+    var t = $('obTitle'), b = $('obBody'), dots = $('obDots');
+    if (t) t.textContent = OB_STEPS[obStep].title;
+    if (b) b.innerHTML = OB_STEPS[obStep].body;
+    if (dots) { var ds = dots.children; for (var i = 0; i < ds.length; i++) ds[i].className = (i === obStep ? 'on' : ''); }
+    var last = obStep === OB_STEPS.length - 1;
+    var prev = $('btnObPrev'), next = $('btnObNext'), done = $('btnObDone');
+    if (prev) prev.classList.toggle('hidden', obStep === 0);
+    if (next) next.classList.toggle('hidden', last);
+    if (done) done.classList.toggle('hidden', !last);
+    card.classList.remove('hidden');
+    return true;
+  }
+  function hideOnboarding(markSeen) {
+    var card = $('onboardingCard'); if (card) card.classList.add('hidden');
+    if (markSeen) obMarkSeen();
+  }
+  var btnHelp = $('btnHelp');
+  if (btnHelp) btnHelp.onclick = function () { showOnboarding(0); };
+  var btnObNext = $('btnObNext');
+  if (btnObNext) btnObNext.onclick = function () { showOnboarding(obStep + 1); };
+  var btnObPrev = $('btnObPrev');
+  if (btnObPrev) btnObPrev.onclick = function () { showOnboarding(obStep - 1); };
+  var btnObDone = $('btnObDone');
+  if (btnObDone) btnObDone.onclick = function () { hideOnboarding(true); };
+  var btnObSkip = $('btnObSkip');
+  if (btnObSkip) btnObSkip.onclick = function () { hideOnboarding(true); };
+  // Tự hiện lần đầu vào sảnh chờ (phase menu, chưa từng xem). Bỏ qua được ngay.
+  if (phase === 'menu' && !obSeen()) showOnboarding(0);
+  // ---- Gợi ý phím theo từng vòng trong lúc chơi (P4-02 bước 2, cycle 13) ----
+  // Dải nhỏ dưới HUD, hiện lúc bắt đầu mỗi vòng, tự ẩn sau 12 giây. Chỉ
+  // hiện cho người đang chơi (player.alive) — khán giả vào giữa trận hoặc
+  // người đã chết không thấy gợi ý phím vì không điều khiển nhân vật nữa.
+  // Mỗi vòng chỉ có 1 câu ngắn: phím chính + luật quyết định của vòng đó.
+  var ROUND_HINTS = {
+    'trong-hoi': { keys: '<b>WASD / ←↑↓→</b> chạy về sân đình · <b>Trống</b> đánh thì chạy, <b>chiêng</b> vang thì <b>ĐỨNG YÊN</b>!',
+      touch: '<b>Joystick</b> chạy về sân đình · <b>Trống</b> đánh thì chạy, <b>chiêng</b> vang thì <b>ĐỨNG YÊN</b>!' },
+    'cau-khi': { keys: '<b>WASD</b> đi theo lượt của đội · <b>Space</b> nhảy qua khoảng trống · Ván yếu sẽ vỡ!',
+      touch: '<b>Joystick</b> đi theo lượt của đội · nút <b>NHẢY</b> qua khoảng trống · Ván yếu sẽ vỡ!' },
+    'keo-co': { keys: '<b>Space</b> (hoặc nút KÉO) đúng lúc vòng tròn sáng · Nghe nhịp trống!',
+      touch: 'Bấm nút <b>KÉO</b> đúng lúc vòng tròn sáng · Nghe nhịp trống!' },
+    'to-he': { keys: '<b>Chuột</b> vẽ theo mẫu · càng giống càng cao điểm · bấm <b>NỘP BÀI</b> khi xong',
+      touch: '<b>Chạm + kéo</b> vẽ theo mẫu · càng giống càng cao điểm · bấm <b>NỘP BÀI</b> khi xong' },
+    'bit-mat': { keys: '<b>WASD</b> chạy theo mũi tên · Người tìm chạm vào dê · Dê chạy trốn!',
+      touch: '<b>Joystick</b> chạy theo mũi tên · Người tìm chạm vào dê · Dê chạy trốn!' },
+    'o-an-quan': { keys: 'Bấm <b>ô bên mình (viền vàng)</b> để rải quân · Không bấm ô quan',
+      touch: 'Bấm <b>ô bên mình (viền vàng)</b> để rải quân · Không bấm ô quan' },
+    'nhay-bao-bo': { keys: '<b>Space</b> (hoặc nút NHẢY) khi vạch nằm trong ô sáng giữa thanh',
+      touch: 'Bấm nút <b>NHẢY</b> khi vạch nằm trong ô sáng giữa thanh' },
+    'rong-ran': { keys: '<b>WASD</b> chạy · <b>Chạm cờ</b> rồi chạy về vạch xuất phát!',
+      touch: '<b>Joystick</b> chạy · <b>Chạm cờ</b> rồi chạy về vạch xuất phát!' }
+  };
+  var ROUND_HINT_MS = 12000;
+  var roundHintTimer = null;
+  function isTouchDevice() { try { return ('ontouchstart' in window) || (navigator && navigator.maxTouchPoints > 0); } catch (e) { return false; } }
+  function roundHintFor(game) {
+    var h = ROUND_HINTS[game]; if (!h) return '';
+    return isTouchDevice() ? h.touch : h.keys;
+  }
+  function showRoundHint(game) {
+    var txt = roundHintFor(game); if (!txt) return false;
+    // Khán giả / người đã chết không điều khiển nhân vật — không hiện gợi ý.
+    if (!player || player.alive === false) return false;
+    var el = $('roundHint'), t = $('roundHintText');
+    if (!el || !t) return false;
+    t.innerHTML = txt;
+    el.classList.remove('hidden');
+    if (roundHintTimer) clearTimeout(roundHintTimer);
+    roundHintTimer = setTimeout(hideRoundHint, ROUND_HINT_MS);
+    return true;
+  }
+  function hideRoundHint() {
+    if (roundHintTimer) { clearTimeout(roundHintTimer); roundHintTimer = null; }
+    var el = $('roundHint'); if (el) el.classList.add('hidden');
+  }
+  var btnHintClose = $('roundHintClose');
+  if (btnHintClose) btnHintClose.onclick = function () { hideRoundHint(); };
   var btnTour = $('btn-tour');
-  if (btnTour) btnTour.onclick = function () { ensureAudio(); startAmbient(); var sp = $('spectator'); if (sp) sp.classList.add('hidden'); focusIsland(1, true); };
+  if (btnTour) btnTour.onclick = function () { ensureAudio(); startAmbient(); setSpectatorBanner(false); focusIsland(1, true); };
   var btnCloseTour = $('btn-close-tour');
   if (btnCloseTour) btnCloseTour.onclick = backToMatch;
   var btnPanorama = $('btn-panorama');
@@ -4185,8 +4461,10 @@
     }
     if (round >= 3 && window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: mode === 'single', seed: seed, isFinal: roundIsFinal });
     syncQcBar();
+    showRoundHint(game); // gợi ý phím theo vòng (P4-02 bước 2)
   }
   function onRoundEnd(msg) {
+    hideRoundHint(); // hết vòng thì gợi ý phím cũng hết (P4-02 bước 2)
     var st = roundEndStats();
     var survivors = (msg.survivors !== undefined && msg.survivors !== null) ? msg.survivors : st.survivors;
     // Server gửi eliminated là [id]; đổi sang tên để hiển thị.
@@ -4270,6 +4548,7 @@
     setHudDrum(name);
     hideInterstitial();
     if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now(), isFinal: isFinal });
+    showRoundHint(game); // gợi ý phím theo vòng (P4-02 bước 2)
   }
   // Đồng hồ đếm ngược HIỂN THỊ TRÊN HUD (ô ĐẾM NGƯỢC, cạnh ô VÒNG):
   // mọi vòng đều có đếm ngược. Vòng 1, 3–6: đếm ngược cả vòng (deadline
@@ -4329,10 +4608,25 @@
     get camera() { return camera; },
     get renderer() { return renderer; },
     get matchStartAt() { return matchStartAt; },
+    get matchTimeLimit() { return matchTimeLimit; },
+    matchTimeLeft: matchTimeLeft, endMatchOnTimeoutIfNeeded: endMatchOnTimeoutIfNeeded,
     allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast,
+    renderLeaderboard: renderLeaderboard,
+    get lastLeaderboard() { return lastLeaderboard; },
     setTag: setTag, clearTag: clearTag, updateAliveHUD: updateAliveHUD,
     teamColorHex: teamColorHex, TEAM_COLORS: TEAM_COLORS, TEAM_NAMES: TEAM_NAMES,
     localRoundEnd: localRoundEnd, showInterstitial: showInterstitial, hideInterstitial: hideInterstitial,
+    showRanking: showRanking, setTeamCardMode: setTeamCardMode,
+    showOnboarding: showOnboarding, hideOnboarding: hideOnboarding, onboardingSeen: obSeen,
+    get onboardingStep() { return obStep; },
+    showRoundHint: showRoundHint, hideRoundHint: hideRoundHint, roundHintFor: roundHintFor,
+    get roundHintMs() { return ROUND_HINT_MS; },
+    specLeader: specLeader, specTargets: specTargets, buildSpectatorList: buildSpectatorList,
+    enterSpectator: enterSpectator, setSpecTarget: setSpecTarget, watchedPerson: watchedPerson,
+    updateWatchedName: updateWatchedName,
+    get spec() { return spec; },
+    get watchedId() { return watchedId; },
+    get spectatorList() { return spectatorList; },
     setHudDrum: setHudDrum, setFogOverride: setFogOverride, clearFogOverride: clearFogOverride,
     get fogOverride() { return fogOverride; },
     project: function (x, y, z) {

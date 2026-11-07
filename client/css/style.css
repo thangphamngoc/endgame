@@ -90,6 +90,15 @@
       .specBtn.on{background:#d63c2f; border-color:var(--edge); color:#fff; box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px #ffd34d;}
       #specTargetName{font-size:14px; font-weight:900; color:#ffd34d; min-width:150px; display:flex; align-items:center; justify-content:center;}
       .specHint{font-size:11px; font-weight:500; opacity:.75; margin-top:7px; line-height:1.4;}
+      /* bảng xếp hạng trực tiếp trong banner khán giả (P1-09) */
+      #leaderboard{margin-top:10px; border-top:2px solid rgba(255,205,120,.35); padding-top:8px; text-align:left; font-size:13px; line-height:1.45;}
+      #leaderboard .lbTitle{font-weight:900; color:#ffd34d; text-align:center; margin-bottom:4px; font-size:13.5px;}
+      #leaderboard .lbHead{font-weight:900; color:#ffb3a0; margin-top:6px; font-size:11.5px; letter-spacing:.5px;}
+      #leaderboard .lbRow{display:flex; justify-content:space-between; gap:8px; padding:1px 2px;}
+      #leaderboard .lbRank{color:#ffd34d; font-weight:900;}
+      #leaderboard .lbTime{opacity:.85; font-variant-numeric:tabular-nums;}
+      #leaderboard .lbWhy{opacity:.8; font-size:12px; text-align:right;}
+      #leaderboard .lbEmpty{opacity:.7; font-size:12px; padding:1px 2px;}
       body.spectator #joyBase, body.spectator #btnJump{display:none !important;}
       /* ---------- touch controls ---------- */
       #joyBase{
@@ -113,7 +122,10 @@
         box-shadow:0 6px 0 #5d1408; touch-action:none; cursor:pointer;
       }
       #btnJump:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408;}
-      body.playing #joyBase, body.playing #btnJump{display:block;}
+      /* Joystick + nút NHẢY CHỈ hiện trên thiết bị cảm ứng (P4-03, cycle 14):
+         trước đây dòng body.playing ... {display:block} không phân biệt nên
+         desktop cũng hiện joystick giữa màn hình. body.touch do game.js gắn
+         khi isTouchDevice() đúng (laptop cảm ứng: pointer:fine + touch). */
       @media (pointer:coarse){ body.playing #joyBase, body.playing #btnJump{display:block;} }
       @media (pointer:fine){ body.playing.touch #joyBase, body.playing.touch #btnJump{display:block;} }
       /* ---------- cards ---------- */
@@ -233,9 +245,14 @@
          mỗi đội đã qua cầu, đội của bạn, ai đang tới lượt, đếm ngược lượt
          30 giây — chỉ gọn lại, không bỏ. Danh sách thứ tự đầy đủ vẫn có
          trên màn CHIA TEAM trước khi vòng bắt đầu (thẻ lớn, lúc đó chưa chơi). */
+      /* Dải team vòng 2: ĐẶT DƯỚI dải gợi ý phím (#roundHint, top 122px,
+         cao tối đa ~55px cho 2 dòng) để hai dải không đè nhau trong 12 giây
+         đầu vòng 2 — beginRound2Play hiện cả hai cùng lúc (cycle 15, #10).
+         Trước đây top 118px = cùng dải với gợi ý, gợi ý (z-index 7) che
+         mất nửa trên của dải team. Sau khi gợi ý tự ẩn, dải team vẫn ở đây. */
       #teamPanel{
         position:fixed; left:50%; transform:translateX(-50%);
-        top:calc(118px + env(safe-area-inset-top)); z-index:5;
+        top:calc(182px + env(safe-area-inset-top)); z-index:5;
         width:min(600px, 92vw); max-width:92vw;
         display:none; pointer-events:none;
         background:rgba(30,18,10,.72);
@@ -255,6 +272,16 @@
       #tpTurn{margin-top:6px; padding-top:6px; border-top:2px dashed rgba(255,205,120,.35); font-size:12.5px; font-weight:800; line-height:1.45;}
       #tpTurn b{color:#ffd34d;}
       .teamCols{display:flex; gap:10px; margin:14px 0 4px; text-align:left;}
+      /* Màn kết thúc trận tái dùng #teamCard (showRanking): chế độ ranking
+         ẩn phần chia team (tiêu đề + luật + dòng tự chuyển), hiện tiêu đề
+         kết quả, bảng xếp hạng thành 1 cột rộng thay vì bị ép thành cột
+         hẹp trong flex .teamCols (lỗi cycle 9: tiêu đề gãy dòng, khó đọc). */
+      #teamCard .rankTitle{display:none;}
+      #teamCard.ranking .rankTitle{display:block;}
+      #teamCard.ranking .teamOnly{display:none;}
+      #teamCard.ranking .teamCols{flex-direction:column; gap:0;}
+      #teamCard .teamCols .rankRow{padding:7px 10px; font-size:14px; font-weight:700; line-height:1.5; border-bottom:1px dashed rgba(122,45,22,.35); text-align:left;}
+      #teamCard .teamCols .rankRow.first{background:rgba(255,211,77,.35); font-weight:900;}
       .teamCol{flex:1 1 0; border:3px solid #7a2d16; border-radius:3px; overflow:hidden; background:#fff8e6; min-width:0;}
       .teamCol .tcHead{padding:7px 9px; font-weight:900; font-size:14px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); letter-spacing:.4px;}
       .teamCol .tcList{padding:7px 10px; font-size:12.5px; font-weight:600; line-height:1.55; max-height:190px; overflow:auto;}
@@ -266,8 +293,13 @@
       .tourBtn .tbFeat{display:block; font-size:10.5px; font-weight:600; opacity:.85; line-height:1.3; margin-top:1px;}
       @media (max-width:620px){
         /* Dải team ở vòng 2 trên điện thoại: dạt sang trái, chừa chỗ cho
-           minimap ở góc phải, vẫn ở mép trên, không che giữa màn hình. */
-        #teamPanel{left:6px; right:122px; transform:none; width:auto; max-width:none; top:calc(104px + env(safe-area-inset-top)); padding:3px 8px; font-size:11px;}
+           minimap ở góc phải, vẫn ở mép trên, không che giữa màn hình.
+           Top 252px = dưới dải gợi ý phím mobile (top 162px, cao tối đa
+           ~83px cho 4 dòng, đo thật) + 7px hở. Right 160px: minimap rộng
+           135px ở right:6px (cạnh trái x=219) VÀ dải team cao có thể chạm
+           tới cột econBar (bắt đầu x=204px ở 360px) — right:122px cũ đè
+           lên minimap 19px (cycle 15, đo thật). */
+        #teamPanel{left:6px; right:160px; transform:none; width:auto; max-width:none; top:calc(252px + env(safe-area-inset-top)); padding:3px 8px; font-size:11px;}
         .tpRow{font-size:11px;}
         #tpTurn{font-size:11px;}
         .teamCols{flex-direction:column;}
@@ -369,21 +401,28 @@
         #minimapHint{display:none;}
       }
       @media (max-width:620px){
-        #hud{gap:6px; padding-left:8px; padding-right:8px;}
+        /* HUD 2 hàng trên điện thoại (P4-03, cycle 15): 5 ô thống kê + dải
+           trạng thái không vừa 1 hàng 360px — trước đây flex không wrap nên
+           dải trạng thái bị bóp còn 22px (nội dung 191px tràn ra ngoài) và
+           ô "ĐÃ ĐI" tràn phải tới 386px, bị cắt. Hàng 1: dải trạng thái
+           (chiếm hết chiều ngang); hàng 2: 5 ô thống kê chia đều. Toàn bộ
+           dải dưới (tiến độ / đồng hồ vòng / gợi ý / team / minimap) dời
+           xuống theo: HUD 2 hàng cao ~100px. */
+        #hud{flex-wrap:wrap; gap:6px; padding-left:8px; padding-right:8px;}
         .plate{padding:6px 9px; border-radius:3px; border-width:2px;}
-        #minimapWrap{top:calc(104px + env(safe-area-inset-top)); right:6px; padding:4px; border-width:2px;}
+        #minimapWrap{top:calc(162px + env(safe-area-inset-top)); right:6px; padding:4px; border-width:2px;}
         #minimap{width:100px; height:100px;}
         #minimapLabel{font-size:8.5px; letter-spacing:.8px;}
         #minimapLegend{display:none;}
-        #statePlate{min-width:0; gap:7px;}
+        #statePlate{flex:1 1 auto; min-width:0; gap:7px;}
         #stateDot{width:13px; height:13px;}
         #hudState{font-size:15px; white-space:nowrap;}
         #stateSub{font-size:10px; white-space:nowrap;}
-        #hudStats{gap:6px;}
-        .stat{min-width:56px; padding:6px 7px;}
-        .stat b{font-size:16px;}
-        .stat span{font-size:9px; white-space:nowrap;}
-        #progressWrap{top:calc(60px + env(safe-area-inset-top)); width:88vw;}
+        #hudStats{margin-left:0; width:100%; gap:6px;}
+        .stat{flex:1 1 0; min-width:0; padding:6px 2px;}
+        .stat b{font-size:13px; white-space:nowrap;}
+        .stat span{font-size:8px; white-space:nowrap;}
+        #progressWrap{top:calc(114px + env(safe-area-inset-top)); width:88vw;}
       }
       /* đang du lịch/khám phá: chat dạt lên trên-trái, nhường đáy màn hình cho panel du lịch */
       body.touring #btnChatToggle{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
@@ -458,6 +497,30 @@
 /* Vòng có mô phỏng 3D (sim): overlay không được che giữa màn hình nữa —
    thu thành tấm dưới cùng, thế giới 3D mới là sân chơi chính. */
 #round-overlay.sim-mode{top:auto;bottom:12px;transform:translateX(-50%);width:min(640px,96vw);max-height:44vh;padding:12px 16px;text-align:left}
+/* Vòng cần di chuyển mà overlay vẫn hiện (Rồng Rắn chạy cờ, Bịt Mắt khi làm
+   dê): trên cảm ứng, dải bottom-sheet sẽ đè lên joystick + nút NHẢY + nút
+   CHAT nên chuyển overlay thành dải gọn phía trên, chừa cột minimap bên
+   phải (cùng cách #teamPanel/#roundHint làm). Desktop dùng bàn phím nên giữ
+   nguyên bottom-sheet. (P4-03, cycle 14) */
+@media (pointer:coarse){
+  #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+}
+body.touch #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+#round-overlay.sim-mode.move-mode h2{font-size:17px;margin:0 0 4px}
+#round-overlay.sim-mode.move-mode .note{display:none}
+#round-overlay.sim-mode.move-mode #flag-status{display:block;margin:0}
+@media (max-width:620px){
+  /* Cùng độ đặc hiệu với luật body.touch ở trên (1 id + 3 class), nếu không
+     luật đó thắng và dải chỉ rộng 194px thay vì 232px. Minimap mobile đo
+     thật rộng 135px ở right:6px (chiếm tới 141px) nên right:150px mới chừa đủ.
+     Top 226px = dưới dải gợi ý phím mobile (top 162px, cao tối đa ~61px
+     cho 3 dòng) để dải di chuyển không đè gợi ý trong 12 giây đầu vòng
+     (cycle 15, #10 — HUD mobile giờ 2 hàng nên mọi dải trên đều dời xuống).
+     Right 160px = chừa cột econBar (bắt đầu x=204px ở 360px), dải cao tối
+     đa 32vh có thể chạm tới y=300px của cột kinh tế. */
+  #round-overlay.sim-mode.move-mode{top:calc(226px + env(safe-area-inset-top));right:160px}
+  body.touch #round-overlay.sim-mode.move-mode{top:calc(226px + env(safe-area-inset-top));right:160px}
+}
 #round-overlay.sim-mode h2{font-size:19px}
 #round-overlay.sim-mode .note{font-size:13px;line-height:1.4}
 #round-overlay h2{margin:2px 0 8px;font-size:24px;font-weight:900;color:#b5451b;line-height:1.15}
@@ -474,7 +537,20 @@
 #round-timer-fill.urgent{background:#e2483a}
 .stat b.urgent{color:#ff6b5e}
 @media (max-width:620px){
-  #round-timer-wrap{top:calc(94px + env(safe-area-inset-top));width:88vw}
+  #round-timer-wrap{top:calc(150px + env(safe-area-inset-top));width:88vw}
+}
+/* --- gợi ý phím theo vòng (P4-02 bước 2, cycle 13): dải nhỏ dưới đồng hồ
+   vòng, trên thanh tiến độ không đè; tự ẩn sau 12 giây --- */
+#roundHint{position:fixed;left:50%;transform:translateX(-50%);top:calc(122px + env(safe-area-inset-top));z-index:7;display:flex;align-items:center;gap:10px;max-width:min(640px,92vw);background:var(--plate);border:3px solid var(--edge);border-radius:3px;padding:7px 12px;box-shadow:inset 0 0 0 2px rgba(255,205,120,.22),0 4px 0 rgba(0,0,0,.25);font-size:13px;font-weight:600;line-height:1.35;color:var(--ink);pointer-events:auto}
+#roundHint b{color:#ffd34d;font-weight:900}
+#roundHintClose{flex:0 0 auto;background:none;border:none;cursor:pointer;font:inherit;font-weight:900;font-size:15px;line-height:1;color:#ffd34d;padding:2px 4px}
+@media (max-width:620px){
+  /* Dạt sang trái, chừa cột minimap ở góc phải — cùng cách #teamPanel làm,
+     nếu không minimap (z-index 6) sẽ đè lên nửa phải của gợi ý + nút ✕.
+     Right 150px (cycle 15, đo thật): minimapWrap rộng 135px do nhãn
+     "BẢN ĐỒ · ĐẢO HỘI LÀNG" dài hơn canvas 100px, cạnh trái ở x=219 —
+     right:122px cũ cho gợi ý chạm tới x=238, đè lên minimap 19px. */
+  #roundHint{left:6px;right:150px;transform:none;width:auto;max-width:none;top:calc(162px + env(safe-area-inset-top));font-size:12px;padding:6px 10px}
 }
 .round-countdown{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#33200f}
 .round-countdown.urgent{color:#c62828}
@@ -537,3 +613,10 @@
 .qcRoundBtn{border:3px solid #431407;background:#fff7ed;color:#7c2d12;font:inherit;font-weight:800;font-size:12px;padding:4px 8px;border-radius:0;cursor:pointer}
 .qcRoundBtn.on{background:#f59e0b;color:#431407}
 #qc-round-btns .qcRoundBtn{font-size:13px;padding:7px 9px}
+
+/* ---- Onboarding người mới (P4-02, cycle 12 bước 1) ---- */
+#onboardingCard{z-index:40;}
+#onboardingCard .obDots{display:flex;gap:8px;justify-content:center;margin:10px 0 2px;}
+#onboardingCard .obDots span{width:12px;height:12px;border-radius:50%;background:#d8c49a;border:2px solid #7a2d16;display:inline-block;}
+#onboardingCard .obDots span.on{background:#d63c2f;}
+#onboardingCard .obSkip{background:none;border:none;cursor:pointer;font:inherit;font-weight:700;color:#9c3418;text-decoration:underline;margin-top:12px;}

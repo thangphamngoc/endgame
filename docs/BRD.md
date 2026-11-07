@@ -160,8 +160,8 @@ sau khi có số người chơi thật.
 - **US-S01:** Là khán giả, tôi muốn đổi góc xem (toàn cảnh, theo dõi, sát vai,
   tự do) và chuyển người đang xem, để theo dõi trận theo ý mình. *(Đã có)*
 - **US-S02:** Là khán giả, tôi muốn biết ai đang dẫn đầu và ai vừa bị loại,
-  để theo dõi trận. *(Đã có một phần: bảng xếp hạng chỉ hiện khi có người về
-  đích vòng 2; chưa có bảng trực tiếp trong lúc xem — dự kiến cải thiện)*
+  để theo dõi trận. *(Đã có: bảng trực tiếp `#leaderboard` trong banner khán
+  giả, cập nhật theo sự kiện loại/về đích/hết vòng — cycle 8, 2026-11-06)*
 
 ### 5.4. Khách du lịch trong game (người bị loại đi du lịch)
 
@@ -352,6 +352,176 @@ server (từ chối tin > 120 ký tự, multi); (2) biến `bubblesHidden` trong
 (nút ẨN/HIỆN BONG BÓNG bật/tắt). Quét toàn repo không còn TODO/FIXME/XXX/
 HACK trong code JS. Chưa đo bằng tay: xác nhận không đổi hành vi chat
 (gửi tin, bong bóng, nút ẩn/hiện) khi chơi thật.
+
+**Bảng trực tiếp cho khán giả — ĐÃ QUYẾT (cycle 8, 2026-11-06):** server
+phát tin `leaderboard` {round, roundName, aliveCount, finished (thứ tự về
+đích + thời gian), eliminated (5 người mới nhất, kèm vòng + lý do)} sau
+mỗi lần loại, mỗi lần về đích vòng 2, mỗi lần hết vòng; người vào giữa
+trận làm khán giả nhận ngay 1 bản lúc join. Broadcast gộp bằng
+`setImmediate` để vòng kết thúc loại hàng loạt không spam 456 client; bỏ
+qua khi trận đã kết thúc (bảng cuối trận đi theo tin `phase: finished`).
+Client: panel `#leaderboard` trong `#specBanner` (còn lại N người, DẪN
+ĐẦU tối đa 5 + thời gian, VỪA BỊ LOẠI tối đa 5 + vòng/lý do); tin
+`ranking` giữa trận chỉ cập nhật bảng, không gọi `showRanking()` chiếm
+màn hình như trước. Banner khán giả `#specBanner` trước đây không bao
+giờ hiện (CSS `display:none`, code chỉ gỡ class `.hidden`) — nay mọi
+chỗ hiện/ẩn banner qua helper `setSpectatorBanner(show)` (set cả class
++ `style.display`). Chơi đơn không có server nên không có dữ liệu bảng
+(panel giữ ẩn). Chưa đo bằng tay: cảm giác xem bảng trong trận thật đông
+người, mobile thật.
+
+**Timer trận tổng — ĐÃ QUYẾT (tạm, cycle 9, 2026-11-06 — P1-07, QC/Sudo
+lật được sau play-test):** một trận tối đa **30 phút** (server
+`games.MATCH_TIME_LIMIT`, đổi bằng env `MATCH_TIME_LIMIT_S` khi test/vận
+hành). Cơ sở: trận dài nhất hợp lý = V1 120s + V2 180s + ~8 vòng giữa ×
+90s + chung kết 120s ≈ 25 phút, nên 30 phút đủ chỗ cho phòng đông nhiều
+vòng mà vẫn chặn được trận kẹt. Hết giờ tổng thì trận kết thúc **có kết
+quả**: người dẫn đầu theo tiến độ vòng hiện tại thắng (server xếp người
+sống bằng `rankWorstFirst` rồi đảo lại — về đích trước, điểm cao, gần
+dê/cờ hơn thì đứng trước; hoà thì thứ tự vào phòng quyết định), nhận
++50 Hội Xu như thắng thường, bảng cuối trận kèm ghi chú "Hết giờ trận".
+Phòng QC được miễn deadline (chỉ để test, nhảy vòng có thể kéo dài).
+HUD: ô THỜI GIAN hiện thời gian **còn lại** của trận khi có giới hạn
+(đỏ khi ≤ 60 giây, tooltip giữ số đã chơi / giới hạn); không giới hạn
+(QC) thì hiện thời gian đã chơi như trước. Người vào giữa trận (khán giả
+/ reconnect) nhận kèm trạng thái trận trong tin `joined` (`match`:
+round, roundGame, roundName, matchElapsed, matchTimeLimit, roundEndsIn)
+để HUD hiện đúng vòng + trò đang chơi và đúng đồng hồ, thay vì mặc định
+vòng 1 / 0:00 như trước. Chơi đơn tự áp cùng giới hạn ở client
+(`endMatchOnTimeoutIfNeeded`, gọi mỗi frame từ `updateHUD`; cả khi đang
+xem với tư cách khán giả). Chưa đo bằng tay: ô THỜI GIAN đếm ngược trên
+trình duyệt thật (VM: rAF chết do WebGL null nên ô đứng yên ở 0:00),
+cảm giác hết giờ giữa trận đông người, mobile thật.
+
+**Màn kết thúc trận tách khỏi màn chia team — ĐÃ QUYẾT (cycle 10,
+2026-11-06 — backlog #28, QC/Sudo lật được sau play-test):** màn kết
+thúc trận tái dùng overlay `#teamCard` nhưng chạy chế độ `ranking`
+riêng: ẩn tiêu đề "CHIA TEAM — VÒNG 2", đoạn luật chia team và dòng
+"Màn hình này tự chuyển sang vòng 2 sau vài giây.", hiện tiêu đề
+"KẾT QUẢ TRẬN ĐẤU", bảng xếp hạng thành 1 cột rộng (`.rankRow`, hàng
+đầu tô vàng `.first`) thay vì bị ép thành cột hẹp trong flex
+`.teamCols`. Nút giữ nguyên hành vi "Chơi lại từ vòng 1" (phase
+`finished` → bấm nút replay). Mỗi lần hiện màn CHIA TEAM (chơi đơn
+`showTeamScreenSingle`, multi tin `phase: team`) đều gọi
+`setTeamCardMode('team')` để gỡ chế độ ranking, tránh rò trạng thái
+sang trận sau. `showRanking` + `setTeamCardMode` được lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: cảm giác
+đọc bảng cuối trận trên trình duyệt thật sau trận đông người, mobile thật.
+
+**Khán giả vào giữa trận — ĐÃ QUYẾT (cycle 11, 2026-11-06 — backlog
+#29, QC/Sudo lật được sau play-test):** người vào giữa trận làm khán
+giả không bao giờ "Đang xem" chính mình. Handler `joined` đồng bộ danh
+sách người chơi từ xa TRƯỚC khi vào chế độ khán giả (trước đây chọn mục
+tiêu trước khi sync nên `remotePlayers` còn rỗng, chỉ có chính mình đã
+chết để chọn). Dự phòng cuối của `specTargets()` và
+`buildSpectatorList()` loại chính mình khi mình đã chết — chỉ khi trong
+phòng thật sự chỉ còn mình mới trả về mình. `buildSpectatorList()` không
+ghi đè `watchedId` khi camera đang theo một người còn sống hợp lệ, nên
+tên trên banner luôn trùng với người camera đang theo. Tin `players`
+đến sau (người rời phòng / reconnect) cũng chọn lại người dẫn đầu khi
+mục tiêu đang xem đã chết/mất; mục tiêu đang xem tốt thì giữ nguyên.
+Các hàm khán giả (`specLeader`, `specTargets`, `buildSpectatorList`,
+`enterSpectator`, `setSpecTarget`, `watchedPerson`) được lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: cảm giác
+xem trận với tư cách khán giả vào giữa trận trên trình duyệt thật,
+mobile thật.
+
+**Onboarding người mới — ĐÃ QUYẾT (cycle 12, 2026-11-07 — backlog #9
+bước 1, P4-02, QC/Sudo lật được sau play-test):** người chơi mới thấy
+hướng dẫn 3 bước ngay lần đầu vào sảnh chờ (chỉ khi `phase === 'menu'`
+và chưa từng xem): bước 1 Trống/Chiêng (trống chạy, chiêng đứng yên,
+120 giây về đích), bước 2 Cầu Khỉ + CHIA TEAM (tối đa 3 đội, đi theo
+lượt, ván chắc/yếu ngẫu nhiên, nhảy qua khoảng trống bằng Space),
+bước 3 chat/khán giả/phím tắt (Enter chat, Esc đóng, 1–4 đổi góc khán
+giả, Tab đổi người, WASD + Space, joystick mobile). Bỏ qua được ngay
+(nút "Bỏ qua hướng dẫn" hoặc "ĐÃ HIỂU — VÀO CHƠI" ở bước cuối) và ghi
+cờ `hoilang_onboarding_seen` vào localStorage — đã xem thì tải lại
+không hiện lại; mở lại bất cứ lúc nào bằng nút "❓ HƯỚNG DẪN CHƠI (3
+BƯỚC)" trong sảnh chờ. Overlay riêng `#onboardingCard` (z-index 40,
+trên `#startCard`), không chặn nút kinh tế khi đã đóng. Các hàm
+`showOnboarding` / `hideOnboarding` / `onboardingSeen` lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: người mới
+đọc xong có hiểu luật thật không, tỉ lệ bỏ trận đầu có giảm không (đo
+sau khi có analytics P3-06), mobile thật. Còn lại của P4-02: gợi ý
+phím theo từng vòng trong lúc chơi (bước 2).
+
+**Gợi ý phím theo từng vòng — ĐÃ QUYẾT (cycle 13, 2026-11-07 — backlog #9
+bước 2, P4-02, QC/Sudo lật được sau play-test):** lúc bắt đầu mỗi vòng,
+người đang chơi thấy dải gợi ý `#roundHint` dưới HUD (1 câu ngắn: phím
+chính + luật quyết định của vòng đó, 8 trò đều có text riêng; cảm ứng
+hiện bản chạm — Joystick / nút NHẢY — thay cho WASD / Space). Dải tự
+ẩn sau 12 giây, bấm ✕ đóng ngay; hết vòng, vào khán giả, hoặc về menu
+thì ẩn theo. Khán giả vào giữa trận và người đã chết không thấy gợi ý
+(`showRoundHint` chặn khi `player.alive === false`) vì không điều khiển
+nhân vật nữa. Móc vào cả 3 đường bắt đầu vòng: `startRoundCommon`
+(multi + chơi đơn vòng 1), `startRoundLocal` (chơi đơn vòng 3+ qua QC
+nhảy vòng), `beginRound2Play` (chơi đơn vòng 2 qua màn CHIA TEAM — vòng
+2 chơi đơn không đi qua `startRoundCommon`). Trên mobile ≤620px dải dạt
+sang trái, chừa cột minimap ở góc phải (cùng cách `#teamPanel` làm), nếu
+không minimap sẽ đè lên nửa phải gợi ý + nút ✕. Các hàm `showRoundHint`
+/ `hideRoundHint` / `roundHintFor` lộ qua `window.__game`. Chưa đo bằng
+tay: người mới có đọc gợi ý lúc vào vòng không, gợi ý có đủ rõ trên
+mobile thật không, cảm giác 12 giây có vừa không.
+
+**Nút chạm chỉ hiện trên thiết bị cảm ứng; overlay vòng cần di chuyển
+không đè joystick — ĐÃ QUYẾT (cycle 14, 2026-11-07 — backlog #10 bước 1,
+P4-03, QC/Sudo lật được sau play-test):** (1) Joystick + nút NHẢY chỉ
+hiện khi đang chơi TRÊN THIẾT BỊ CẢM ỨNG — trước đây luật
+`body.playing #joyBase{display:block}` không phân biệt thiết bị nên
+desktop cũng hiện joystick giữa màn hình. Nay chỉ hai luật media còn
+lại: `@media (pointer:coarse)` và `@media (pointer:fine)` kèm class
+`touch` trên body (game.js gắn `body.touch` khi `isTouchDevice()` đúng,
+để laptop cảm ứng vẫn thấy joystick). (2) Vòng mà người chơi phải di
+chuyển nhưng overlay vẫn hiện cả vòng — Rồng Rắn chạy cờ, Bịt Mắt khi
+làm dê — thì trên cảm ứng overlay chuyển thành dải gọn phía trên
+(class `move-mode`, rounds.js `setOverlayMoveMode`/`moveModeFor`),
+thay cho bottom-sheet `sim-mode` vốn đè lên joystick + nút NHẢY + nút
+CHAT (đo thật ở 360px: sheet y 580–788 đè kín joystick y 656–780 và
+nút NHẢY y 688–770, `elementFromPoint` tại tâm joystick trả về
+overlay). Dải trên đặt dưới HUD/gợi ý (top 184px, mobile 226px — dời xuống ở
+cycle 15 vì HUD mobile giờ 2 hàng, xem mục dưới),
+chừa cột minimap bên phải (right 166px, mobile 160px — dời từ 150px ở
+cycle 15 để chừa cả cột econBar, minimap mobile đo thật rộng 135px ở
+right:6px), chỉ giữ tiêu đề + dòng trạng thái
+(`#flag-status`; đoạn luật dài ẩn đi vì đã có trong `#roundHint`).
+Desktop dùng bàn phím nên giữ nguyên bottom-sheet. Bịt Mắt: người tìm
+không bị ảnh hưởng vì màn tối `pointer-events:none` nên joystick vẫn
+bấm được; chỉ dê (panel dê hiện cả vòng) mới cần dải trên — đường tin
+`blind` multi cập nhật `move-mode` theo vai (`blind:false` → dê →
+bật, `blind:true` → người tìm → tắt), cả trường hợp `blind` tới trước
+`roundStart` (`pendingBlind`). Chưa đo bằng tay: cảm giác chạy cờ /
+chạy trốn bằng joystick trên điện thoại thật, dải trên có che tầm nhìn
+3D không, laptop cảm ứng có thấy joystick đúng lúc không.
+
+**HUD 2 hàng + xếp chồng các dải trên mobile 360px — ĐÃ QUYẾT (cycle 15,
+2026-11-07 — backlog #10 bước 2a, P4-03, QC/Sudo lật được sau
+play-test):** (1) HUD mobile thành 2 hàng vì 5 ô thống kê + dải trạng
+thái không vừa 1 hàng 360px — đo thật trước sửa: dải trạng thái bị bóp
+còn 22px (nội dung 191px tràn ra ngoài, chữ "VÒNG 1 — Trống Hội" đè
+lên ô VÒNG), ô "ĐÃ ĐI" tràn phải tới 386px bị cắt, thanh tiến độ đè lên
+nhãn các ô. Hàng 1: dải trạng thái chiếm hết chiều ngang; hàng 2: 5 ô
+chia đều (`flex:1 1 0`, chữ số 13px + nhãn 8px, `white-space:nowrap` —
+"VÒNG 1" ở 14px vẫn bị cắt, 13px mới vừa). (2) Toàn bộ dải dưới HUD
+dời xuống theo HUD 2 hàng (mobile): tiến độ 114px, đồng hồ vòng
+150px, gợi ý phím + minimap 162px, dải team 252px (dưới gợi ý — gợi ý
+cao tối đa ~83px cho 4 dòng ở 204px, đo thật), dải move-mode 226px.
+Dải team desktop dời 118px → 182px (dưới gợi ý desktop 122px, cao tối
+đa ~50px cho 2 dòng). (3) Cột phải mobile chừa đủ chỗ cho minimap:
+minimapWrap rộng 135px (nhãn "BẢN ĐỒ · ĐẢO HỘI LÀNG" dài hơn canvas
+100px) ở right:6px nên cạnh trái ở x=219 — right:122px cũ cho gợi ý /
+dải team chạm tới x=238, đè lên minimap 19px; nay gợi ý right:150px
+(cạnh phải x=210), dải team + dải move-mode right:160px (cạnh phải
+x=200, chừa cả cột econBar bắt đầu x=204). (4) Tiêu đề bay tổng quan
+(`flyoverTitleEl`, game.js `ensureFlyoverEls`) co theo màn hình: cỡ
+chữ `max(30, min(52, innerWidth × 0.11))` + `white-space:nowrap` +
+top 28% ở ≤620px — trước đây 52px cố định làm "ĐẢO HỘI LÀNG" gãy 3
+dòng ở 360px và đè lên cột kinh tế; nay 1 dòng (~40px, rộng ~329px),
+kết thúc trước cột econBar (top 300px). Tiêu đề vẫn phủ lên góc trái
+minimap trong vài giây bay tổng quan (chữ trắng trên nền tối, vẫn đọc
+được) — chấp nhận, vì mọi tiêu đề căn giữa đủ đọc đều chạm tới góc đó
+ở 360px. Chưa đo bằng tay: HUD 2 hàng có dễ đọc khi đang chạy không,
+gợi ý 4 dòng có che tầm nhìn 3D không, cảm giác chơi trên điện thoại
+thật, mobile thật.
 
 ### 8.2. Đường loại (456 → 1) — tỉ lệ giữ lại theo chu kỳ, số vòng không giới hạn
 
