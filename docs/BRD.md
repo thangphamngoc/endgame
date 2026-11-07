@@ -100,10 +100,10 @@ sau khi có số người chơi thật.
   từng cầu, ván yếu vỡ thì loại cá nhân, ván vỡ thành khoảng trống nhảy qua
   bằng Space, về đích xếp hạng cá nhân theo thời gian.
 - Khán giả: 4 góc nhìn (Toàn cảnh / Theo dõi / Sát vai / Tự do), chuyển người xem.
-- Du lịch Hạ Long: 13 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
+- Du lịch Hạ Long: 14 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
   Vịnh Tháp Đá, Đảo Yên Ngựa, Đảo Hang Vòm, Cầu Khỉ Sương Mù, Hòn Đỉnh Hương,
-  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá, Hòn Cánh Buồm — thêm cycle 33, P4-01
-  bước 2/3), mỗi đảo có cây, chim
+  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá, Hòn Cánh Buồm, Hòn Đầu Người — thêm cycle 34, P4-01
+  bước 3/3, P4-01 HOÀN TẤT), mỗi đảo có cây, chim
   thú, hình dáng và câu chuyện riêng có gắn nhãn; 260 silhouette đảo xa;
   click đảo trong 3D / chấm trên minimap / danh sách để bay-zoom tới xem
   chi tiết; nút quay lại toàn cảnh / quay lại trận.
@@ -854,6 +854,32 @@ trình duyệt có WebGL — Sudo bay tới Hòn Cánh Buồm trên máy thật 
 hai buồm có đọc ra ngay không; đồng thời chốt luôn nút danh sách tour
 (không bấm được trong harness headless vì lỗi #24 làm danh sách rỗng).
 
+**Đảo du lịch mới Hòn Đầu Người — ĐÃ QUYẾT (cycle 34, 2026-11-08 —
+backlog #15, P4-01 bước 3/3, QC/Sudo lật được):** thêm đảo thứ 14 vào
+du lịch Hạ Long — P4-01 yêu cầu ít nhất 3 đảo mới nay HOÀN TẤT (Hòn Chó
+Đá cycle 21, Hòn Cánh Buồm cycle 33, Hòn Đầu Người cycle này). Hòn Đầu
+Người là đảo đá thật trong vịnh, nhãn nguồn "Tư liệu thật": nhìn từ xa
+giống hệt một cái đầu người đang hướng về đất liền, mũi to nhô ra, cằm
+sát mặt nước, trên đỉnh lưa thưa cây như bờm tóc bay trong gió (đã kiểm
+chứng qua Wikipedia Vịnh Hạ Long + 2 nguồn du lịch: cao khoảng 25m, gần
+hang Luồn, cách bến tàu du lịch khoảng 13km, phía bắc đảo Bồ Hòn, cách
+đảo Ti Tốp khoảng 1km); câu chuyện ghi rõ phần "lúc hoàng hôn thấy đầu
+cô gái búi tóc sau gáy" là cảm nhận của du khách, không phải tư liệu về
+bản thân đảo. Vị trí (200, -70) ở phía đông vịnh, gần Ti Tốp như ngoài
+đời thật (cách Ti Tốp ~89 đơn vị), cách đảo nhỏ gần nhất ~66 đơn vị và
+dãy núi đá vôi gần nhất 117 đơn vị — không chồng lấn. Đảo có đủ: hình
+voxel riêng (khối đầu dựng cao ~18, trán nhô, mũi to nhô hướng tây, cằm
+sát nước, búi tóc đá sau gáy, bãi cát dưới chân mũi), cây/bụi/dây leo/hoa
+trên đỉnh như bờm tóc, đèn dấu đỏ, biển tên, thuyền neo gần bờ, đàn chim
+bay vòng quanh, icon `head` riêng trong danh sách tour. Danh sách tour,
+proxy bấm 3D, chấm minimap và nút bay tới đều chạy theo dữ liệu
+`TOUR_ISLANDS` nên đảo mới tự có đủ đường vào, không sửa riêng từng
+chỗ. Chưa đo bằng tay: hình dáng voxel thật của đảo chỉ xem được trên
+trình duyệt có WebGL — Sudo bay tới Hòn Đầu Người trên máy thật để chốt
+cái mũi + búi tóc có đọc ra ngay không; đồng thời chốt luôn nút danh
+sách tour (không bấm được trong harness headless vì lỗi #24 làm danh
+sách rỗng).
+
 **Kinh tế chơi đơn (ví local) — ĐÃ QUYẾT (cycle 28, 2026-11-07 —
 backlog #19 bước 1, QC/Sudo lật được):** chơi đơn không có server nên
 ví + đồ đã mua lưu ở localStorage (`hoilang_local_profile_v1`),
@@ -888,10 +914,10 @@ mới ([9]) nay đo đúng cách đó. Sửa theo đúng mẫu #20:
 `.open` khi mở, `exitTour()` gỡ `.open` khi đóng. Cùng lúc sửa ghi chú
 `.note` trong panel: màu nâu đậm `#5a4632` (làm cho nền sáng) trên nền
 tour tối đọc không ra — nay `#tourInfo .note` màu sáng `#aef2dd`.
-Chưa đo bằng tay: danh sách 12 đảo trong panel chỉ hiện khi
+Chưa đo bằng tay: danh sách 14 đảo trong panel chỉ hiện khi
 `buildTourList()` chạy được, tức là trên trình duyệt có WebGL thật
 (headless ở VM trả WebGL null nên danh sách trống trong ảnh chụp) —
-Sudo mở tour trên máy thật để chốt danh sách hiện đủ 12 đảo.
+Sudo mở tour trên máy thật để chốt danh sách hiện đủ 14 đảo.
 
 **Sự kiện theo mùa — ĐÃ QUYẾT (cycle 25, 2026-11-07 — backlog #16,
 P4-06 bước 1, QC/Sudo lật được):** khung sự kiện trong

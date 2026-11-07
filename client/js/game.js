@@ -18,7 +18,7 @@
   var TEAM_NAMES = ['Đỏ', 'Vàng', 'Xanh lá'];
   var VILLAGES = ['Hải Hậu', 'Hải Lý', 'Hải Tiến', 'Hải Châu', 'Hải Anh', 'Hải Quang', 'Hải Đông', 'Hải Tây'];
 
-  // ---- Dữ liệu đảo du lịch: 13 đảo, mỗi đảo một hình dáng, icon, góc camera
+  // ---- Dữ liệu đảo du lịch: 14 đảo, mỗi đảo một hình dáng, icon, góc camera
   // và câu chuyện riêng (port từ POIS của bản prototype).
   var TOUR_ISLANDS = [
     { id: 'hoi-lang', name: 'Đảo Hội Làng', label: 'Chuyện trong game', x: 0, z: 0, size: 34, y: 2, yaw: 0.7, pitch: 0.42, dist: 95, icon: 'village',
@@ -59,7 +59,10 @@
       story: 'Tư liệu thật: Hòn Chó Đá là đảo đá thật trong vịnh — nhìn từ xa giống hệt một chú chó ngồi chồm hỗm giữa biển, mõm hướng ra khơi như đang trông chủ đi biển trở về. Truyền thuyết dân gian kể đó là chú chó trung thành của một ngư dân, ngày ngày ngồi đợi chủ đến hóa đá. Trong game: thân chó là khối đá xám ngồi thấp bè, đầu ngẩng cao, mõm nhô ra hướng tây nam; lưng phủ cây, bãi cát nhỏ ở chân trước, thuyền neo gần bờ và đèn dấu đỏ để thuyền đêm nhận ra từ xa.' },
     { id: 'canh-buom', name: 'Hòn Cánh Buồm', label: 'Tư liệu thật', x: 140, z: 210, size: 20, y: 4, yaw: 0.6, pitch: 0.3, dist: 62, icon: 'sail',
       feat: 'Hai khối đá dựng đứng như hai cánh buồm nâu rẽ sóng ra khơi',
-      story: 'Tư liệu thật: Hòn Cánh Buồm là đảo đá thật trong vịnh — hai khối đá vôi dựng đứng, nhìn từ xa giống hệt hai cánh buồm nâu đang rẽ sóng nước ra khơi, gợi nhớ thuyền buồm ba vách cánh dơi của ngư dân Quảng Ninh xưa. Trong game: buồm lớn cao hơn đứng trước, buồm nhỏ đứng sau, cả hai đều mỏng theo chiều gió; chân đá có bãi cát nhỏ, cây mọc trên lưng, đèn dấu đỏ để thuyền đêm nhận ra từ xa.' }
+      story: 'Tư liệu thật: Hòn Cánh Buồm là đảo đá thật trong vịnh — hai khối đá vôi dựng đứng, nhìn từ xa giống hệt hai cánh buồm nâu đang rẽ sóng nước ra khơi, gợi nhớ thuyền buồm ba vách cánh dơi của ngư dân Quảng Ninh xưa. Trong game: buồm lớn cao hơn đứng trước, buồm nhỏ đứng sau, cả hai đều mỏng theo chiều gió; chân đá có bãi cát nhỏ, cây mọc trên lưng, đèn dấu đỏ để thuyền đêm nhận ra từ xa.' },
+    { id: 'dau-nguoi', name: 'Hòn Đầu Người', label: 'Tư liệu thật', x: 200, z: -70, size: 20, y: 4, yaw: -0.5, pitch: 0.3, dist: 62, icon: 'head',
+      feat: 'Khối đá cao như đầu người, mũi to nhô ra hướng về đất liền, cây trên đỉnh như bờm tóc',
+      story: 'Tư liệu thật: Hòn Đầu Người là đảo đá thật trong vịnh — nhìn từ xa giống hệt một cái đầu người đang hướng về đất liền, mũi to nhô ra, cằm sát mặt nước, trên đỉnh lưa thưa cây như bờm tóc bay trong gió; lúc hoàng hôn có người thấy rõ đầu một cô gái búi tóc sau gáy (đã kiểm chứng qua Wikipedia Vịnh Hạ Long). Đảo cao khoảng 25m, nằm gần hang Luồn, cách bến tàu du lịch khoảng 13km, phía bắc đảo Bồ Hòn. Trong game: khối đầu dựng cao ~18, mũi nhô hướng tây về phía đất liền, búi tóc đá sau gáy, cây mọc trên đỉnh như bờm, bãi cát nhỏ dưới chân mũi, đèn dấu đỏ để thuyền đêm nhận ra từ xa.' }
   ];
 
   var scene, camera, renderer, raycaster, pointer;
@@ -1168,11 +1171,33 @@
       scene.add(cb);
       isleSign('HÒN CÁNH BUỒM', 154, 197, 3.2);
       miniBoat(162, 224, 0.7, 0xf6ead0);
+      /* HÒN ĐẦU NGƯỜI (200,-70): đầu người nhìn nghiêng hướng về đất liền
+         — khối đầu dựng cao ~18, mũi to nhô ra phía tây (xoay nhóm 0.5 rad
+         để mặt nhìn về phía sảnh chờ), cằm sát mặt nước, búi tóc đá sau gáy,
+         cây trên đỉnh như bờm tóc. Thêm ở cycle 34 (#15 bước 3/3). */
+      var dn = new THREE.Group(); dn.position.set(200, -1.3, -70); dn.rotation.y = 0.5;
+      box(22, 2, 16, dark, 0, 0.5, 0, dn, false);            // chân đá
+      box(12, 6, 11, rock2, 0, 3, 0, dn, false);            // cổ/gáy
+      box(13, 9, 12, rock, -1, 10, 0, dn, false);           // khối đầu
+      box(5, 3.5, 6, rock, -8.5, 12.5, 0, dn, false);       // trán nhô
+      box(4.5, 2.8, 3.5, rock2, -11, 9.5, 0, dn, false);    // mũi nhô ra
+      box(1.8, 1.8, 2, rock, -13.5, 9.5, 0, dn, false);     // chóp mũi
+      box(4, 2.5, 5, rock2, -9.5, 4.8, 0, dn, false);       // cằm sát nước
+      box(4, 3, 4.5, rock, 6.5, 15.5, 0, dn, false);        // búi tóc sau gáy
+      box(8, 0.5, 5, sand, -12, 0.9, 5, dn, false);         // bãi cát chân mũi
+      vxTree(dn, 0, 15, 0, 1.0, 'canopy'); vxTree(dn, 3, 15, -3, 0.8, 'bamboo');
+      vxBush(dn, -6, 1.6, -5, 0.9); vxBush(dn, 8, 1.6, 5, 0.8);
+      vxVine(dn, -7.2, 6, 5, 3);
+      vxFlowers(dn, -12, 1.2, 7, 4, [0xf2b01e, 0xf28bb4]);
+      vxBeacon(dn, 10, 1.6, -5, 0xe2483a);
+      scene.add(dn);
+      isleSign('HÒN ĐẦU NGƯỜI', 214, -84, 3.2);
+      miniBoat(222, -56, 0.9, 0xf6ead0);
     })();
     /* ================= SỰ SỐNG QUANH ĐẢO: chim, bướm, cá nhảy, cua ================= */
     (function wildlife() {
       var birdCols = [0xf6f2e8, 0xdfe8ee, 0xf2b01e];
-      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4], [-285, 22, 245, 18, 4], [140, 22, 210, 18, 4]].forEach(function (f, fi) {
+      [[0, 30, 0, 26, 5], [238, 26, -150, 20, 5], [-215, 24, -165, 17, 4], [-300, 20, 130, 20, 4], [300, 22, 170, 18, 4], [15, 30, -262, 22, 4], [-285, 22, 245, 18, 4], [140, 22, 210, 18, 4], [200, 22, -70, 18, 4]].forEach(function (f, fi) {
         for (var i = 0; i < f[4]; i++) {
           var g = new THREE.Group();
           var bm = mat(birdCols[fi % 3], 0.7);
@@ -2005,6 +2030,15 @@
       R(21, 18, 9, 3, '#8a6b35'); R(22, 14, 7, 4, '#8a6b35'); R(24, 10, 4, 4, '#8a6b35');
       R(10, 4, 2, 2, dark); R(25, 8, 2, 2, dark);
       R(2, 21, 32, 2, sand);
+    } else if (type === 'head') {
+      // Đầu người nhìn nghiêng, mũi nhô hướng trái (về đất liền): khối đầu
+      // cao, trán nhô, mũi to, cằm sát nước, búi tóc sau gáy, cây trên đỉnh
+      // như bờm tóc, bãi cát dưới chân mũi.
+      R(12, 7, 16, 14, rock); R(12, 4, 12, 4, veg);
+      R(7, 11, 6, 4, rock); R(4, 12, 4, 3, rock); R(2, 13, 2, 2, dark);
+      R(6, 17, 8, 3, rock); R(27, 6, 5, 5, rock);
+      R(16, 10, 3, 2, dark);
+      R(2, 21, 14, 2, sand);
     } else {
       R(4, 16, 28, 6, veg);
       R(9, 11, 6, 5, '#f3e2c0'); R(8, 9, 8, 3, '#b5451b');
