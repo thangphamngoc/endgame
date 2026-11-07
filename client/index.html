@@ -8,9 +8,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
+<script src="js/vendor/three.min.js"></script>
+<script>
+// Three.js tự host (backlog #11, P2-09): tải bản local trước; nếu lỗi thì
+// fallback sang CDN cdnjs cùng phiên bản 0.158.0 (document.write đồng bộ
+// nên game.js phía dưới vẫn chạy sau Three.js). Nếu cả hai đều lỗi thì
+// hiện banner #threeLoadError thay vì để game chết lặng — kiểm tra ở
+// DOMContentLoaded, khi mọi script chèn lúc parse đã chạy xong.
+if (typeof THREE === 'undefined') {
+  window.__threeSource = 'cdn';
+  document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"><\/script>');
+} else {
+  window.__threeSource = 'local';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof THREE === 'undefined') {
+    var el = document.getElementById('threeLoadError');
+    if (el) el.style.display = 'block';
+  }
+});
+</script>
 </head>
 <body>
+
+<div id="threeLoadError" style="display:none;position:fixed;inset:0;z-index:100;background:#1a0d0d;color:#ffd9d9;padding:24px;font:16px/1.6 'Be Vietnam Pro',sans-serif;text-align:center">Không tải được thư viện 3D (Three.js) — kiểm tra mạng rồi tải lại trang.</div>
 
     <canvas id="scene"></canvas>
 
@@ -23,17 +44,21 @@
         </div>
       </div>
       <div id="hudStats">
-        <div class="plate stat"><b id="hudRound">1/6</b><span>VÒNG</span></div>
+        <div class="plate stat"><b id="hudRound">VÒNG 1</b><span>VÒNG</span></div>
+        <div class="plate stat"><b id="hudCountdown">—</b><span>ĐẾM NGƯỢC</span></div>
         <div class="plate stat"><b id="hudTime">0:00</b><span>THỜI GIAN</span></div>
         <div class="plate stat"><b id="hudAlive">61</b><span>CÒN LẠI</span></div>
         <div class="plate stat"><b id="hudDist">0m</b><span>ĐÃ ĐI</span></div>
       </div>
     </div>
 
-    <div id="round-timer-wrap" class="hidden" style="max-width:520px;margin:8px auto 0;padding:6px 10px;background:#fff3d9;border:3px solid #1f2937;box-shadow:4px 4px 0 #1f2937;">
-      <div id="round-timer-fill" style="height:10px;background:#d63c2f;width:100%;"></div>
-      <div id="hud-round-time" style="font-weight:800;text-align:center;"></div>
+    <div id="round-timer-wrap" class="hidden">
+      <div id="round-timer-fill"></div>
+      <div id="hud-round-time"></div>
     </div>
+    <!-- Gợi ý phím theo vòng (P4-02 bước 2, cycle 13): hiện lúc bắt đầu mỗi
+         vòng, tự ẩn sau 12 giây, bấm ✕ để đóng ngay. -->
+    <div id="roundHint" class="hidden"><span id="roundHintText"></span><button id="roundHintClose" type="button" aria-label="Đóng gợi ý phím">✕</button></div>
     <div id="progressWrap">
       <div id="progressTrack"><div id="progressFill"></div></div>
       <div id="progressLabel"><span id="progStartLabel">VẠCH XUẤT PHÁT</span><span id="progEndLabel">ĐÍCH — SÂN ĐÌNH</span></div>
@@ -82,6 +107,7 @@
         <button class="specBtn" type="button" id="btnTour" style="background:#0f766e;">DU LỊCH HẠ LONG</button>
       </div>
       <div class="specHint">Phím 1–4 hoặc C: đổi góc · Tab / ◀ ▶: đổi người · kéo chuột: xoay · cuộn chuột: zoom<br />Hoặc bấm Du lịch Hạ Long để bay quanh vịnh trong lúc trận vẫn chạy tiếp.</div>
+      <div id="leaderboard" style="display:none" aria-label="Bảng xếp hạng trực tiếp"></div>
     </div>
 
     <div id="tourPanel">
@@ -131,7 +157,9 @@
     <div class="overlay" id="startCard">
       <div class="card">
         <h1>TRỐNG HỘI</h1>
-        <p><b>Sáu vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng 3–6: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê và chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
+        <!-- Badge sự kiện theo mùa (#16, P4-06): seasonal.js điền chữ khi có sự kiện đang chạy. -->
+        <div id="seasonBadge" class="hidden"></div>
+        <p><b>Nhiều vòng trên ĐẢO HỘI LÀNG</b>, giữa vịnh núi đá vôi sương mờ kiểu Hạ Long. Bạn cùng 60 người làng chạy qua lũy tre, ao sen, hồ cá về sân đình. Ai qua được vòng 1 sẽ đi tiếp <b>vòng 2 — Cầu Khỉ Sương Mù</b> bắc qua biển về đảo cuối, rồi các vòng sau bốc từ kho trò dân gian: Kéo Co Nhịp, Nặn Tò He, Bịt Mắt Bắt Dê, Ô Ăn Quan, Nhảy Bao Bố. Trận chỉ kết thúc khi còn 1 người — khi còn 6 người trở xuống, vòng tiếp theo là chung kết Rồng Rắn Cướp Cờ. Trước khi đếm ngược, camera bay một vòng cho bạn ngắm toàn cảnh đảo và vịnh.</p>
         <div class="rules">
           <b>VÒNG 1 · TRỐNG ĐÁNH</b> — được chạy thoải mái. <b>CHIÊNG VANG</b> — phải <b>đứng yên tuyệt đối</b>, cử động là bị loại!<br />
           <b>VÒNG 2 · CẦU KHỈ</b> — trước vòng 2 có bước <b>CHIA TEAM</b>: tối đa 3 đội (Đỏ / Vàng / Xanh lá), mỗi đội một cầu riêng, <b>đi theo lượt</b> — chỉ người dẫn đầu của đội được lên cầu, người sau chờ trên bệ an toàn, không chen lấn nhảy vượt. Mỗi bước có 2 tấm ván: một chắc, một yếu, <b>ngẫu nhiên riêng cho từng cầu mỗi trận</b>. Giẫm ván yếu là rơi xuống biển và <b>bị loại cá nhân</b>. Ván đã vỡ thành khoảng trống — phải <b>nhảy (Space)</b> qua.<br />
@@ -139,6 +167,7 @@
         </div>
         <button class="bigBtn" id="btnStart" type="button">BẮT ĐẦU CHƠI</button>
         <button class="bigBtn" id="btnStartTour" type="button" style="background:#0f766e;border-color:#083f3a;box-shadow:0 6px 0 #083f3a, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(174,242,221,.5);font-size:16px;padding:11px 26px;">DU LỊCH HẠ LONG TRƯỚC</button>
+        <button class="bigBtn" id="btnHelp" type="button" style="background:#6b7280;border-color:#374151;box-shadow:0 6px 0 #374151, 0 12px 24px rgba(0,0,0,.3);font-size:15px;padding:11px 22px;">❓ HƯỚNG DẪN CHƠI (3 BƯỚC)</button>
         <div class="rules" style="margin-top:12px;">
           <input id="player-name" type="text" maxlength="24" placeholder="Tên của bạn (mặc định: Người chơi)" style="width:100%;padding:10px 12px;font:inherit;border:3px solid var(--edge,#1f2937);border-radius:0;background:#fffdf4;" />
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
@@ -157,7 +186,33 @@
           </div>
           <button class="bigBtn" id="btn-tour-lobby" type="button" style="width:100%;margin-top:8px;font-size:14px;padding:9px 10px;background:#173f3a;border-color:#0b2622;box-shadow:0 6px 0 #0b2622;">DU LỊCH TỪ SẢNH CHỜ</button>
         </div>
+        <!-- CHẾ ĐỘ QC (FR-46, chỉ test): chọn vòng để vào thẳng, không cần qua các vòng trước. -->
+        <div class="rules" id="qcSection" style="margin-top:12px;border:3px dashed #b45309;background:#fff7ed;">
+          <button class="bigBtn" id="btnQcToggle" type="button" style="width:100%;font-size:14px;padding:9px 10px;background:#b45309;border-color:#7c2d12;box-shadow:0 6px 0 #7c2d12;">CHẾ ĐỘ QC — TEST NHANH (CHỈ TEST)</button>
+          <div id="qcPanel" class="hidden" style="margin-top:8px;">
+            <div><b>Chế độ QC — chỉ để test, không phải chơi thường.</b> Chọn vòng để vào thẳng, không cần qua các vòng trước. Trận QC <b>không thưởng Hội Xu / XP Pass</b>, không tính vào bảng xếp hạng, không ảnh hưởng trận thường. Mở nhanh bằng đường dẫn <b>?qc=1</b>.</div>
+            <div id="qc-round-btns" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            <div id="qc-round-note" style="margin-top:6px;">Chơi đơn: số người còn sống khi vào vòng theo đường loại co giãn từ 61 người — V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 (V6 lấy tối thiểu 2 người để còn test được cờ). Nhiều người: cả phòng cùng bắt đầu ở vòng đã chọn; tên các vòng 3–5 đã bốc hiện sau khi tạo phòng.</div>
+            <label style="display:block;margin-top:8px;"><input type="checkbox" id="qcNoElim" /> Không loại (chỉ test giao diện) — tắt mặc định; bật thì người chơi không bị loại, chỉ dùng để xem giao diện từng vòng.</label>
+            <div style="margin-top:6px;">Nhảy thẳng Vòng 2 sẽ qua bước CHIA TEAM: thứ tự lượt xáo trộn theo seed (không có thời gian về đích Vòng 1), đồng hồ lượt 30 giây vẫn áp dụng. Người chơi vẫn bị loại bình thường trong vòng đã chọn, trừ khi bật “Không loại”.</div>
+          </div>
+        </div>
         <div class="ctrls">Máy tính: WASD / phím mũi tên để chạy · kéo chuột xoay camera · Space nhảy<br />Điện thoại: joystick ảo bên trái · nút NHẢY bên phải · vuốt màn hình xoay camera<br />Bị loại thành khán giả: nút trên màn hình hoặc phím 1–4 đổi góc camera (toàn cảnh / theo dõi / sát vai / tự do), Tab đổi người xem<br />Chat: phím Enter mở ô chat và gửi tin, Esc đóng — tin nhắn hiện thành bong bóng trên đầu nhân vật và trong panel CHAT (kể cả ở sảnh chờ, khán giả và du lịch).<br />Khám phá đảo: bấm thẳng vào đảo xa trong thế giới 3D, hoặc bấm đảo trên bản đồ nhỏ, camera sẽ bay tới và đảo hiện chi tiết đầy đủ.</div>
+      </div>
+    </div>
+
+    <!-- Onboarding người mới (P4-02): hướng dẫn 3 bước, tự hiện lần đầu vào sảnh chờ. -->
+    <div class="overlay hidden" id="onboardingCard">
+      <div class="card" style="max-width:560px;">
+        <h2 id="obTitle">BƯỚC 1 · TRỐNG ĐÁNH — CHIÊNG LÀ LỆNH</h2>
+        <div class="obDots" id="obDots"><span class="on"></span><span></span><span></span></div>
+        <div class="rules" id="obBody" style="text-align:left;"></div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button class="bigBtn hidden" id="btnObPrev" type="button" style="font-size:15px;padding:10px 18px;background:#6b7280;border-color:#374151;box-shadow:0 6px 0 #374151;">← QUAY LẠI</button>
+          <button class="bigBtn" id="btnObNext" type="button" style="font-size:15px;padding:10px 18px;">TIẾP →</button>
+          <button class="bigBtn hidden" id="btnObDone" type="button" style="font-size:15px;padding:10px 18px;">ĐÃ HIỂU — VÀO CHƠI</button>
+        </div>
+        <button id="btnObSkip" type="button" class="obSkip">Bỏ qua hướng dẫn</button>
       </div>
     </div>
 
@@ -178,11 +233,12 @@
 
     <div class="overlay hidden" id="teamCard">
       <div class="card" style="max-width:640px;">
-        <h2>CHIA TEAM — VÒNG 2</h2>
-        <p>Người sống sót được chia tự động, cân bằng số lượng, thành tối đa 3 đội. <b>Mỗi đội qua cầu riêng của mình và đi theo lượt</b> — chỉ người dẫn đầu được bước lên cầu, người sau chờ trên bệ an toàn. Chia đội chỉ để qua cầu có trật tự: <b>rớt cầu là loại cá nhân đó</b>, qua được cầu là sống sót cá nhân, xếp hạng chung cuộc vẫn tính theo từng người.</p>
+        <h2 class="teamOnly">CHIA TEAM — VÒNG 2</h2>
+        <h2 class="rankTitle">KẾT QUẢ TRẬN ĐẤU</h2>
+        <p class="teamOnly">Người sống sót được chia tự động, cân bằng số lượng, thành tối đa 3 đội. <b>Mỗi đội qua cầu riêng của mình và đi theo lượt</b> — chỉ người dẫn đầu được bước lên cầu, người sau chờ trên bệ an toàn. Thứ tự đi trong mỗi đội là <b>ngược thứ tự về đích vòng 1: về đích chậm nhất đi đầu, nhanh nhất đi cuối</b> — đi cuối an toàn nhất vì đã biết ván nào chắc nhờ người đi trước, đó là phần thưởng cho người nhanh nhất vòng 1. Chia đội chỉ để qua cầu có trật tự: <b>rớt cầu là loại cá nhân đó</b>, qua được cầu là sống sót cá nhân, xếp hạng chung cuộc vẫn tính theo từng người.</p>
         <div class="teamCols" id="teamCols"></div>
         <button class="bigBtn" id="btnTeamGo" type="button">VÀO CẦU NGAY</button>
-        <div class="ctrls">Màn hình này tự chuyển sang vòng 2 sau vài giây.</div>
+        <div class="ctrls teamOnly">Màn hình này tự chuyển sang vòng 2 sau vài giây.</div>
       </div>
     </div>
 
@@ -204,7 +260,16 @@
         <button id="btn-pass" class="specBtn" type="button">VÉ MÙA</button>
         <button id="btn-tournament" class="specBtn" type="button">GIẢI ĐẤU</button>
         <button id="btn-gift" class="specBtn" type="button">QUÀ TẶNG</button>
+        <button id="btn-exit" class="specBtn danger" type="button">THOÁT GAME</button>
       </div>
+    </div>
+
+    <!-- Thanh QC trong lúc chơi (FR-46, chỉ hiện ở chế độ QC): nhảy vòng / chơi lại vòng này. -->
+    <div id="qcBar" class="hidden">
+      <span><b>QC — CHỈ TEST</b> · <span id="qcBarRound">—</span> · không thưởng xu/XP</span>
+      <span id="qcBarRounds"></span>
+      <button class="specBtn" id="qcNextBtn" type="button">VÒNG SAU ▶</button>
+      <button class="specBtn" id="qcRestartBtn" type="button">CHƠI LẠI VÒNG NÀY</button>
     </div>
 
     <!-- Panel kinh tế (shop.js điền nội dung; ẩn mặc định) -->
@@ -213,15 +278,23 @@
     <div id="tournament-panel" class="hidden"></div>
     <div id="gift-panel" class="hidden"></div>
 
-    <!-- Overlay hệ 6 vòng (rounds.js / game.js điền nội dung; ẩn mặc định) -->
+    <!-- Overlay hệ nhiều vòng (rounds.js / game.js điền nội dung; ẩn mặc định) -->
     <div id="round-overlay" class="hidden"></div>
     <div id="blind-overlay" class="hidden"></div>
     <div id="interstitial" class="hidden"></div>
 
     <!-- Ghi chú vận hành / deploy: server chạy bằng npm start, kiểm tra sống qua /health -->
     <div id="deployNote">Server: <b>npm start</b> · http://localhost:3000 (đổi cổng bằng biến môi trường PORT) · Kiểm tra sống: <b>GET /health</b> → {ok, rooms, players, uptime}</div>
+<script src="js/seasonal.js"></script>
+<script src="js/perf.js"></script>
 <script src="js/game.js"></script>
 <script src="js/rounds.js"></script>
+<script src="js/sim/sim-keoco.js"></script>
+<script src="js/sim/sim-tohe.js"></script>
+<script src="js/sim/sim-bitmat.js"></script>
+<script src="js/sim/sim-oanquan.js"></script>
+<script src="js/sim/sim-hop.js"></script>
+<script src="js/sim/sim-flag.js"></script>
 <script src="js/shop.js"></script>
 </body>
 </html>

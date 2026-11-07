@@ -52,18 +52,20 @@ duyệt, nhiều người chơi thật cùng một trận.
 ## 2. Mục tiêu và chỉ tiêu thành công (KPI đề xuất)
 
 Tất cả các số dưới đây là **mục tiêu đề xuất, chưa đo, cần Sudo duyệt**.
-Hiện tại chưa có hệ thống đo (analytics) trong game, nên chưa có số thực tế
-nào để đối chiếu.
+Hệ thống đo tối thiểu ở server đã có từ cycle 20 (P3-06 bước 1:
+`GET /analytics` cho KPI-01/03/04/05) nhưng chưa có số thực tế nào vì
+chưa có trận thật chạy qua — các tỉ lệ hiện là null cho tới khi có trận
+đầu tiên kết thúc.
 
 | # | Chỉ tiêu (đề xuất) | Mục tiêu đề xuất | Đo bằng gì (dự kiến) |
 |---|---|---|---|
-| KPI-01 | Tỉ lệ trận hoàn thành (trận tới được vòng 2 và có người thắng) | ≥ 80% số trận bắt đầu | Log trận (cần làm ở Phase 3) |
-| KPI-02 | Thời gian lấp đầy phòng | Phòng 20 người đủ trong ≤ 5 phút (giờ cao điểm) | Log phòng (cần làm) |
-| KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) |
-| KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch (cần làm) |
-| KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay (cần làm) |
-| KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo thủ công + đo tự động ở Phase 2 |
-| KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận + báo lỗi (cần làm) |
+| KPI-01 | Tỉ lệ trận hoàn thành (trận tới được vòng 2 và có người thắng) | ≥ 80% số trận bắt đầu | Log trận — **đã có từ cycle 20 (P3-06 bước 1): `GET /analytics`, xem BRD §8.1** |
+| KPI-02 | Thời gian lấp đầy phòng | Phòng 20 người đủ trong ≤ 5 phút (giờ cao điểm) | Log phòng — **đã có từ cycle 23 (P3-06 bước 2): `GET /analytics` cho `fill20Rate`/`fill20Within5MinRate`/`avgFill20Sec`/`under20StartRate`, xem BRD §8.1** |
+| KPI-03 | Tỉ lệ người chơi dùng chat trong trận | ≥ 30% người chơi gửi ít nhất 1 tin/trận | Log chat (đếm tin, không lưu nội dung dài hạn) — **đã có từ cycle 20 (P3-06 bước 1)** |
+| KPI-04 | Tỉ lệ người bị loại dùng du lịch | ≥ 40% người bị loại mở Du lịch Hạ Long ít nhất 1 lần | Log sự kiện du lịch — **đã có từ cycle 20 (P3-06 bước 1)** |
+| KPI-05 | Tỉ lệ người chơi quay lại chơi trận tiếp theo trong cùng phiên | ≥ 50% bấm Chơi lại sau khi trận kết thúc | Log sự kiện replay — **đã có từ cycle 20 (P3-06 bước 1)** |
+| KPI-06 | Hiệu năng | ≥ 30 FPS trên điện thoại tầm trung; tải trang đầu ≤ ~5 giây trên 4G (ước tính, cần đo) | Đo tự động ở client — **đã có từ cycle 26 (P3-06 bước 4): `GET /analytics` cho `avgFps`/`fpsAtLeast30Rate`/`avgLoadSec`/`loadWithin5sRate`/`noWebglRate`, xem BRD §8.1** |
+| KPI-07 | Ổn định phòng | < 5% trận bị kẹt/không kết thúc (do lỗi, không do người chơi) | Log trận — **đã có từ cycle 24 (P3-06 bước 3): `GET /analytics` cho `matchesAbandoned`/`abandonRate`, xem BRD §8.1** |
 | KPI-08 | An toàn chat | 0 vụ việc nội dung xấu không được xử lý sau khi có tố cáo (khi có tính năng tố cáo) | Dashboard kiểm duyệt (Phase 3) |
 
 **Mục tiêu kinh doanh (ĐÃ QUYẾT 2026-11-05):** mô hình kinh tế là
@@ -76,7 +78,7 @@ sau khi có số người chơi thật.
 
 | Bên | Vai trò | Nhu cầu chính |
 |---|---|---|
-| Người chơi | Vào phòng, chơi 2 vòng (mục tiêu 6 vòng), chat với người khác | Vào trận nhanh, luật rõ, không lag, không gặp gian lận |
+| Người chơi | Vào phòng, chơi các vòng cho tới khi còn 1 người thắng, chat với người khác | Vào trận nhanh, luật rõ, không lag, không gặp gian lận |
 | Chủ phòng (host) | Tạo phòng, bắt đầu trận | Tạo phòng dễ, bắt đầu khi đủ người, host rời thì có người thay |
 | Khán giả / người bị loại | Xem tiếp trận sau khi bị loại | Có góc xem hay, biết ai đang dẫn đầu, không bị văng khỏi trận |
 | Khách du lịch trong game (người bị loại) | Đi du lịch vịnh Hạ Long trong lúc chờ | Đảo đẹp, có chuyện để đọc, click/zoom vào đảo xa được |
@@ -98,8 +100,10 @@ sau khi có số người chơi thật.
   từng cầu, ván yếu vỡ thì loại cá nhân, ván vỡ thành khoảng trống nhảy qua
   bằng Space, về đích xếp hạng cá nhân theo thời gian.
 - Khán giả: 4 góc nhìn (Toàn cảnh / Theo dõi / Sát vai / Tự do), chuyển người xem.
-- Du lịch Hạ Long: 7 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
-  Hòn Đỉnh Hương, Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ), mỗi đảo có cây, chim
+- Du lịch Hạ Long: 12 đảo chi tiết (Đảo Hội Làng, Hòn Trống Mái, Đảo Ti Tốp,
+  Vịnh Tháp Đá, Đảo Yên Ngựa, Đảo Hang Vòm, Cầu Khỉ Sương Mù, Hòn Đỉnh Hương,
+  Hòn Con Cóc, Đảo Soi Sim, Đảo Khỉ, Hòn Chó Đá — thêm cycle 21, P4-01
+  bước 1/3), mỗi đảo có cây, chim
   thú, hình dáng và câu chuyện riêng có gắn nhãn; 260 silhouette đảo xa;
   click đảo trong 3D / chấm trên minimap / danh sách để bay-zoom tới xem
   chi tiết; nút quay lại toàn cảnh / quay lại trận.
@@ -113,7 +117,7 @@ sau khi có số người chơi thật.
 ### 4.2. Phạm vi NGOÀI bản demo — chưa làm, cần quyết trước khi làm (Scope OUT)
 
 - Quy mô 456 người/phòng, tách trận song song, chia nhỏ vòng đầu rồi gộp lại.
-- Trận đầy đủ 6 vòng và kho thử thách 18–20 trò (xem §8).
+- Trận đầy đủ: số vòng không giới hạn, chỉ kết thúc khi còn 1 người thắng; kho thử thách 18–20 trò (xem §8).
 - Tài khoản / đăng nhập, hồ sơ người chơi, bạn bè, mời chơi.
 - Bảng xếp hạng lưu lâu dài, lịch sử trận, thống kê cá nhân.
 - Giải thưởng tiền mặt, quảng cáo (chưa quyết — xem §10: giải thưởng
@@ -143,7 +147,7 @@ sau khi có số người chơi thật.
   *(Đã có trong demo)*
 - **US-P06:** Là người chơi, tôi muốn sau khi bị loại vẫn ở lại xem hoặc đi
   chơi chỗ khác trong game, thay vì bị văng ra ngoài. *(Đã có: khán giả + du lịch)*
-- **US-P07 (dự kiến):** Là người chơi, tôi muốn chơi một trận đầy đủ 6 vòng
+- **US-P07 (dự kiến):** Là người chơi, tôi muốn chơi một trận đầy đủ cho tới khi còn 1 người thắng
   với nhiều thử thách khác nhau, để mỗi trận đều mới. *(Chưa có)*
 
 ### 5.2. Chủ phòng (host)
@@ -160,8 +164,8 @@ sau khi có số người chơi thật.
 - **US-S01:** Là khán giả, tôi muốn đổi góc xem (toàn cảnh, theo dõi, sát vai,
   tự do) và chuyển người đang xem, để theo dõi trận theo ý mình. *(Đã có)*
 - **US-S02:** Là khán giả, tôi muốn biết ai đang dẫn đầu và ai vừa bị loại,
-  để theo dõi trận. *(Đã có một phần: bảng xếp hạng chỉ hiện khi có người về
-  đích vòng 2; chưa có bảng trực tiếp trong lúc xem — dự kiến cải thiện)*
+  để theo dõi trận. *(Đã có: bảng trực tiếp `#leaderboard` trong banner khán
+  giả, cập nhật theo sự kiện loại/về đích/hết vòng — cycle 8, 2026-11-06)*
 
 ### 5.4. Khách du lịch trong game (người bị loại đi du lịch)
 
@@ -190,7 +194,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-08 | Vòng 1: trống chạy, chiêng đứng yên | HUD hiển thị đúng trạng thái; nhịp random mỗi trận, không lặp pattern cố định | Đã có |
 | FR-09 | Loại người di chuyển lúc chiêng | Di chuyển hoặc nhảy lúc chiêng → bị loại ngay, chuyển khán giả; người đứng yên không bị loại | Đã có |
 | FR-10 | Về đích vòng 1 | Tới vạch đích thì qua vòng, ghi thời gian về đích | Đã có |
-| FR-11 | Giới hạn thời gian vòng 1 (120 giây) | Vòng 1 tự kết thúc khi hết 120 giây dù còn người đứng yên (quy tắc kết thúc rõ) | Đang làm (workstream song song — quyết định 120 giây đã chốt, xem §9.4 OD-02; tại thời điểm viết tài liệu này code server.js chưa có giới hạn 120 giây, chỉ có nhịp trống/chiêng; QC có thể lật lại con số 120 giây sau play-test) |
+| FR-11 | Giới hạn thời gian vòng 1 (120 giây) | Vòng 1 tự kết thúc khi hết 120 giây dù còn người đứng yên (quy tắc kết thúc rõ) | Đã có (server tick endRound timeout; QC có thể lật lại con số 120 giây sau play-test) |
 | FR-12 | CHIA TEAM cân bằng, tối đa 3 team | Người sống sót chia đều theo thứ tự về đích; màu áo/vòng theo team | Đã có |
 | FR-13 | Mỗi team một cầu riêng, ván yếu riêng | Ván yếu random riêng từng cầu, từng trận | Đã có |
 | FR-14 | Chỉ leader được bước cầu | Người chưa tới lượt bị server chặn và báo "Chưa tới lượt" | Đã có |
@@ -208,7 +212,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-26 | Điều khiển mobile | Joystick ảo + nút NHẢY dùng được, không tràn màn hình | Đã có (chưa play-test kỹ trên máy thật) |
 | FR-27 | Phòng 456 người, tự bắt đầu khi đủ 456 | Đủ 456 người thì tự bắt đầu; quá 456 thì tách trận mới | Dự kiến |
 | FR-28 | Chia nhỏ vòng 1 thành sân con ~57 người rồi gộp | Vòng 1 chia sân con, mỗi sân lấy top N, gộp lại chơi vòng sau | Dự kiến |
-| FR-29 | Trận đầy đủ 6 vòng, kho 18–20 trò, mỗi trận chọn 6 | Mỗi trận chọn 6 trò khác nhau từ kho, có biến thể theo người chơi | Dự kiến |
+| FR-29 | Trận đầy đủ (số vòng không giới hạn, OD-11), kho 18–20 trò | Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò, không lặp trong chu kỳ; chung kết Rồng Rắn chỉ khi ≤ 6 người sống lúc bắt đầu vòng; mỗi vòng loại ít nhất 1 người | Đã làm (PR #3, nhánh feat/reverse-team-order) |
 | FR-30 | Tài khoản / đăng nhập | Người chơi có hồ sơ, lịch sử trận | Dự kiến |
 | FR-31 | Bảng xếp hạng lưu lâu dài | Xếp hạng theo mùa/tuần, xem lại được sau khi tắt game | Dự kiến |
 | FR-32 | Kiểm duyệt chat (tố cáo, mute, lọc) | Người chơi tố cáo được, host/mod mute được, từ xấu bị lọc | Dự kiến |
@@ -225,13 +229,17 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-43 | Lưu trữ kinh tế | Hồ sơ (ví, inventory, pass, tour) lưu bền vững qua restart server | Đã làm (bản stub) — JSON `data/economy.json` (RAM + ghi file mỗi lần đổi); chưa phải database production (xem ARCHITECTURE §7.5) |
 | FR-44 | Kiểm duyệt tên shop / giải đấu | Tên giải đấu/thương hiệu bị từ chối khi trống, quá 40 ký tự hoặc chứa từ cấm | Đã làm (bản stub) — `economy.js` `validateTournamentText` |
 | FR-45 | Không pay-to-win / không cá cược / không loot box | Không món nào mua bằng tiền/xu cho chỉ số hay lợi thế trận đấu; không đặt tiền vào kết quả trận; không hộp quà ngẫu nhiên trả phí | Đã làm (bản stub) — catalogue toàn cosmetic; giải thưởng chỉ bằng xu, không đổi ra tiền mặt; xem §10 |
+| FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
+| FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
+| FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
+| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Chưa làm: trò biến thể Tết (bước 2) |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
 | ID | Yêu cầu | Mục tiêu (đề xuất / ước tính, chưa đo) | Trạng thái |
 |---|---|---|---|
-| NFR-01 | Hiệu năng render | ≥ 30 FPS trên điện thoại tầm trung ở chế độ chơi; đảo xa dùng instancing khi mở rộng | Một phần (chưa đo FPS thực tế) |
-| NFR-02 | Thời gian tải trang đầu | ≤ ~5 giây trên mạng 4G (ước tính) | Chưa đo |
+| NFR-01 | Hiệu năng render | ≥ 30 FPS trên điện thoại tầm trung ở chế độ chơi; đảo xa dùng instancing khi mở rộng | Đo tự động từ cycle 26 (KPI-06: `avgFps` qua `GET /analytics`); chưa có số trên điện thoại thật |
+| NFR-02 | Thời gian tải trang đầu | ≤ ~5 giây trên mạng 4G (ước tính) | Đo tự động từ cycle 26 (KPI-06: `avgLoadSec`/`loadWithin5sRate` qua `GET /analytics`); chưa có số trên 4G thật |
 | NFR-03 | Quy mô phòng | Demo: 20 người/phòng. Mục tiêu: 456 người/phòng | Demo đạt 20; 456 là dự kiến |
 | NFR-04 | Độ trễ điều khiển | Nhấn phím → nhân vật phản hồi dưới ~100 ms trên mạng thường (ước tính) | Chưa đo |
 | NFR-05 | Tương thích trình duyệt | Chạy trên Chrome, Safari, Firefox, Edge bản mới, cả desktop và mobile | Một phần (chưa test đủ trình duyệt) |
@@ -249,7 +257,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 > Bản demo hiện tại chỉ có 2 trò: Trống Hội và Cầu Khỉ Sương Mù.
 > Mọi trò khác dưới đây đều là **dự kiến**, chưa có code.
 
-### 8.1. Kho thử thách dự kiến (18–20 trò, mỗi trận chọn 6)
+### 8.1. Kho thử thách dự kiến (18–20 trò; mỗi trận bốc theo chu kỳ, số vòng không giới hạn)
 
 Nguyên tắc thiết kế kho trò, theo tầm nhìn gốc:
 
@@ -267,18 +275,517 @@ Nguyên tắc thiết kế kho trò, theo tầm nhìn gốc:
 | 3 | **Kéo Co Nhịp** | Hai đội kéo co theo nhịp trống: bấm đúng nhịp thì kéo mạnh, lệch nhịp thì mất lực; đội thua bị loại theo luật **ĐÃ QUYẾT (OD-02, 2026-11-05)**: trận đủ người (≥ 24 người lúc bắt đầu vòng 3) thì cả đội thua bị loại; phòng nhỏ (< 24 người) thì chỉ 2 người đóng góp yếu nhất của đội thua bị loại (đội thua chỉ còn ≤ 2 người thì loại hết). | 3 (dự kiến) |
 | 4 | **Nặn Tò He** | Vẽ/nặn theo mẫu hiện ra trong thời gian giới hạn; chấm theo độ giống mẫu (mẫu random mỗi trận, không học thuộc được). | 3–4 (dự kiến) |
 | 5 | **Bịt Mắt Bắt Dê** | Một người bịt mắt (góc nhìn hạn chế) đi bắt "dê" di chuyển; người còn lại né tránh trong khu vực giới hạn. | 4 (dự kiến) |
-| 6 | **Rồng Rắn Cướp Cờ** | Vòng cuối: hai đội rồng rắn tranh cờ ở giữa sân; cướp được cờ và mang về đích thì thắng. | Cuối (dự kiến) |
+| 6 | **Rồng Rắn Cướp Cờ** | Chung kết: hai đội rồng rắn tranh cờ ở giữa sân; cướp được cờ và mang về đích thì thắng. Chỉ là chung kết khi ≤ 6 người sống lúc bắt đầu vòng (OD-11) — không cố định ở vòng 6. | Chung kết (khi ≤ 6 người sống) |
 | 7–20 | Kho mở rộng (dự kiến, chưa chốt tên) | Cần Sudo chốt danh sách: các trò dân gian khác có thể đưa vào kho để đủ 18–20 trò (ví dụ: ô ăn quan, nhảy bao bố, đi cà kheo, chọi gà... — chỉ là gợi ý, chưa quyết). Mỗi trò cần thiết kế luật chống học thuộc riêng. | Xoay vòng |
 
-**Cơ chế chọn trò mỗi trận (dự kiến):** mỗi trận bốc 6 trò từ kho 18–20
-trò, theo seed của phòng–trận; thứ tự trò cũng random; biến thể (nhịp, vị
-trí, mẫu) random theo seed của phòng–vòng. Mục tiêu: hai trận liên tiếp
-không giống nhau hoàn toàn.
+**Cơ chế chọn trò mỗi trận — ĐÃ QUYẾT, OD-11 (Sudo 2026-11-06, số vòng
+không giới hạn):** vòng 1 Trống Hội và vòng 2 Cầu Khỉ cố định. Từ vòng 3,
+mỗi vòng bốc 1 trò từ kho 5 trò (Kéo Co, Tò He, Bịt Mắt, Ô Ăn Quan, Nhảy
+Bao Bố) theo chu kỳ có seed: không lặp trong một chu kỳ, hết kho thì xáo
+lại chu kỳ mới, không lặp liền kề qua biên chu kỳ. Rồng Rắn Cướp Cờ không
+còn cố định ở vòng 6: nó chỉ là vòng chung kết khi lúc bắt đầu vòng chỉ
+còn ≤ 6 người sống; nếu một vòng kết thúc với đúng 1 người sống thì trận
+kết thúc ngay, không cần chung kết. Biến thể (nhịp, vị trí, mẫu) random
+theo seed của phòng–vòng. Mục tiêu: hai trận liên tiếp không giống nhau
+hoàn toàn, và số vòng phụ thuộc vào số người còn lại.
 
-### 8.2. Đường loại dự kiến (456 → 1, ~25–35 phút)
+**Bịt Mắt — ĐÃ QUYẾT (cycle 2, 2026-11-06):** server gửi `goatId` trong tin
+`blind` cho cả người tìm (`blind:true`) lẫn dê (`blind:false`, goatId là id
+của chính mình), để client người tìm biết dê là ai mà vẽ ánh dê phát sáng +
+la bàn theo vị trí thật. Mũi tên `#cue-arrow` và la bàn sim xoay theo hướng
+CAMERA (góc tương đối = góc thế giới trừ yaw camera, cùng quy ước
+atan2(dx,-dz)), không theo hướng thế giới tuyệt đối. Tin `cue` 2s của server
+giữ làm dự phòng khi dê ngoài AOI 40 của tick. Vị trí dê trên client chỉ
+được tin khi tươi (<1,5s — tick 15Hz trong AOI 40, game.js đóng dấu `_posAt`;
+`syncRemotePlayers` cũng đồng bộ `x`/`z` chứ không chỉ `group.position`).
+Ánh vàng nhấp nháy ở dê chỉ hiện khi dê rất gần (<6 — chắc chắn trong AOI
+nên vị trí tươi). Chưa đo bằng tay: cảm giác tìm dê theo la bàn mới,
+độ chính xác khi dê ngoài AOI, mobile thật.
 
-Đường loại dưới đây là **tầm nhìn gốc, chưa triển khai**. Con số là đề xuất,
-cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
+**Ô Ăn Quan — ĐÃ QUYẾT (cycle 3, 2026-11-06):** chỉ được rải ô dân bên
+mình. Bên chia theo chẵn/lẻ vị trí trong turnOrder (xếp theo id): bên 0
+đi ô 1–5, bên 1 đi ô 7–11; lượt đi xen kẽ hai bên. Ô quan 0 và 6 KHÔNG
+ai được rải (luật cổ truyền; server vốn đã không cho ăn ô quan). Server
+chặn nước sai bằng tin lỗi, gửi `sides` {playerId: 0|1} trong mọi tin
+`oanquanState`; overlay khóa nút ô không phải của mình (viền vàng = hàng
+của bạn theo đúng bên của bạn, ô đối thủ viền teal); sim 3D cũng kiểm tra
+trước khi chuyển tiếp và không gửi thẳng WS cho ô sai bên. Ai hết nước đi
+hợp lệ thì lượt tự bỏ qua; không ai còn nước đi thì vòng kết thúc
+(`no-legal-moves`). Chưa đo bằng tay: cảm giác rải khi chỉ còn ô bên
+mình, mobile thật.
+
+**Nhảy Bao Bố — ĐÃ QUYẾT (cycle 4, 2026-11-06):** multiplayer chấm hoàn
+toàn ở server; server broadcast tin `hopState` {progress: {playerId:
+nhịp}, beatPhase} sau MỖI cú nhảy (kể cả vấp làm tụt 0,5 nhịp) và tick
+500ms trong lúc vòng chạy, để thanh tiến độ + vạch nhịp của mọi người
+hiện đúng theo số server chấm. Client không đếm nhảy local nữa: `#hop-fill`
++ `#hop-info` + `st.state.progress` lấy từ `hopState`; vạch nhịp nội suy
+từ beatPhase của tin cuối (mốc thời gian nhận tin) để trôi mượt giữa các
+tin; sim 3D hiện hạng theo `hopProgress` và nhảy theo tiến độ server.
+Người chơi khác vẫn nhảy theo chuyển động x/z thật (sim không ghi đè z
+theo tiến độ vì tick 15Hz sẽ ghi đè lại, gây giật hình). Chưa đo bằng
+tay: cảm giác nhịp khi vạch nội suy, mobile thật.
+
+**Chat panel — ĐÃ QUYẾT (cycle 5, 2026-11-06):** panel chat chỉ hiện qua
+class `.open` (CSS `#chatPanel.open{display:flex}`), nhưng `openChat()` /
+`closeChat()` trước đây chỉ đổi class `.hidden` nên panel không bao giờ
+mở được (P0). Nay `openChat` thêm `.open` và gỡ `.hidden`, `closeChat`
+gỡ `.open` và thêm `.hidden`, `toggleChat` và handler phím Esc lấy
+`.open` làm nguồn tin đúng/sai duy nhất — giữ cả hai class đồng bộ vì
+`.hidden{display:none!important}` sẽ thắng `.open` nếu còn sót. Chưa đo
+bằng tay: cảm giác gõ chat trong trận thật, mobile thật.
+
+**Fog (sương) — ĐÃ QUYẾT (cycle 6, 2026-11-06):** chỉ `game.js` sở hữu fog.
+Bảng `FOG_PRESETS`: sân làng yard 150/720 + nền 0xffc98a (vòng 1 + vòng 3
+trở đi), cầu bridge 16/130 + nền 0xe8c39a (vòng 2), Bịt Mắt blind 4/26 +
+màu 0x1a2340 + nền 0x141b33, Nhảy Bao Bố hop 60/420 giữ nguyên màu/nền của
+vòng. Đổi vòng luôn xoá override rồi áp preset theo vòng (vòng 2 = bridge,
+còn lại = yard). Sim không chạm `scene.fog`: Bịt Mắt xin override `blind`
+qua `__game.setFogOverride` khi là người tìm, gỡ qua
+`__game.clearFogOverride('blind')` khi thành dê/teardown; Nhảy Bao Bố xin
+override `hop` lúc build, gỡ lúc teardown. `clearFogOverride` chỉ gỡ đúng
+tên đang giữ — lệnh gỡ cũ (teardown trễ sau khi đã đổi vòng) không đè fog
+vòng mới. Giá trị hiệu dụng giữ nguyên như trước. Chưa đo bằng tay: cảm
+giác sương/tối ở Bịt Mắt và tầm nhìn ở Nhảy Bao Bố trên trình duyệt thật,
+mobile thật.
+
+**Dọn code chết — ĐÃ QUYẾT (cycle 7, 2026-11-06):** xoá 2 nhánh chết trong
+`client/js/game.js`, không đổi hành vi: (1) nhánh kiểm `length > 120`
+trong `sendChat()` — mọi đường gọi đều đã bị chặn ở 120 ký tự từ trước
+(input `#chatInput` có `maxlength="120"`, câu nhanh ngắn hơn nhiều),
+giới hạn thật nằm ở `sendPlayerChat` (`.slice(0, 120)`, chơi đơn) và
+server (từ chối tin > 120 ký tự, multi); (2) biến `bubblesHidden` trong
+`showBubble()` — không bao giờ được gán `true`, cờ thật là `hideBubbles`
+(nút ẨN/HIỆN BONG BÓNG bật/tắt). Quét toàn repo không còn TODO/FIXME/XXX/
+HACK trong code JS. Chưa đo bằng tay: xác nhận không đổi hành vi chat
+(gửi tin, bong bóng, nút ẩn/hiện) khi chơi thật.
+
+**Bảng trực tiếp cho khán giả — ĐÃ QUYẾT (cycle 8, 2026-11-06):** server
+phát tin `leaderboard` {round, roundName, aliveCount, finished (thứ tự về
+đích + thời gian), eliminated (5 người mới nhất, kèm vòng + lý do)} sau
+mỗi lần loại, mỗi lần về đích vòng 2, mỗi lần hết vòng; người vào giữa
+trận làm khán giả nhận ngay 1 bản lúc join. Broadcast gộp bằng
+`setImmediate` để vòng kết thúc loại hàng loạt không spam 456 client; bỏ
+qua khi trận đã kết thúc (bảng cuối trận đi theo tin `phase: finished`).
+Client: panel `#leaderboard` trong `#specBanner` (còn lại N người, DẪN
+ĐẦU tối đa 5 + thời gian, VỪA BỊ LOẠI tối đa 5 + vòng/lý do); tin
+`ranking` giữa trận chỉ cập nhật bảng, không gọi `showRanking()` chiếm
+màn hình như trước. Banner khán giả `#specBanner` trước đây không bao
+giờ hiện (CSS `display:none`, code chỉ gỡ class `.hidden`) — nay mọi
+chỗ hiện/ẩn banner qua helper `setSpectatorBanner(show)` (set cả class
++ `style.display`). Chơi đơn không có server nên không có dữ liệu bảng
+(panel giữ ẩn). Chưa đo bằng tay: cảm giác xem bảng trong trận thật đông
+người, mobile thật.
+
+**Timer trận tổng — ĐÃ QUYẾT (tạm, cycle 9, 2026-11-06 — P1-07, QC/Sudo
+lật được sau play-test):** một trận tối đa **30 phút** (server
+`games.MATCH_TIME_LIMIT`, đổi bằng env `MATCH_TIME_LIMIT_S` khi test/vận
+hành). Cơ sở: trận dài nhất hợp lý = V1 120s + V2 180s + ~8 vòng giữa ×
+90s + chung kết 120s ≈ 25 phút, nên 30 phút đủ chỗ cho phòng đông nhiều
+vòng mà vẫn chặn được trận kẹt. Hết giờ tổng thì trận kết thúc **có kết
+quả**: người dẫn đầu theo tiến độ vòng hiện tại thắng (server xếp người
+sống bằng `rankWorstFirst` rồi đảo lại — về đích trước, điểm cao, gần
+dê/cờ hơn thì đứng trước; hoà thì thứ tự vào phòng quyết định), nhận
++50 Hội Xu như thắng thường, bảng cuối trận kèm ghi chú "Hết giờ trận".
+Phòng QC được miễn deadline (chỉ để test, nhảy vòng có thể kéo dài).
+HUD: ô THỜI GIAN hiện thời gian **còn lại** của trận khi có giới hạn
+(đỏ khi ≤ 60 giây, tooltip giữ số đã chơi / giới hạn); không giới hạn
+(QC) thì hiện thời gian đã chơi như trước. Người vào giữa trận (khán giả
+/ reconnect) nhận kèm trạng thái trận trong tin `joined` (`match`:
+round, roundGame, roundName, matchElapsed, matchTimeLimit, roundEndsIn)
+để HUD hiện đúng vòng + trò đang chơi và đúng đồng hồ, thay vì mặc định
+vòng 1 / 0:00 như trước. Chơi đơn tự áp cùng giới hạn ở client
+(`endMatchOnTimeoutIfNeeded`, gọi mỗi frame từ `updateHUD`; cả khi đang
+xem với tư cách khán giả). Chưa đo bằng tay: ô THỜI GIAN đếm ngược trên
+trình duyệt thật (VM: rAF chết do WebGL null nên ô đứng yên ở 0:00),
+cảm giác hết giờ giữa trận đông người, mobile thật.
+
+**Màn kết thúc trận tách khỏi màn chia team — ĐÃ QUYẾT (cycle 10,
+2026-11-06 — backlog #28, QC/Sudo lật được sau play-test):** màn kết
+thúc trận tái dùng overlay `#teamCard` nhưng chạy chế độ `ranking`
+riêng: ẩn tiêu đề "CHIA TEAM — VÒNG 2", đoạn luật chia team và dòng
+"Màn hình này tự chuyển sang vòng 2 sau vài giây.", hiện tiêu đề
+"KẾT QUẢ TRẬN ĐẤU", bảng xếp hạng thành 1 cột rộng (`.rankRow`, hàng
+đầu tô vàng `.first`) thay vì bị ép thành cột hẹp trong flex
+`.teamCols`. Nút giữ nguyên hành vi "Chơi lại từ vòng 1" (phase
+`finished` → bấm nút replay). Mỗi lần hiện màn CHIA TEAM (chơi đơn
+`showTeamScreenSingle`, multi tin `phase: team`) đều gọi
+`setTeamCardMode('team')` để gỡ chế độ ranking, tránh rò trạng thái
+sang trận sau. `showRanking` + `setTeamCardMode` được lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: cảm giác
+đọc bảng cuối trận trên trình duyệt thật sau trận đông người, mobile thật.
+
+**Khán giả vào giữa trận — ĐÃ QUYẾT (cycle 11, 2026-11-06 — backlog
+#29, QC/Sudo lật được sau play-test):** người vào giữa trận làm khán
+giả không bao giờ "Đang xem" chính mình. Handler `joined` đồng bộ danh
+sách người chơi từ xa TRƯỚC khi vào chế độ khán giả (trước đây chọn mục
+tiêu trước khi sync nên `remotePlayers` còn rỗng, chỉ có chính mình đã
+chết để chọn). Dự phòng cuối của `specTargets()` và
+`buildSpectatorList()` loại chính mình khi mình đã chết — chỉ khi trong
+phòng thật sự chỉ còn mình mới trả về mình. `buildSpectatorList()` không
+ghi đè `watchedId` khi camera đang theo một người còn sống hợp lệ, nên
+tên trên banner luôn trùng với người camera đang theo. Tin `players`
+đến sau (người rời phòng / reconnect) cũng chọn lại người dẫn đầu khi
+mục tiêu đang xem đã chết/mất; mục tiêu đang xem tốt thì giữ nguyên.
+Các hàm khán giả (`specLeader`, `specTargets`, `buildSpectatorList`,
+`enterSpectator`, `setSpecTarget`, `watchedPerson`) được lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: cảm giác
+xem trận với tư cách khán giả vào giữa trận trên trình duyệt thật,
+mobile thật.
+
+**Onboarding người mới — ĐÃ QUYẾT (cycle 12, 2026-11-07 — backlog #9
+bước 1, P4-02, QC/Sudo lật được sau play-test):** người chơi mới thấy
+hướng dẫn 3 bước ngay lần đầu vào sảnh chờ (chỉ khi `phase === 'menu'`
+và chưa từng xem): bước 1 Trống/Chiêng (trống chạy, chiêng đứng yên,
+120 giây về đích), bước 2 Cầu Khỉ + CHIA TEAM (tối đa 3 đội, đi theo
+lượt, ván chắc/yếu ngẫu nhiên, nhảy qua khoảng trống bằng Space),
+bước 3 chat/khán giả/phím tắt (Enter chat, Esc đóng, 1–4 đổi góc khán
+giả, Tab đổi người, WASD + Space, joystick mobile). Bỏ qua được ngay
+(nút "Bỏ qua hướng dẫn" hoặc "ĐÃ HIỂU — VÀO CHƠI" ở bước cuối) và ghi
+cờ `hoilang_onboarding_seen` vào localStorage — đã xem thì tải lại
+không hiện lại; mở lại bất cứ lúc nào bằng nút "❓ HƯỚNG DẪN CHƠI (3
+BƯỚC)" trong sảnh chờ. Overlay riêng `#onboardingCard` (z-index 40,
+trên `#startCard`), không chặn nút kinh tế khi đã đóng. Các hàm
+`showOnboarding` / `hideOnboarding` / `onboardingSeen` lộ qua
+`window.__game` để QC/probe gọi trực tiếp. Chưa đo bằng tay: người mới
+đọc xong có hiểu luật thật không, tỉ lệ bỏ trận đầu có giảm không (đo
+sau khi có analytics P3-06), mobile thật. Còn lại của P4-02: gợi ý
+phím theo từng vòng trong lúc chơi (bước 2).
+
+**Gợi ý phím theo từng vòng — ĐÃ QUYẾT (cycle 13, 2026-11-07 — backlog #9
+bước 2, P4-02, QC/Sudo lật được sau play-test):** lúc bắt đầu mỗi vòng,
+người đang chơi thấy dải gợi ý `#roundHint` dưới HUD (1 câu ngắn: phím
+chính + luật quyết định của vòng đó, 8 trò đều có text riêng; cảm ứng
+hiện bản chạm — Joystick / nút NHẢY — thay cho WASD / Space). Dải tự
+ẩn sau 12 giây, bấm ✕ đóng ngay; hết vòng, vào khán giả, hoặc về menu
+thì ẩn theo. Khán giả vào giữa trận và người đã chết không thấy gợi ý
+(`showRoundHint` chặn khi `player.alive === false`) vì không điều khiển
+nhân vật nữa. Móc vào cả 3 đường bắt đầu vòng: `startRoundCommon`
+(multi + chơi đơn vòng 1), `startRoundLocal` (chơi đơn vòng 3+ qua QC
+nhảy vòng), `beginRound2Play` (chơi đơn vòng 2 qua màn CHIA TEAM — vòng
+2 chơi đơn không đi qua `startRoundCommon`). Trên mobile ≤620px dải dạt
+sang trái, chừa cột minimap ở góc phải (cùng cách `#teamPanel` làm), nếu
+không minimap sẽ đè lên nửa phải gợi ý + nút ✕. Các hàm `showRoundHint`
+/ `hideRoundHint` / `roundHintFor` lộ qua `window.__game`. Chưa đo bằng
+tay: người mới có đọc gợi ý lúc vào vòng không, gợi ý có đủ rõ trên
+mobile thật không, cảm giác 12 giây có vừa không.
+
+**Nút chạm chỉ hiện trên thiết bị cảm ứng; overlay vòng cần di chuyển
+không đè joystick — ĐÃ QUYẾT (cycle 14, 2026-11-07 — backlog #10 bước 1,
+P4-03, QC/Sudo lật được sau play-test):** (1) Joystick + nút NHẢY chỉ
+hiện khi đang chơi TRÊN THIẾT BỊ CẢM ỨNG — trước đây luật
+`body.playing #joyBase{display:block}` không phân biệt thiết bị nên
+desktop cũng hiện joystick giữa màn hình. Nay chỉ hai luật media còn
+lại: `@media (pointer:coarse)` và `@media (pointer:fine)` kèm class
+`touch` trên body (game.js gắn `body.touch` khi `isTouchDevice()` đúng,
+để laptop cảm ứng vẫn thấy joystick). (2) Vòng mà người chơi phải di
+chuyển nhưng overlay vẫn hiện cả vòng — Rồng Rắn chạy cờ, Bịt Mắt khi
+làm dê — thì trên cảm ứng overlay chuyển thành dải gọn phía trên
+(class `move-mode`, rounds.js `setOverlayMoveMode`/`moveModeFor`),
+thay cho bottom-sheet `sim-mode` vốn đè lên joystick + nút NHẢY + nút
+CHAT (đo thật ở 360px: sheet y 580–788 đè kín joystick y 656–780 và
+nút NHẢY y 688–770, `elementFromPoint` tại tâm joystick trả về
+overlay). Dải trên đặt dưới HUD/gợi ý (top 184px, mobile 226px — dời xuống ở
+cycle 15 vì HUD mobile giờ 2 hàng, xem mục dưới),
+chừa cột minimap bên phải (right 166px, mobile 160px — dời từ 150px ở
+cycle 15 để chừa cả cột econBar, minimap mobile đo thật rộng 135px ở
+right:6px), chỉ giữ tiêu đề + dòng trạng thái
+(`#flag-status`; đoạn luật dài ẩn đi vì đã có trong `#roundHint`).
+Desktop dùng bàn phím nên giữ nguyên bottom-sheet. Bịt Mắt: người tìm
+không bị ảnh hưởng vì màn tối `pointer-events:none` nên joystick vẫn
+bấm được; chỉ dê (panel dê hiện cả vòng) mới cần dải trên — đường tin
+`blind` multi cập nhật `move-mode` theo vai (`blind:false` → dê →
+bật, `blind:true` → người tìm → tắt), cả trường hợp `blind` tới trước
+`roundStart` (`pendingBlind`). Chưa đo bằng tay: cảm giác chạy cờ /
+chạy trốn bằng joystick trên điện thoại thật, dải trên có che tầm nhìn
+3D không, laptop cảm ứng có thấy joystick đúng lúc không.
+
+**HUD 2 hàng + xếp chồng các dải trên mobile 360px — ĐÃ QUYẾT (cycle 15,
+2026-11-07 — backlog #10 bước 2a, P4-03, QC/Sudo lật được sau
+play-test):** (1) HUD mobile thành 2 hàng vì 5 ô thống kê + dải trạng
+thái không vừa 1 hàng 360px — đo thật trước sửa: dải trạng thái bị bóp
+còn 22px (nội dung 191px tràn ra ngoài, chữ "VÒNG 1 — Trống Hội" đè
+lên ô VÒNG), ô "ĐÃ ĐI" tràn phải tới 386px bị cắt, thanh tiến độ đè lên
+nhãn các ô. Hàng 1: dải trạng thái chiếm hết chiều ngang; hàng 2: 5 ô
+chia đều (`flex:1 1 0`, chữ số 13px + nhãn 8px, `white-space:nowrap` —
+"VÒNG 1" ở 14px vẫn bị cắt, 13px mới vừa). (2) Toàn bộ dải dưới HUD
+dời xuống theo HUD 2 hàng (mobile): tiến độ 114px, đồng hồ vòng
+150px, gợi ý phím + minimap 162px, dải team 252px (dưới gợi ý — gợi ý
+cao tối đa ~83px cho 4 dòng ở 204px, đo thật), dải move-mode 226px.
+Dải team desktop dời 118px → 182px (dưới gợi ý desktop 122px, cao tối
+đa ~50px cho 2 dòng). (3) Cột phải mobile chừa đủ chỗ cho minimap:
+minimapWrap rộng 135px (nhãn "BẢN ĐỒ · ĐẢO HỘI LÀNG" dài hơn canvas
+100px) ở right:6px nên cạnh trái ở x=219 — right:122px cũ cho gợi ý /
+dải team chạm tới x=238, đè lên minimap 19px; nay gợi ý right:150px
+(cạnh phải x=210), dải team + dải move-mode right:160px (cạnh phải
+x=200, chừa cả cột econBar bắt đầu x=204). (4) Tiêu đề bay tổng quan
+(`flyoverTitleEl`, game.js `ensureFlyoverEls`) co theo màn hình: cỡ
+chữ `max(30, min(52, innerWidth × 0.11))` + `white-space:nowrap` +
+top 28% ở ≤620px — trước đây 52px cố định làm "ĐẢO HỘI LÀNG" gãy 3
+dòng ở 360px và đè lên cột kinh tế; nay 1 dòng (~40px, rộng ~329px),
+kết thúc trước cột econBar (top 300px). Tiêu đề vẫn phủ lên góc trái
+minimap trong vài giây bay tổng quan (chữ trắng trên nền tối, vẫn đọc
+được) — chấp nhận, vì mọi tiêu đề căn giữa đủ đọc đều chạm tới góc đó
+ở 360px. Chưa đo bằng tay: HUD 2 hàng có dễ đọc khi đang chạy không,
+gợi ý 4 dòng có che tầm nhìn 3D không, cảm giác chơi trên điện thoại
+thật, mobile thật.
+
+**Three.js tự host + fallback CDN — ĐÃ QUYẾT (cycle 16, 2026-11-07 —
+backlog #11, P2-09, QC/Sudo lật được sau play-test):** thư viện 3D
+không còn phụ thuộc CDN khi tải trang. `client/js/vendor/three.min.js`
+(r158, 651.651 byte, sha256 `3b3a1c97…d41d51`, đối chiếu byte-identical
+với cdnjs 0.158.0) do chính server game phục vụ như file tĩnh; `index.html`
+tải bản local trước, nếu `THREE` chưa định nghĩa thì fallback sang CDN
+cdnjs cùng phiên bản bằng `document.write` đồng bộ (giữ thứ tự: game.js
+vẫn chạy sau Three.js). `window.__threeSource` ghi `'local'` hoặc `'cdn'`
+để QC/probe biết Three.js tới từ đâu. Nếu cả hai nguồn đều lỗi thì banner
+`#threeLoadError` hiện rõ ("Không tải được thư viện 3D (Three.js) — kiểm
+tra mạng rồi tải lại trang.") thay vì để game chết lặng; việc kiểm tra
+đặt ở `DOMContentLoaded` (bản đầu kiểm tra ngay sau `document.write` đã
+sai: script CDN chèn lúc parse chưa chạy xong lúc đó nên banner hiện cả
+khi fallback thành công — probe bắt được, đã sửa). Chưa đo bằng tay:
+tải trang trên trình duyệt thật khi mất mạng CDN, cảm giác tải có chậm
+hơn không (bản local 652 KB do server mình phục vụ).
+
+**Log có cấu trúc + tự khởi động lại khi crash — ĐÃ QUYẾT (cycle 19,
+2026-11-07 — backlog #13, P3-05 bước 1, QC/Sudo lật được):** mọi sự kiện
+server đều là 1 dòng JSON trên stdout qua `logEvent` (đã có từ trước cho
+các sự kiện trận: `match_start`, `round_start`, `round_end`, `match_end`,
+`elimination`...). Cycle này thêm: (a) access log — `http_request`
+`{method, path, status, ms}` cho mọi request HTTP (kể cả `/health`, 403,
+404), ghi ở `res 'finish'`; (b) lỗi chết người — `uncaughtException` /
+`unhandledRejection` ghi 1 dòng `fatal` `{kind, message, stack}` rồi thoát
+mã 1 (trước đây crash là chết lặng, không dòng log nào, không ai chạy
+lại); (c) tắt có trật tự — SIGTERM/SIGINT ghi `server_stop`, đóng WS +
+HTTP rồi thoát 0; (d) `/health` thêm `pid` + `startedAt` (ISO) để giám
+sát biết process nào, chạy từ bao giờ; (e) supervisor mới
+`server/supervisor.js` (`npm run supervise`): spawn `node server/server.js`,
+con thoát != 0 thì chạy lại với backoff 1s/2s/4s... tối đa 10s, con sống
+ổn định đủ 60s thì reset bộ đếm; con thoát 0 thì supervisor thoát 0 theo,
+không chạy lại; supervisor nhận SIGTERM/SIGINT thì gửi SIGTERM cho con và
+tắt sạch. Hook test `HOI_TEST_CRASH=1` (mặc định tắt) chỉ để kiểm chứng
+đường fatal → exit(1) thật. Chưa làm (còn nợ): cảnh báo khi server chết
+(cần Sudo chọn kênh báo — chat/email/webhook), gom/rotate log file (log
+đang ra stdout, thuộc về nơi chạy, vd. systemd/journald). Chưa đo bằng
+tay: hành vi restart trên máy host thật (chưa có host production), Sudo
+chỉ cần biết `npm run supervise` là cách chạy khuyên dùng.
+
+**Gom + xoay log file ở supervisor — ĐÃ QUYẾT (cycle 22, 2026-11-07 —
+backlog #13, P3-05 bước 2, QC/Sudo lật được):** sửa lại quyết định ở
+đoạn cycle 19 ("rotate thuộc về nơi chạy, vd. systemd/journald") — ở môi
+trường triển khai hiện tại (VM, không có systemd/journald) thì supervisor
+chính là nơi chạy, nên supervisor đảm nhiệm luôn việc gom + xoay khi được
+giao file: đặt `SUPERVISOR_LOG_FILE=<đường dẫn>` thì mọi dòng log (của
+supervisor lẫn stdout/stderr của server con) ghi vào file đó; không đặt
+thì hành vi cũ giữ nguyên (stdout, con inherit). File vượt
+`SUPERVISOR_LOG_MAX_BYTES` (mặc định 5 MiB) thì xoay giữ
+`SUPERVISOR_LOG_KEEP` thế hệ (mặc định 3), thế hệ cũ nhất bị xóa; kiểm tra
+lúc khởi động, trước mỗi lần chạy lại con, và định kỳ
+`SUPERVISOR_LOG_CHECK_MS` (mặc định 30s); xoay xong ghi 1 dòng
+`supervisor_log_rotate` vào file mới. Logic xoay tách riêng thành module
+`server/log-rotate.js` (`rotateLogFile`/`needsRotation`, không bao giờ
+throw) để test trực tiếp. Mở file lỗi (sai đường dẫn, không có quyền) thì
+ghi `supervisor_log_fallback` rồi về stdout, không crash — lỗi này phải
+kiểm tra đồng bộ trước khi mở vì `createWriteStream` báo lỗi bất đồng bộ,
+bản đầu chỉ trông vào handler 'error' đã nuốt mất `supervisor_start`
+(test bắt được, đã sửa). Chưa làm (còn nợ): cảnh báo khi server chết (cần
+Sudo chọn kênh báo — chat/email/webhook). Chưa đo bằng tay: hành vi xoay
+log trên máy host thật khi log phình nhanh (chỉ mới đo bằng con test nói
+nhiều trong VM).
+
+**Harness capture tắt onboarding trước mọi stage tương tác — ĐÃ QUYẾT
+(cycle 17, 2026-11-07 — backlog #30, QC/Sudo lật được):** từ khi
+onboarding tự hiện lần đầu ở sảnh chờ (cycle 12), overlay của nó
+(z-index 40) chặn mọi click nên harness chỉ chụp lại màn onboarding bước 1
+ở các stage QC/vòng 3–6. Nay `tools/capture.js` có helper
+`dismissOnboarding(page)`: bấm nút "Bỏ qua hướng dẫn" (`#btnObSkip`) thật
+như người chơi — ghi cờ `hoilang_onboarding_seen` vào localStorage nên các
+page sau trong cùng browser không hiện lại — và fallback qua
+`window.__game.hideOnboarding()` nếu không có nút. Helper được gọi sau
+khi load trang ở mọi stage tương tác: QC panel, `startSingleQc` (team +
+vòng 2–6), vòng 1 desktop/mobile, shop, chat; stage lobby (01/01b) GIỮ
+NGUYÊN onboarding để chụp đúng trải nghiệm người mới. Đây là sửa harness,
+không đổi hành vi game. Chưa đo bằng tay: không có — harness chỉ phục vụ
+kiểm chứng, Sudo không cần test tay mục này.
+
+**Analytics tối thiểu ở server — ĐÃ QUYẾT (cycle 20, 2026-11-07 —
+backlog #14, P3-06 bước 1, QC/Sudo lật được):** module mới
+`server/analytics.js` đếm tổng hợp, lưu `data/analytics.json`, xem qua
+`GET /analytics` (chỉ số tổng hợp, chưa khóa admin — TODO khi mở
+public). Không lưu tên người chơi, nội dung chat hay tọa độ. Đo được:
+KPI-01 (trận tới vòng 2 + có người thắng / trận đã kết thúc), KPI-03
+(người gửi ≥1 tin / người trong trận đã kết thúc), KPI-04 (người bị loại
+mở tour ≥1 lần / người bị loại), KPI-05 (trận có ≥1 replay / trận đã kết
+thúc). Trận QC ghi riêng (`qcMatchesStarted/Finished`), không vào mẫu số
+KPI — giống cách economy miễn thưởng phòng QC. Tour mở và replay đều xảy
+ra trên màn hình kết thúc (sau `endMatch`) nên số đếm chốt sau grace 30
+giây kể từ khi trận kết thúc; `/analytics` trong 30 giây đó chưa thấy
+trận này. Client gửi `{type:'tour'}` 1 lần mỗi lần mở tour
+(`activateExplore()`), server chỉ đếm khi người đó đã bị loại — mở tour
+từ sảnh chờ không tính.
+
+**KPI-02 lấp đầy phòng — ĐÃ QUYẾT (cycle 23, 2026-11-07 — backlog #14,
+P3-06 bước 2, QC/Sudo lật được):** `server/analytics.js` thêm `liveRooms`
+(chỉ RAM, key = mã phòng): `recordRoomCreated` lúc `makeRoom` (tạo phòng
++ tràn phòng đầy 456 đều qua đây), `recordLobbyJoin` sau mỗi lần thêm
+người vào phòng đang ở sảnh chờ — lần đầu đạt 20 người (không tính khán
+giả) thì chốt `filled20Ms` = thời gian từ lúc tạo phòng tới lúc đủ 20.
+`recordMatchStart` chốt vào totals: `roomsFilled20`, `roomsFilled20Within5Min`
+(đủ 20 trong ≤ 5 phút), `totalFill20Ms`, `matchesStartedUnder20` (trận bắt
+đầu khi chưa đủ 20). `GET /analytics` thêm `fill20Rate` (phòng đủ 20 /
+trận đã bắt đầu), `fill20Within5MinRate` (đủ trong ≤ 5 phút / phòng đã đủ
+20), `avgFill20Sec`, `under20StartRate`. Quy ước: "đủ 20" tính theo LẦN
+ĐẦU đạt 20 — phòng đủ 20 rồi có người rời trước khi bắt đầu vẫn tính là
+đã đủ (thời gian lấp đầy là thời gian tới lần đầu đủ); số người lúc bắt
+đầu đo riêng bằng `matchesStartedUnder20`. Phòng QC không tính; phòng bị
+xóa khi chưa bắt đầu trận (`dropMatch`) thì bỏ bản ghi, không vào mẫu số.
+Chưa đo: KPI-08 (cần tính năng tố cáo).
+
+**KPI-07 trận bỏ dở — ĐÃ QUYẾT (cycle 24, 2026-11-07 — backlog #14,
+P3-06 bước 3, QC/Sudo lật được):** "bỏ dở" = trận đã bắt đầu
+(`recordMatchStart` đã chạy) nhưng phòng bị xóa (`dropMatch`) trước khi
+`recordMatchEnd` — mọi người rời phòng giữa trận, trận không có kết quả.
+Đếm vào `totals.matchesAbandoned` (+ `abandonedPlayersTotal` = số người
+trong các trận bỏ dở); phòng QC tách riêng (`qcMatchesAbandoned`), không
+vào mẫu số KPI. `GET /analytics` thêm `abandonRate` =
+`matchesAbandoned / (matchesFinished + matchesAbandoned)` — tỉ lệ trong
+số trận đã có kết cục; trận đang chạy chưa tính. Mục tiêu đề xuất < 5%
+(BRD §2). Sửa kèm trong `dropMatch`: trận đã kết thúc (đang trong grace
+30s) mà phòng bị xóa thì chốt ngay số đếm như trận đã kết thúc thay vì
+hủy timer — trước đây trận đó mất khỏi thống kê nếu mọi người rời phòng
+trong 30s sau màn hình kết thúc. Phòng chưa bắt đầu trận mà bị xóa thì
+không tính bỏ dở. `dropMatch` 2 lần trên cùng trận chỉ đếm 1 lần.
+Giới hạn: server restart giữa trận làm mất bản ghi RAM nên trận đó không
+đếm được vào bỏ dở — chỉ đếm được trận bỏ dở do phòng trống. "Bỏ dở" ở
+đây là mọi người rời phòng; trận kẹt do lỗi mà không ai rời thì không
+kẹt được lâu vì đã có deadline vòng + deadline trận tổng (P1-07) ép kết
+thúc có kết quả.
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
+totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
+cách kiểm nhanh nhất.
+
+**KPI-06 hiệu năng ở client — ĐÃ QUYẾT (cycle 26, 2026-11-07 —
+backlog #14, P3-06 bước 4, QC/Sudo lật được):** client mới
+`client/js/perf.js` đo FPS trong 10 giây đầu sau khi trang tải xong
+(trung bình + thấp nhất theo từng giây; bucket nào kéo dài > 2s do tab
+bị ẩn thì bỏ, không tính vào trung bình) và thời gian tải trang đầu
+(Navigation Timing: `loadEventEnd` — phải đọc SAU khi sự kiện load kết
+thúc, đọc ngay trong handler load thì vẫn là 0) rồi gửi 1 báo cáo
+`{type:'perf'}` sau khi vào phòng (`game.js` gọi `onJoined()` khi nhận
+`'joined'`); server chỉ nhận 1 báo cáo mỗi kết nối WS và bỏ báo cáo gửi
+trước khi vào phòng (không quy được về phòng thường hay QC).
+`analytics.recordPerf` kiểm tra khoảng hợp lệ (FPS 0–240, loadMs
+0–300000ms): fpsAvg ngoài khoảng thì bỏ cả báo cáo; loadMs ngoài khoảng
+thì chỉ bỏ số tải trang, vẫn đếm FPS; fpsMin ngoài khoảng thì lấy bằng
+fpsAvg. Phòng QC chỉ đếm riêng (`qcPerfReports`), không vào mẫu số KPI.
+Chơi đơn không có WS nên không gửi — KPI-06 chỉ đo người chơi
+multiplayer. `GET /analytics` thêm `avgFps`, `avgFpsMin`,
+`fpsAtLeast30Rate` (fpsAvg ≥ 30 / báo cáo), `avgLoadSec`,
+`loadWithin5sRate` (loadMs ≤ 5s / báo cáo có loadMs), `noWebglRate`
+(renderer null — headless VM hoặc buildWorld lỗi, backlog #24). FPS đo
+ở sảnh chờ (cảnh 3D đã chạy) chứ không phải giữa trận — chỉ là mẫu, mục
+tiêu ≥ 30 FPS / tải ≤ ~5s vẫn là mục tiêu đề xuất (BRD §2), không thay
+cho đo FPS/thời gian tải trên điện thoại thật (backlog #10). Chưa đo:
+KPI-08 (cần tính năng tố cáo), khóa admin cho `/analytics` khi mở public.
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có người chơi thật
+gửi báo cáo (hiện totals đang rỗng); Sudo chơi thử rồi xem
+`GET /analytics` là cách kiểm nhanh nhất.
+
+**Nút THOÁT GAME ở menu phải — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
+backlog #33, theo yêu cầu Sudo, QC/Sudo lật được):** nút `THOÁT GAME`
+(`#btn-exit`, đỏ) cuối cột `#econBtns`, cùng hàng với 4 nút kinh tế.
+Người bị loại/khán giả/người xem tour/người đã xong trận bấm là thoát
+thẳng về màn chính, không hỏi. Người còn sống trong trận thì hỏi lại
+bằng `confirm()` vì rời trận = bị loại khỏi trận này, không nhận thưởng
+vòng này. Trận QC không hỏi (không thưởng, thoát tự do để test). Thoát
+xong: sim vòng 3-6 dừng, mọi overlay/panel của trận ẩn, tour +
+spectator + banner + chat tắt, fog về preset sân làng, phase về
+'menu', startCard hiện lại. Multi đóng WS — server giữ slot 30 giây
+grace rồi xóa, chưa có message 'leave' riêng (backlog #34). Chưa làm:
+nút thoát trên màn hình kết thúc trận (overlay teamCard che cột menu,
+backlog #35).
+Chưa đo bằng tay: số liệu chỉ có ý nghĩa sau khi có trận thật (hiện
+totals đang rỗng); Sudo chơi thử vài trận rồi xem `GET /analytics` là
+cách kiểm nhanh nhất.
+
+**Đảo du lịch mới Hòn Chó Đá — ĐÃ QUYẾT (cycle 21, 2026-11-07 —
+backlog #15, P4-01 bước 1/3, QC/Sudo lật được):** thêm đảo thứ 12 vào
+du lịch Hạ Long (P4-01 yêu cầu ít nhất 3 đảo mới; cycle này làm 1 đảo,
+còn nợ 2 đảo cho cycle sau). Hòn Chó Đá là đảo đá thật trong vịnh, nhãn
+nguồn "Tư liệu thật": hình dáng chó ngồi chồm hỗm, mõm hướng ra khơi;
+câu chuyện ghi rõ phần nào là tư liệu (hình dáng thật) và phần nào là
+truyền thuyết dân gian (chó trung thành đợi chủ đi biển). Vị trí
+(-285, 245) ở góc tây nam vịnh, cách đảo gần nhất (Đảo Soi Sim) và dãy
+núi đá vôi gần nhất đều trên 100 đơn vị — không chồng lấn. Đảo có đủ:
+hình voxel riêng (thân ngồi thấp bè, ngực dựng, đầu ngẩng, mõm + chóp
+mũi nhô hướng tây nam, hai tai, đuôi vểnh, bãi cát chân trước), cây/bụi/
+dây leo/hoa trên lưng, đèn dấu đỏ, biển tên, thuyền neo gần bờ, đàn chim
+bay vòng quanh, icon `dog` riêng trong danh sách tour. Danh sách tour,
+proxy bấm 3D, chấm minimap và nút bay tới đều chạy theo dữ liệu
+`TOUR_ISLANDS` nên đảo mới tự có đủ đường vào, không sửa riêng từng
+chỗ. Chưa đo bằng tay: hình dáng voxel thật của đảo chỉ xem được trên
+trình duyệt có WebGL (harness headless ở VM trả WebGL null nên canvas
+trắng) — Sudo bay tới Hòn Chó Đá trên máy thật để chốt dáng chó có đọc
+ra ngay không.
+
+**Panel Du lịch Hạ Long không bao giờ hiện — ĐÃ QUYẾT (cycle 21,
+2026-11-07 — backlog #37, phát hiện khi kiểm #15, QC/Sudo lật được):**
+`#tourPanel` có `display:none` trong CSS, `activateExplore()` chỉ gỡ
+class `.hidden` — nhưng panel không hề có class `.hidden` từ đầu nên
+lệnh gỡ là no-op và panel giữ nguyên 0×0. Bấm DU LỊCH (từ sảnh chờ hay
+trong trận) vẫn bay camera + ghi tên/câu chuyện đảo vào `#tourInfo`,
+chỉ là không ai nhìn thấy vì panel ẩn — toàn bộ du lịch (danh sách 12
+đảo + câu chuyện) không tới được người chơi. Đây là cùng họ lỗi với
+panel chat (#20, cycle 5) và banner khán giả: đo hiển thị bằng class
+`.hidden` là sai, phải đo bằng computed display — stage capture tour
+mới ([9]) nay đo đúng cách đó. Sửa theo đúng mẫu #20:
+`#tourPanel.open{display:block}` trong CSS, `activateExplore()` thêm
+`.open` khi mở, `exitTour()` gỡ `.open` khi đóng. Cùng lúc sửa ghi chú
+`.note` trong panel: màu nâu đậm `#5a4632` (làm cho nền sáng) trên nền
+tour tối đọc không ra — nay `#tourInfo .note` màu sáng `#aef2dd`.
+Chưa đo bằng tay: danh sách 12 đảo trong panel chỉ hiện khi
+`buildTourList()` chạy được, tức là trên trình duyệt có WebGL thật
+(headless ở VM trả WebGL null nên danh sách trống trong ảnh chụp) —
+Sudo mở tour trên máy thật để chốt danh sách hiện đủ 12 đảo.
+
+**Sự kiện theo mùa — ĐÃ QUYẾT (cycle 25, 2026-11-07 — backlog #16,
+P4-06 bước 1, QC/Sudo lật được):** khung sự kiện trong
+`client/js/seasonal.js`: mỗi sự kiện có `id`, tên, badge, cửa sổ ngày
+dương cố định theo từng năm (`start`/`end` dạng YYYY-MM-DD), thông báo
+và class CSS riêng. Phát hiện theo thứ tự: ghi đè URL `?season=<id>` /
+`?season=none` thắng localStorage `hoilang_season` (`<id>` / `none`),
+thắng ngày hiện tại (so chuỗi ngày địa phương của trình duyệt — người
+chơi ở múi giờ khác có thể lệch tối đa 1 ngày ở biên cửa sổ, chấp nhận
+được vì chỉ là chủ đề trang trí, không ảnh hưởng luật chơi); giá trị lạ
+thì bỏ qua, rơi về logic theo ngày. `applySeason()` gắn class mùa vào
+`body` + điền badge `#seasonBadge` trong sảnh chờ; `announceSeason()`
+gọi toast đúng 1 lần mỗi lần tải trang. Sự kiện đầu tiên: **Tết Hội
+Làng 2027** — cửa sổ 30/01–10/02/2027 (mốc đã kiểm chứng qua web:
+mùng 1 Tết Đinh Mùi thứ Bảy 06/02/2027, giao thừa tối 05/02/2027 vì
+tháng Chạp chỉ 29 ngày, ông Công ông Táo 30/01/2027, nghỉ lễ chính
+thức 04/02–10/02/2027 theo TB 11483/TB-BNV). Chủ đề: badge đỏ/vàng
+\"🧧 TẾT HỘI LÀNG · 30/01 – 10/02/2027\" dưới tiêu đề sảnh chờ, viền
+card + HUD chuyển tông đỏ/vàng; thông báo toast lúc bắt đầu trận
+(\"🧧 Tết Hội Làng — làng đón Tết Đinh Mùi, từ 30/01 đến 10/02/2027!\").
+Hai lỗi thật bắt được khi kiểm chứng: (a) hook áp chủ đề lần đầu đặt
+trong nhánh `else` của `if (window.THREE)` trong `game.js` nên chỉ
+chạy khi THREE lỗi — nay áp vô điều kiện trước khối `if/else` (script
+nằm cuối body nên `#seasonBadge` đã có trong DOM); (b) toast mùa bị
+toast flyover \"Bay tổng quan…\" ghi đè ngay (cùng dùng một `#toast`
+3 giây) — nay `announceSeasonOnce()` trì hoãn 3.5 giây, toast mùa
+hiện sau, trong lúc camera đang bay. Chưa làm (bước 2): trò biến thể
+Tết (ví dụ lì xì Hội Xu, trống Tết) — P4-06 mới xong chủ đề + thông
+báo. Chưa đo bằng tay: cảm giác chủ đề Tết trên trình duyệt thật
+trong cửa sổ 30/01–10/02/2027 (ngoài cửa sổ chỉ test được bằng
+`?season=tet`), Sudo chốt lại ngày âm lịch mỗi năm trước khi mở
+(cửa sổ ghi bằng ngày dương cố định).
+
+Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
+cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,
+0.25, 0.167) cho tới khi còn 1 người. Phòng 456 người chơi đúng mục tiêu
+thì đi theo sơ đồ dưới (6 vòng); phòng nhỏ đi ít vòng hơn; và một trận có
+thể dài hơn nếu người chơi đều chơi tốt (Kéo Co / Bịt Mắt loại theo luật
+riêng, có thể ít hơn mục tiêu) — xem OD-11.
 
 ```
 456 người vào trận
@@ -302,11 +809,18 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 1 người thắng
 ```
 
-- Tổng thời gian mục tiêu: ~25–35 phút/trận (ước tính, chưa đo).
+- Tổng thời gian mục tiêu: ~25–35 phút/trận cho phòng đủ người (ước tính,
+  chưa đo); trận dài hơn nếu người chơi đều chơi tốt và các vòng loại ít người.
 - Người bị loại ở bất kỳ vòng nào cũng chuyển sang khán giả hoặc du lịch,
   không bị văng khỏi trận.
-- Khi chưa đủ 456 người (phòng nhỏ), đường loại cần có bảng co giãn theo số
-  người thực tế — chưa thiết kế, cần làm ở Phase 1.
+- Khi chưa đủ 456 người (phòng nhỏ), đường loại co giãn theo số người thực
+  tế (mục tiêu tính từ số người lúc bắt đầu trận, `games.scaledTargets`).
+- **Bảo đảm kết thúc:** mỗi vòng còn > 1 người đều loại ít nhất 1 người
+  (cắt ép tối thiểu theo xếp hạng/điểm của trò đó — `server.js`
+  `ensureAtLeastOneElimination`; các trò xếp hạng Trống Hội / Cầu Khỉ /
+  Tò He / Ô Ăn Quan / Nhảy Bao Bố cắt về đúng mục tiêu tỉ lệ). Giới hạn
+  xấu nhất: N−1 vòng từ N người (mỗi vòng chỉ loại đúng 1); thường 6–8
+  vòng với phòng đủ người vì hầu hết các vòng cắt về đúng mục tiêu.
 
 ## 9. Giả định, phụ thuộc, rủi ro và quyết định mở
 
@@ -357,6 +871,9 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 | OD-06 | Có làm voice chat không? | Voice chat tốn nhiều công sức và rủi ro kiểm duyệt | Phase 4 (hoặc không làm) |
 | OD-07 | Mục tiêu người chơi đồng thời đầu tiên sau khi ra mắt (ví dụ 50 / 200 / 456)? | Quyết định mức độ đầu tư vào scale ở Phase 2 | Phase 2 |
 | OD-08 | Có làm tài khoản / đăng nhập không, hay giữ chơi bằng tên tự chọn? | Ảnh hưởng bảng xếp hạng, lịch sử, chống gian lận | Phase 1–3 |
+| OD-09 | Đếm ngược lượt qua cầu vòng 2 là bao lâu? | **ĐÃ QUYẾT (tạm) 2026-11-05 — Muse chọn theo chỉ đạo "thấy phương án nào hợp lý thì triển khai", QC có thể lật:** 30 giây/lượt — một người qua hết 9 bước cầu. Lý do: 9 bước × ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi; lượt không bắt đầu và lượt đi quá chậm là một (đồng hồ chạy từ lúc lượt bắt đầu, hết giờ thì bị loại, lượt chuyển người tiếp theo). Áp cả 2 chế độ: server ép ở multi (server/server.js, tick kiểm tra turnStartedAt), client ép ở chơi đơn (game.js r2Turn; bot cũng chịu cùng luật, tốc độ bot qua cầu đã tăng lên 2.4–3.7 để qua hết trong ~10–15 giây). Mọi vòng đều hiện đếm ngược trên HUD (ô ĐẾM NGƯỢC cạnh ô VÒNG, đỏ khi ≤ 10 giây); vòng 2 hiện đếm ngược theo lượt, các vòng còn lại hiện đếm ngược cả vòng (vòng 1: 120 giây; vòng 2 cả vòng multi: 180 giây; các vòng sau theo games.js ROUND_TIME_LIMITS). Panel team vòng 2 thu gọn thành dải 2 dòng ở mép trên (không che giữa màn hình, không chặn bấm ván) sau khi Sudo báo banner "qua cầu 0/0" chắn màn hình. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
+| OD-10 | Chế độ QC nhảy vòng: số người sống khi vào thẳng vòng sau là bao nhiêu, và nhảy Vòng 2 thì thứ tự lượt tính sao? | **ĐÃ QUYẾT 2026-11-05 — theo yêu cầu của Sudo ("cần chế độ cho admin để QC test, chọn vòng để chơi luôn, không thì test rất lâu"):** chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 — tối thiểu 2 người để còn test được cờ, thay vì 1 theo đường cong); nhảy Vòng 2 qua CHIA TEAM như thường nhưng thứ tự lượt xáo trộn theo seed của trận vì không có thời gian về đích Vòng 1 (ghi rõ trên màn team). Trận QC không thưởng Hội Xu / XP Pass, không tính BXH; tuỳ chọn "Không loại" tắt mặc định, chỉ để test giao diện. **Cập nhật OD-11 (2026-11-06):** số người sống tính bằng cùng tỉ lệ chu kỳ cho mọi vòng (không hardcode bảng 6 vòng), panel QC có nút tới V8 và "VÒNG SAU" nhảy được qua vòng 6. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
+| OD-11 | Số vòng chơi có giới hạn ở 6 không? | **ĐÃ QUYẾT 2026-11-06 — theo yêu cầu của Sudo ("không giới hạn số vòng chơi, số vòng phụ thuộc vào số người còn lại; ví dụ mọi người đều chơi tốt thì 6 vòng không thể loại hết chỉ còn 1 được"):** KHÔNG giới hạn số vòng. Trận chỉ kết thúc khi còn 1 người thắng. Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò (không lặp trong chu kỳ, hết kho xáo lại chu kỳ mới, không lặp liền kề qua biên); Rồng Rắn là chung kết chỉ khi ≤ 6 người sống lúc bắt đầu vòng; một vòng kết thúc với đúng 1 người sống thì trận kết thúc ngay. Mỗi vòng loại ít nhất 1 người (cắt ép tối thiểu theo xếp hạng/điểm của trò; các trò xếp hạng cắt về đúng mục tiêu tỉ lệ chu kỳ 0.614, 0.536, 0.467, 0.343, 0.25, 0.167). HUD hiện "VÒNG x" không có "/6" và hiện mục tiêu giữ lại của vòng. Thường 6–8 vòng với phòng đủ người; giới hạn xấu nhất N−1 vòng từ N người. QC: nhảy được qua vòng 6, số người sống tính bằng cùng tỉ lệ chu kỳ. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
 
 ## 10. Kinh tế trong game (MONETIZATION) — ĐÃ QUYẾT 2026-11-05
 
@@ -369,7 +886,7 @@ cần Sudo duyệt và cần cân bằng lại sau play-test ở Phase 1.
 ### 10.1. Nguyên tắc
 
 - **Lõi trận sinh tồn hoàn toàn miễn phí.** Vào phòng, chơi 2 vòng (mục
-  tiêu 6 vòng), chat, khán giả, du lịch Hạ Long — không mất tiền, không
+  tiêu, chat, khán giả, du lịch Hạ Long — không mất tiền, không
   cần tài khoản ở giai đoạn đầu.
 - **Không pay-to-win:** không món nào mua bằng tiền hay xu cho chỉ số,
   tốc độ, sức mạnh, ván chắc, lượt đi thêm hay bất kỳ lợi thế nào trong
