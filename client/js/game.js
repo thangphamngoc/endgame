@@ -66,6 +66,7 @@
   ];
 
   var scene, camera, renderer, raycaster, pointer;
+  var webglFailed = false; // #24: true khi không tạo được WebGLRenderer
   var player, playerGroup, bots = [], remotePlayers = {};
   var birds = [], butterflies = [], fishes = [], crabs = [], monkeys = [];
   var tourGroups = {}, detailedIsland = null;
@@ -815,6 +816,19 @@
   }
 
   // ---- Thế giới ----
+  // #24 — fallback khi WebGL lỗi: hiện thông báo rõ thay vì đóng băng,
+  // vô hiệu hoá nút vào trận (trận 3D không chạy được), nhưng sảnh chờ
+  // (danh sách đảo, chat) vẫn dùng được sau khi bấm ĐÃ HIỂU.
+  function showWebglError(err) {
+    if (err) console.error('[webgl] không khởi tạo được WebGLRenderer:', err);
+    var el = $('webglError'); if (el) el.style.display = 'block';
+    ['btnStart', 'btn-single', 'btn-multi', 'btn-create', 'btn-join'].forEach(function (id) {
+      var b = $(id); if (b) { b.disabled = true; b.title = 'Cần WebGL để chơi — trình duyệt này không hỗ trợ WebGL'; }
+    });
+    var d = $('btnWebglDismiss'); if (d) d.onclick = function () { if (el) el.style.display = 'none'; };
+  }
+  // Trả true khi dựng xong thế giới 3D, false khi WebGL lỗi (startApp bỏ
+  // qua phần 3D nhưng vẫn chạy sảnh chờ + chat + danh sách đảo).
   function buildWorld() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffc98a);
@@ -823,7 +837,14 @@
        không còn bị rửa thành màu trắng bệch như trước. */
     scene.fog = new THREE.Fog(0xa9bfba, 150, 720);
     camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 950);
-    renderer = new THREE.WebGLRenderer({ canvas: $('scene'), antialias: true });
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas: $('scene'), antialias: true });
+      if (!renderer.getContext()) throw new Error('WebGL context is null');
+    } catch (e) {
+      webglFailed = true;
+      showWebglError(e);
+      return false;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
@@ -1605,7 +1626,10 @@
     buildBridgeMeshes();
     buildDrumAndHost();
     buildRingsAndConfetti();
-    buildTourList();
+    // #24: buildTourList() là DOM thuần nên startApp() gọi riêng, luôn chạy
+    // kể cả khi WebGL lỗi — trước đây nó nằm cuối buildWorld nên WebGL null
+    // là danh sách tour rỗng (0 nút).
+    return true;
   }
 
   // ================= VÒNG 2 — CẦU KHỈ SƯƠNG MÙ (hình học port từ prototype) =================
@@ -5095,6 +5119,7 @@
     get scene() { return scene; },
     get camera() { return camera; },
     get renderer() { return renderer; },
+    get webglFailed() { return webglFailed; }, // #24
     get matchStartAt() { return matchStartAt; },
     get matchTimeLimit() { return matchTimeLimit; },
     matchTimeLeft: matchTimeLeft, endMatchOnTimeoutIfNeeded: endMatchOnTimeoutIfNeeded,
@@ -5147,6 +5172,7 @@
   // ---- Vòng lặp game ----
   var lastTime = performance.now();
   function animate(now) {
+    if (!renderer) return; // #24: WebGL lỗi thì không có vòng lặp render
     requestAnimationFrame(animate);
     syncBodyMode();
     var dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now;
@@ -5329,21 +5355,26 @@
   // CHAT giữ nguyên vì sảnh chờ vẫn dùng (bấm đảo trên minimap để bay
   // tới xem, chat ở sảnh chờ).
   var hudEl0 = $('hud'); if (hudEl0) hudEl0.classList.add('hidden');
-  if (window.THREE) {
-    buildWorld();
-    buildPoiProxies();
+  // #24: buildTourList() là DOM thuần nên luôn chạy (kể cả khi WebGL lỗi);
+  // buildWorld() trả false khi không tạo được renderer thì bỏ qua phần 3D
+  // (poi proxies, vòng lặp animate) nhưng sảnh chờ + chat vẫn chạy, và
+  // không còn uncaught pageerror lúc tải trang.
+  function startApp() {
+    var worldOK = false;
+    if (window.THREE) {
+      try { worldOK = buildWorld(); } catch (e) { webglFailed = true; showWebglError(e); }
+    }
+    buildTourList();
     drawMinimap();
+    if (worldOK) buildPoiProxies();
     addChatSystem('Chào mừng đến phòng chat! Nhấn Enter để chat — tin nhắn hiện trên đầu nhân vật 5 giây và lưu ở panel này. Các bạn bot trong bản chơi đơn luôn ghi rõ "· BOT" ở tên.');
-    animate(performance.now());
+    if (worldOK) animate(performance.now());
+  }
+  if (window.THREE) {
+    startApp();
   } else {
     document.addEventListener('DOMContentLoaded', function () {
-      if (window.THREE) {
-        buildWorld();
-        buildPoiProxies();
-        drawMinimap();
-        addChatSystem('Chào mừng đến phòng chat! Nhấn Enter để chat — tin nhắn hiện trên đầu nhân vật 5 giây và lưu ở panel này. Các bạn bot trong bản chơi đơn luôn ghi rõ "· BOT" ở tên.');
-        animate(performance.now());
-      }
+      if (window.THREE) startApp();
     });
   }
 })();

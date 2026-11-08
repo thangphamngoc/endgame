@@ -33,6 +33,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <div id="threeLoadError" style="display:none;position:fixed;inset:0;z-index:100;background:#1a0d0d;color:#ffd9d9;padding:24px;font:16px/1.6 'Be Vietnam Pro',sans-serif;text-align:center">Không tải được thư viện 3D (Three.js) — kiểm tra mạng rồi tải lại trang.</div>
 
+<!-- #24 (cycle 40): hiện khi không tạo được WebGLRenderer — trận 3D không chạy được,
+     nhưng sảnh chờ (danh sách đảo, chat) vẫn dùng được sau khi bấm ĐÃ HIỂU. -->
+<div id="webglError" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(26,13,13,.96);color:#ffd9d9;padding:24px;font:16px/1.6 'Be Vietnam Pro',sans-serif;text-align:center">
+  <div style="max-width:560px;margin:12vh auto 0;background:#2a1515;border:1px solid #7c2d12;border-radius:12px;padding:24px;text-align:left">
+    <div style="font-size:22px;font-weight:700;color:#fbbf24;text-align:center">⚠️ Trình duyệt này không chạy được đồ họa 3D</div>
+    <p>Game cần WebGL để vẽ đảo Hội Làng. Trình duyệt / thiết bị của bạn không hỗ trợ WebGL hoặc đã tắt tăng tốc phần cứng, nên trận đấu 3D không thể bắt đầu.</p>
+    <p style="font-size:14px;color:#fca5a5">Thử: bật "tăng tốc phần cứng" trong cài đặt trình duyệt, cập nhật trình duyệt / driver card đồ họa, hoặc mở bằng Chrome / Edge / Firefox mới nhất. Bạn vẫn xem được danh sách đảo Hạ Long và chat ở sảnh chờ.</p>
+    <div style="text-align:center"><button id="btnWebglDismiss" type="button" style="font:700 15px 'Be Vietnam Pro',sans-serif;background:#b45309;color:#fff;border:1px solid #7c2d12;border-radius:8px;padding:10px 26px;cursor:pointer">ĐÃ HIỂU</button></div>
+  </div>
+</div>
+
     <canvas id="scene"></canvas>
 
     <div id="hud">

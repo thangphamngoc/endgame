@@ -25,16 +25,20 @@
 //    overlap, illegible text) — but it CANNOT verify the 3D scene itself.
 //    3D scene verification needs the live browser (parent agent) or Sudo's
 //    real play-test. Never claim the 3D scene was verified from these shots.
-//  - CONSEQUENCE of WebGL-null (found 2026-11-06): buildWorld() throws
-//    "Error creating WebGL context" at init, so the rAF game loop never
-//    starts here. Round 1 freezes on "SẴN SÀNG" (clock 0:00, countdown "—")
-//    and the Round 2 team screen crashes in assignTeamsAndPlace()
-//    (figure materials never built). That is environmental here, but it
-//    exposes a real robustness gap: no graceful fallback when WebGL fails.
-//    Do NOT treat a frozen R1/R2 in this harness as a game bug without
-//    checking a real browser first — and do NOT treat a passing R3–R6
-//    overlay as proof the round plays (their overlays render synchronously
-//    even with the loop dead).
+//  - CONSEQUENCE of WebGL-null (found 2026-11-06, FIXED cycle 40, 2026-11-08
+//    — backlog #24): buildWorld() used to throw "Error creating WebGL
+//    context" at init, so the rAF game loop never started here; Round 1
+//    froze on "SẴN SÀNG" and the Round 2 team screen crashed in
+//    assignTeamsAndPlace(). Now buildWorld() catches the renderer failure,
+//    shows #webglError ("Trình duyệt này không chạy được đồ họa 3D"),
+//    disables the play buttons, and startApp() still builds the tour list,
+//    minimap and chat — so the lobby stays usable and init throws no
+//    pageerror. animate() is not started here. Rounds still cannot play
+//    without WebGL (figures are never built) — that is expected, not a
+//    game bug. Do NOT treat a frozen R1/R2 in this harness as a game bug
+//    without checking a real browser first — and do NOT treat a passing
+//    R3–R6 overlay as proof the round plays (their overlays render
+//    synchronously even with the loop dead).
 //  - CHAT visibility is the .open class (CSS #chatPanel.open{display:flex}),
 //    NOT .hidden — see stage [8]. Shop buttons in the lobby USED to be
 //    covered by the full-screen #startCard overlay (z-index 20 vs 6) —
@@ -47,6 +51,11 @@
 //    (real click on #btnObSkip, sets hoilang_onboarding_seen) right after
 //    load — see backlog #30, fixed cycle 17. Lobby stages [1]/[1b] keep it
 //    on purpose to capture the true first-time view.
+//  - WEBGL BANNER (cycle 40, #24): same pattern — #webglError (z-index 100)
+//    always shows here (WebGL null), so every stage also calls
+//    dismissWebglError() (real click on #btnWebglDismiss). Lobby stages
+//    dismiss it too: the banner is not part of real-browser UX, and the
+//    banner itself is captured by the cycle-40 probe.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -182,10 +191,29 @@ async function dismissOnboarding(page) {
   return done;
 }
 
+// #24 (cycle 40): banner lỗi WebGL phủ toàn màn hình (z-index 100) khi
+// WebGL null — ở headless VM này nó LUÔN hiện, chặn mọi click như
+// onboarding. Các stage tương tác gọi kèm dismissOnboarding(); stage
+// lobby cũng gọi (banner không thuộc UX trình duyệt thật có WebGL nên
+// không giữ lại trong ảnh lobby — bản thân banner đã chụp riêng ở probe
+// cycle 40: tools/captures/2026-11-08-cycle40/01-webgl-error.png).
+async function dismissWebglError(page) {
+  const done = await page.evaluate(() => {
+    const el = document.getElementById('webglError');
+    if (!el || getComputedStyle(el).display === 'none') return 'absent';
+    const b = document.getElementById('btnWebglDismiss');
+    if (b) { b.click(); return 'dismiss-clicked'; }
+    return 'no-dismiss-button';
+  });
+  await sleep(300);
+  return done;
+}
+
 async function startSingleQc(page, round) {
   await page.goto(BASE + '/?qc=1', { waitUntil: 'networkidle2', timeout: 30000 });
   await sleep(1500);
   await dismissOnboarding(page); // #30: tắt onboarding trước khi bấm QC
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
   if (!(await visible(page, '#qcPanel'))) await page.click('#btnQcToggle');
   await sleep(500);
   const picked = await page.evaluate((round) => {
@@ -218,6 +246,7 @@ async function startSingleQc(page, round) {
     let page = await newPage(browser, 1280, 800, log);
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2500);
+    await dismissWebglError(page); // #24: banner WebGL khong thuoc UX trinh duyet that — tat de chup lobby so sanh duoc
     await shot(page, '01-lobby-desktop');
     results.lobbyDesktop = await page.evaluate(() => ({
       title: document.title,
@@ -232,6 +261,7 @@ async function startSingleQc(page, round) {
     page = await newPage(browser, 360, 740, log);
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2500);
+    await dismissWebglError(page); // #24: banner WebGL khong thuoc UX trinh duyet that — tat de chup lobby so sanh duoc
     await shot(page, '01b-lobby-mobile');
     await page.close();
 
@@ -240,6 +270,7 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/?qc=1', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(1500);
     const ob2 = await dismissOnboarding(page); // #30: onboarding chặn nút QC
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
     if (!(await visible(page, '#qcPanel'))) await page.click('#btnQcToggle');
     await sleep(600);
     // QC section nằm dưới nếp gấp của start card — cuộn tới nó rồi mới chụp,
@@ -259,6 +290,7 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2000);
     await dismissOnboarding(page); // #30: onboarding chặn nút CHƠI ĐƠN
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
     await page.click('#btn-single');
     await sleep(9000); // flyover ~3.4s + countdown
     await page.keyboard.down('KeyW');
@@ -273,6 +305,7 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2000);
     await dismissOnboarding(page); // #30
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
     await page.click('#btn-single');
     await sleep(9000);
     await shot(page, '03b-round1-mobile');
@@ -281,6 +314,7 @@ async function startSingleQc(page, round) {
     console.log('[8] chat');
     try {
       await dismissOnboarding(page); // #30: phòng hờ nếu page này chưa tắt onboarding
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
       // Panel chat hiện bằng class .open (CSS #chatPanel.open{display:flex}),
       // KHÔNG phải class .hidden — openChat/closeChat chỉ đổi .hidden nên
       // đừng đo bằng classList.contains('hidden') (sai). Đo bằng computed display.
@@ -339,6 +373,7 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2000);
     await dismissOnboarding(page); // #30: onboarding chặn nút CỬA HÀNG
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
     // #21 (cycle 30): phần tử thật sự nằm trên tâm nút CỬA HÀNG phải là
     // chính nút đó (#econBar nổi lên z 21 khi sảnh chờ mở, ≥900px) — trước
     // sửa là overlay #startCard (z-index 20) nên click chuột thật không
@@ -365,11 +400,10 @@ async function startSingleQc(page, round) {
     await page.goto(BASE + '/', { waitUntil: 'networkidle2', timeout: 30000 });
     await sleep(2000);
     await dismissOnboarding(page); // #30: onboarding chan nut DU LICH TU SANH CHO
+    await dismissWebglError(page); // #24: banner loi WebGL (headless luon hien) chan click
     // Mo tour tu sảnh chờ (focusIsland(1) -> activateExplore + flyToPOI(1)).
-    // O headless (WebGL null) buildWorld() chet truoc buildTourList() nen
-    // #tourList DOM rong — do la he qua cua #24, khong phai loi tour. Stage
-    // nay ghi ro listCount=0 khi do, dong thoi kiem du lieu TOUR_ISLANDS
-    // trong file game.js trinh duyet vua tai (12 dao, co cho-da).
+    // #24 da sua o cycle 40: buildTourList() chay ca khi WebGL null nen
+    // #tourList co du 14 nut; stage nay kiem listCount=14.
     try { await page.click('#btn-tour-lobby'); } catch (e) { await page.evaluate(() => document.getElementById('btn-tour-lobby').click()); results.tourClickFallback = 'js-click: ' + String(e.message || e); }
     await sleep(1500);
     await shot(page, '09-tour');
