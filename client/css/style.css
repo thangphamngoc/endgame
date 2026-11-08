@@ -668,6 +668,25 @@ body.touch #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inse
      right:122px cũ cho gợi ý chạm tới x=238, đè lên minimap 19px. */
   #roundHint{left:6px;right:150px;transform:none;width:auto;max-width:none;top:calc(162px + env(safe-area-inset-top));font-size:12px;padding:6px 10px}
 }
+@media (min-width:621px) and (max-width:900px){
+  /* Dải tablet 621–900px (#31, cycle 47): teamPanel 600px căn giữa đè ngang
+     lên minimap — đo thật trước khi sửa: ở 800px teamPanel tới x=700,
+     minimap bắt đầu x≈620, chồng 3760px² (621px: 7285px², 700px: 6110px²,
+     900px: 1410px²); desktop 1280px + mobile 360px không chồng. Dải gợi ý
+     phím #roundHint cũng có thể chạm minimap khi chữ dài (max-width 640px
+     căn giữa) nên sửa kèm cùng dải này. Cách sửa như mobile (≤620px): dạt
+     sang trái, chừa cột minimap. MinimapWrap rộng ~170px ở right:10px (đo
+     thật: nhãn "BẢN ĐỒ · ĐẢO HỘI LÀNG" + chú thích làm nó rộng hơn canvas
+     132px; cạnh trái x=vw-180) nên right:190px để hở 10px — lần sửa đầu
+     right:168px tính theo 150px nên vẫn chồng 12px ngang (564px²). Đặt
+     khối này SAU luật gốc #roundHint để left/transform/max-width trong này
+     thắng luật gốc (cùng độ ưu tiên, luật sau thắng). Top giữ nguyên như
+     desktop (HUD 1 hàng ở dải này: gợi ý top 122px, team top 182px, không
+     đè nhau; team cao ~47px nên đáy ~229px, vẫn trên cột econBar bắt đầu
+     top 336px). */
+  #teamPanel{left:6px; right:190px; transform:none; width:auto; max-width:none;}
+  #roundHint{left:6px; right:190px; transform:none; width:auto; max-width:none;}
+}
 .round-countdown{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#33200f}
 .round-countdown.urgent{color:#c62828}
 
