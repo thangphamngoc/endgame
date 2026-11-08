@@ -104,8 +104,14 @@
 
   // ---- HUD strip (div riêng, 2 dòng, không chạm #round-overlay) ----
   var CSS =
-    '.sim-keoco-strip{position:fixed;top:118px;left:50%;transform:translateX(-50%);' +
+    '.sim-keoco-strip{position:fixed;top:166px;left:50%;transform:translateX(-50%);' +
     'width:min(560px,92vw);z-index:25;pointer-events:none;font-family:"Be Vietnam Pro",Arial,sans-serif;}' +
+    // #32 (cycle 48): dải từng ở top 118px, đè lên dải gợi ý phím #roundHint
+    // (top 122px, đáy ~160px) trong 12s đầu vòng — cùng họ lỗi với Bịt Mắt /
+    // Rồng Rắn / Ô Ăn Quan. Dời xuống dưới gợi ý (166px; tablet 184px vì gợi ý xuống 2 dòng ở 621px, đáy ~177px) + chừa cột minimap
+    // như #roundHint (tablet right:190px, mobile top 236px (gợi ý mobile đáy tối đa ~229px) + right:160px (chừa cả minimap lẫn cột econBar mobile, bắt đầu x=204px)).
+    '@media (min-width:621px) and (max-width:900px){.sim-keoco-strip{top:184px;left:6px;right:190px;transform:none;width:auto;max-width:none}}' +
+    '@media (max-width:620px){.sim-keoco-strip{top:236px;left:6px;right:160px;transform:none;width:auto;max-width:none}}' +
     '.sim-keoco-row{display:flex;align-items:center;gap:6px;background:rgba(31,41,55,.82);' +
     'border:2px solid #ffedb8;border-radius:10px;padding:6px 8px;}' +
     '.sim-keoco-team{font-weight:900;font-size:13px;color:#fffdf4;white-space:nowrap;}' +

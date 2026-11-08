@@ -291,12 +291,23 @@
     var s = document.createElement('style');
     s.id = 'sim-tohe-style';
     s.textContent =
-      '.sim-tohe-strip{position:fixed;left:50%;top:118px;transform:translateX(-50%);' +
+      '.sim-tohe-strip{position:fixed;left:50%;top:166px;transform:translateX(-50%);' +
       'z-index:6;width:min(520px,92vw);pointer-events:none;text-align:center;' +
       'font-family:"Be Vietnam Pro",system-ui,sans-serif;color:#fff7ea;}' +
+      // #32 (cycle 48): dải từng ở top 118px, nằm dưới dải gợi ý phím
+      // #roundHint (z-index 7 > 6) nên bị gợi ý che trong 12s đầu vòng —
+      // cùng họ lỗi với Bịt Mắt / Rồng Rắn / Ô Ăn Quan (chỉ khác chiều đè).
+      // Dời xuống dưới gợi ý (166px; tablet 184px vì gợi ý xuống 2 dòng ở 621px, đáy ~177px) + chừa cột minimap như #roundHint
+      // (tablet right:190px, mobile top 236px (gợi ý mobile đáy tối đa ~229px) + right:160px (chừa cả minimap lẫn cột econBar mobile, bắt đầu x=204px)).
+      '@media (min-width:621px) and (max-width:900px){.sim-tohe-strip{top:184px;left:6px;right:190px;transform:none;width:auto;max-width:none}}' +
+      '@media (max-width:620px){.sim-tohe-strip{top:236px;left:6px;right:160px;transform:none;width:auto;max-width:none}}' +
       '.sim-tohe-line1{display:flex;gap:6px;justify-content:center;align-items:center;' +
       'flex-wrap:wrap;background:rgba(30,18,10,.88);border:3px solid #1d0f06;border-radius:3px;' +
       'padding:5px 10px;box-shadow:inset 0 0 0 2px rgba(255,205,120,.22),0 4px 0 rgba(0,0,0,.25);}' +
+      // #32 (cycle 48): mobile dòng 1 xuống 2 hàng ở 194px rộng nên dải cao
+      // ~119px, đáy chạm tới tấm overlay bottom-sheet (đỉnh ~346px ở màn
+      // 640px). Thu chữ + đệm trên mobile cho dải gọn lại.
+      '@media (max-width:620px){.sim-tohe-line1{padding:4px 8px}.sim-tohe-shape{font-size:13px}.sim-tohe-line2{font-size:11px}}' +
       '.sim-tohe-badge{background:#b5451b;color:#fffdf4;font-weight:900;font-size:12px;' +
       'letter-spacing:.5px;padding:2px 7px;border-radius:2px;white-space:nowrap;}' +
       '.sim-tohe-shape{font-weight:900;font-size:14px;white-space:nowrap;}' +

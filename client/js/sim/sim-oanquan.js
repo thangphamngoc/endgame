@@ -118,10 +118,20 @@
 
   // ---- HUD strip + nhãn số quân (div riêng, không chạm #round-overlay) ----
   var CSS =
-    '.sim-oanquan-strip{position:fixed;top:118px;left:50%;transform:translateX(-50%);' +
+    '.sim-oanquan-strip{position:fixed;top:166px;left:50%;transform:translateX(-50%);' +
     'width:min(560px,92vw);z-index:25;pointer-events:none;font-family:"Be Vietnam Pro",Arial,sans-serif;}' +
+    // #32 (cycle 48): dải từng ở top 118px, đè lên dải gợi ý phím #roundHint
+    // (top 122px, đáy ~160px) trong 12s đầu vòng. Dời xuống dưới gợi ý
+    // (166px) + chừa cột minimap như #roundHint (tablet right:190px,
+    // mobile top 236px (gợi ý mobile ở 162px, cao tối đa ~67px cho 3 dòng → đáy ~229px) + right:160px (chừa cả minimap lẫn cột econBar mobile, bắt đầu x=204px)).
+    '@media (min-width:621px) and (max-width:900px){.sim-oanquan-strip{top:184px;left:6px;right:190px;transform:none;width:auto;max-width:none}}' +
+    '@media (max-width:620px){.sim-oanquan-strip{top:236px;left:6px;right:160px;transform:none;width:auto;max-width:none}}' +
     '.sim-oanquan-line{margin-top:4px;text-align:center;font-weight:800;font-size:13px;color:#fffdf4;' +
     'background:rgba(31,41,55,.82);border:2px solid #ffedb8;border-radius:10px;padding:5px 10px;}' +
+    // #32 (cycle 48): mobile dải 2 dòng, mỗi dòng xuống 2 dòng ở 194px rộng
+    // nên dải cao ~128px, đáy chạm tới tấm overlay bottom-sheet (đỉnh ~346px
+    // ở màn 640px). Thu chữ + đệm trên mobile cho dải gọn lại (~108px).
+    '@media (max-width:620px){.sim-oanquan-line{font-size:12px;padding:3px 8px}}' +
     '.sim-oanquan-line:first-child{margin-top:0;}' +
     '.sim-oanquan-line b{color:#ffd34d;}' +
     '.sim-oanquan-line.sim-oanquan-myturn{color:#1f2937;background:#ffedb8;border-color:#1f2937;}' +

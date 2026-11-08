@@ -301,12 +301,18 @@
     var style = document.createElement('style');
     style.id = 'sim-flag-style';
     style.textContent =
-      '.sim-flag-strip{position:fixed;top:118px;left:50%;transform:translateX(-50%);' +
+      '.sim-flag-strip{position:fixed;top:166px;left:50%;transform:translateX(-50%);' +
       'z-index:30;pointer-events:none;text-align:center;max-width:min(92vw,560px);' +
       'background:rgba(31,41,55,.85);color:#fffdf4;border:2px solid #ffedb8;border-radius:10px;' +
       'padding:6px 14px;font:600 14px/1.45 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35)}' +
       '.sim-flag-strip .sim-flag-line2{display:block;font-weight:400;font-size:12.5px;opacity:.92}' +
-      '.sim-flag-strip.sim-flag-me{border-color:#e53935}';
+      // #32 (cycle 48): dải từng ở top 118px, đè lên dải gợi ý phím #roundHint
+      // (top 122px, đáy ~160px) trong 12s đầu vòng. Dời xuống dưới gợi ý
+      // (166px) + chừa cột minimap như #roundHint (tablet right:190px,
+      // mobile top 236px (gợi ý mobile ở 162px, cao tối đa ~67px cho 3 dòng → đáy ~229px) + right:160px (chừa cả minimap lẫn cột econBar mobile, bắt đầu x=204px)).
+      '.sim-flag-strip.sim-flag-me{border-color:#e53935}' +
+      '@media (min-width:621px) and (max-width:900px){.sim-flag-strip{top:184px;left:6px;right:190px;transform:none;max-width:none}}' +
+      '@media (max-width:620px){.sim-flag-strip{top:236px;left:6px;right:160px;transform:none;max-width:none}}';
     document.head.appendChild(style);
     var strip = document.createElement('div');
     strip.className = 'sim-flag-strip';

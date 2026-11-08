@@ -607,11 +607,15 @@ body.season-tet #hud .plate{border-color:#b45309}
    dê): trên cảm ứng, dải bottom-sheet sẽ đè lên joystick + nút NHẢY + nút
    CHAT nên chuyển overlay thành dải gọn phía trên, chừa cột minimap bên
    phải (cùng cách #teamPanel/#roundHint làm). Desktop dùng bàn phím nên giữ
-   nguyên bottom-sheet. (P4-03, cycle 14) */
+   nguyên bottom-sheet. (P4-03, cycle 14)
+   Top 245px (#32, cycle 48): dải cue của sim đã dời xuống dưới gợi ý phím
+   (top 166px, đáy ~220px ở Rồng Rắn; tablet 184px vì gợi ý xuống 2 dòng ở
+   621px nên đáy dải ~238px) nên overlay di chuyển phải nằm dưới dải cue,
+   không còn ở 184px như trước — nếu không sẽ đè lên dải cue. */
 @media (pointer:coarse){
-  #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+  #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
 }
-body.touch #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+body.touch #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
 #round-overlay.sim-mode.move-mode h2{font-size:17px;margin:0 0 4px}
 #round-overlay.sim-mode.move-mode .note{display:none}
 #round-overlay.sim-mode.move-mode #flag-status{display:block;margin:0}
@@ -619,13 +623,20 @@ body.touch #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inse
   /* Cùng độ đặc hiệu với luật body.touch ở trên (1 id + 3 class), nếu không
      luật đó thắng và dải chỉ rộng 194px thay vì 232px. Minimap mobile đo
      thật rộng 135px ở right:6px (chiếm tới 141px) nên right:150px mới chừa đủ.
-     Top 226px = dưới dải gợi ý phím mobile (top 162px, cao tối đa ~61px
-     cho 3 dòng) để dải di chuyển không đè gợi ý trong 12 giây đầu vòng
-     (cycle 15, #10 — HUD mobile giờ 2 hàng nên mọi dải trên đều dời xuống).
-     Right 160px = chừa cột econBar (bắt đầu x=204px ở 360px), dải cao tối
-     đa 32vh có thể chạm tới y=300px của cột kinh tế. */
-  #round-overlay.sim-mode.move-mode{top:calc(226px + env(safe-area-inset-top));right:160px}
-  body.touch #round-overlay.sim-mode.move-mode{top:calc(226px + env(safe-area-inset-top));right:160px}
+     Top 328px (#32, cycle 48): dải cue của sim đã dời xuống dưới gợi ý phím
+     mobile (top 236px; dải cue Rồng Rắn cao ~54px → đáy ~290px) nên dải di
+     chuyển phải nằm dưới dải cue, không còn ở 226px như trước — nếu không
+     sẽ đè lên dải cue. Right 160px = chừa cột econBar (bắt đầu x=204px
+     ở 360px; dải tới x=200px), dải cao tối đa 32vh có thể chạm tới y=300px
+     của cột kinh tế nhưng không đè ngang lên cột.
+     Tấm overlay bottom-sheet (#round-overlay.sim-mode, max-height 44vh)
+     cũng phải chặn đỉnh ở dưới đáy dải cue: dải Ô Ăn Quan / Tò He mobile
+     cao ~110-128px (đáy ~344-364px) trong khi tấm overlay bị đẩy lên tới
+     y=346px ở màn 640px. Giới hạn max-height theo chiều cao màn hình để
+     đỉnh tấm luôn ≥ 372px (100vh - 12px đáy - 372px), không phụ thuộc vh. */
+  #round-overlay.sim-mode{max-height:max(150px,calc(100vh - 384px))}
+  #round-overlay.sim-mode.move-mode{top:calc(328px + env(safe-area-inset-top));right:160px}
+  body.touch #round-overlay.sim-mode.move-mode{top:calc(328px + env(safe-area-inset-top));right:160px}
 }
 #round-overlay.sim-mode h2{font-size:19px}
 #round-overlay.sim-mode .note{font-size:13px;line-height:1.4}

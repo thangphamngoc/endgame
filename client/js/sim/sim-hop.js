@@ -205,7 +205,7 @@
   function buildHud() {
     var css = [
       '.sim-hop-strip{position:fixed;left:50%;transform:translateX(-50%);',
-      'top:calc(118px + env(safe-area-inset-top));z-index:6;width:min(480px,60vw);',
+      'top:calc(166px + env(safe-area-inset-top));z-index:6;width:min(480px,60vw);',
       'pointer-events:none;background:rgba(30,18,10,.78);border:2px solid #1f2937;border-radius:3px;',
       'box-shadow:inset 0 0 0 2px rgba(255,205,120,.18),0 3px 0 rgba(0,0,0,.25);',
       'padding:5px 10px 6px;color:#fff7ea;font-weight:700;font-size:12.5px;line-height:1.35}',
@@ -217,7 +217,15 @@
       '.sim-hop-marker{position:absolute;left:0;top:-2px;width:5px;height:16px;background:#c62828;transform:translateX(-50%)}',
       '.sim-hop-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}',
       '.sim-hop-text .bad{color:#ff9d8a}',
-      '@media (max-width:700px){.sim-hop-strip{left:8px;transform:none;width:calc(100vw - 170px)}}'
+      // #32 (cycle 48): dải từng ở top 118px, nằm dưới dải gợi ý phím
+      // #roundHint (z-index 7 > 6) nên bị gợi ý che trong 12s đầu vòng —
+      // cùng họ lỗi với Bịt Mắt / Rồng Rắn / Ô Ăn Quan (chỉ khác chiều đè).
+      // Dời xuống dưới gợi ý (166px; tablet 184px vì gợi ý xuống 2 dòng ở 621px, đáy ~177px) + chừa cột minimap như #roundHint.
+      // Luật mobile cũ (max-width:700px, width calc(100vw - 170px)) chừa
+      // minimap thiếu ~18px ở dải 621–700px (minimap bắt đầu x=vw-180, dải
+      // tới x=vw-162) nên thay bằng right:190px như #roundHint (cycle 47).
+      '@media (min-width:621px) and (max-width:900px){.sim-hop-strip{top:calc(184px + env(safe-area-inset-top));left:6px;right:190px;transform:none;width:auto;max-width:none}}',
+      '@media (max-width:620px){.sim-hop-strip{top:calc(236px + env(safe-area-inset-top));left:6px;right:160px;transform:none;width:auto;max-width:none}}'
     ].join('\n');
     var style = document.createElement('style');
     style.id = 'sim-hop-style';

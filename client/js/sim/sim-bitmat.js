@@ -55,7 +55,7 @@
     el.textContent =
       '.sim-bitmat-vignette{position:fixed;inset:0;z-index:4;pointer-events:none;' +
       'background:radial-gradient(circle at 50% 50%,rgba(6,10,26,0) 0%,rgba(6,10,26,0) 16%,rgba(6,10,26,.55) 34%,rgba(4,7,20,.93) 68%,rgba(2,4,12,.97) 100%);}' +
-      '.sim-bitmat-compass{position:fixed;left:50%;top:calc(118px + env(safe-area-inset-top));transform:translateX(-50%);' +
+      '.sim-bitmat-compass{position:fixed;left:50%;top:calc(166px + env(safe-area-inset-top));transform:translateX(-50%);' +
       'z-index:33;pointer-events:none;max-width:94vw;text-align:center;' +
       'background:rgba(10,14,34,.88);color:#ffe9b0;border:2px solid #8a6d3b;border-radius:4px;' +
       'box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 0 0 2px rgba(255,211,77,.18);' +
@@ -64,7 +64,12 @@
       'margin-right:7px;text-shadow:0 0 10px rgba(255,211,77,.9);transition:transform .35s ease;vertical-align:-1px;}' +
       '.sim-bitmat-compass.sim-bitmat-goat{color:#d8f7c5;border-color:#4a7a3a;}' +
       '.sim-bitmat-compass.sim-bitmat-goat .sim-bitmat-arrow{color:#b6f09a;text-shadow:0 0 10px rgba(140,230,120,.9);}' +
-      '@media (max-width:560px){.sim-bitmat-compass{font-size:12px;padding:4px 9px;top:calc(112px + env(safe-area-inset-top));}}';
+      // #32 (cycle 48): la bàn từng ở top 118px, đè lên dải gợi ý phím
+      // #roundHint (top 122px, đáy ~160px) trong 12s đầu vòng. Dời xuống
+      // dưới gợi ý (166px; tablet 184px vì gợi ý xuống 2 dòng ở 621px, đáy ~177px) + chừa cột minimap như #roundHint (tablet
+      // right:190px, mobile top 236px (gợi ý mobile ở 162px, cao tối đa ~67px cho 3 dòng → đáy ~229px) + right:160px (chừa cả minimap lẫn cột econBar mobile, bắt đầu x=204px)).
+      '@media (min-width:621px) and (max-width:900px){.sim-bitmat-compass{top:calc(184px + env(safe-area-inset-top));left:6px;right:190px;transform:none;max-width:none;}}' +
+      '@media (max-width:620px){.sim-bitmat-compass{font-size:12px;padding:4px 9px;top:calc(236px + env(safe-area-inset-top));left:6px;right:160px;transform:none;max-width:none;}}';
     document.head.appendChild(el);
     return el;
   }
