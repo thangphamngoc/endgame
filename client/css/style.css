@@ -31,16 +31,26 @@
         background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
         background-size:14px 14px;
       }
-      #statePlate{display:flex; align-items:center; gap:9px; min-width:158px;}
+      /* #22 (cycle 37): dải trạng thái không bao giờ được xuống 2 dòng —
+         chuỗi dài cũ ("Rồng Rắn Cướp Cờ — chạm cờ rồi về vạch xuất phát!")
+         tràn plate đè lên thanh tiến độ. Tên trò đã rút ngắn ở JS, CSS
+         khóa thêm: 1 dòng + cắt bằng … nếu có chuỗi dài lọt vào sau này.
+         max-width chỉ áp desktop — mobile ≤620px đã có flex:1 1 auto. */
+      #statePlate{display:flex; align-items:center; gap:9px; min-width:158px; max-width:min(420px,52vw);}
+      #statePlate>div{min-width:0; overflow:hidden;}
+      #stateDot{width:16px; height:16px; border-radius:2px; border:2px solid rgba(0,0,0,.45); background:#9a8f80; flex:0 0 auto; box-shadow:0 0 0 2px rgba(255,255,255,.18);}
       #stateDot{width:16px; height:16px; border-radius:2px; border:2px solid rgba(0,0,0,.45); background:#9a8f80; flex:0 0 auto; box-shadow:0 0 0 2px rgba(255,255,255,.18);}
       #statePlate.drum #stateDot{background:var(--drum); box-shadow:0 0 14px 3px rgba(226,72,58,.75);}
       #statePlate.gong #stateDot{background:var(--gong); box-shadow:0 0 14px 3px rgba(242,176,30,.8);}
-      #hudState{font-weight:900; font-size:19px; letter-spacing:.4px; line-height:1;}
-      #stateSub{font-size:11px; font-weight:500; opacity:.85; margin-top:3px; line-height:1;}
+      #hudState{font-weight:900; font-size:19px; letter-spacing:.4px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+      #stateSub{font-size:11px; font-weight:500; opacity:.85; margin-top:3px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
       #hudStats{margin-left:auto; display:flex; gap:8px;}
       .stat{text-align:center; min-width:74px;}
-      .stat b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05;}
-      .stat span{font-size:10.5px; font-weight:500; opacity:.85; letter-spacing:.4px;}
+      /* #22 (cycle 37): số + nhãn ô thống kê không gãy dòng — "ĐẾM NGƯỢC"
+         từng gãy thành ĐẾM/NGƯỢC vì ô min-width 74px hẹp hơn chữ; nay
+         nowrap để ô tự rộng ra thay vì cao lên đè thanh tiến độ. */
+      .stat b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05; white-space:nowrap;}
+      .stat span{font-size:10.5px; font-weight:500; opacity:.85; letter-spacing:.4px; white-space:nowrap;}
       /* progress */
       #progressWrap{
         position:fixed; left:50%; transform:translateX(-50%);
@@ -453,7 +463,7 @@
         #minimap{width:100px; height:100px;}
         #minimapLabel{font-size:8.5px; letter-spacing:.8px;}
         #minimapLegend{display:none;}
-        #statePlate{flex:1 1 auto; min-width:0; gap:7px;}
+        #statePlate{flex:1 1 auto; min-width:0; max-width:none; gap:7px;}
         #stateDot{width:13px; height:13px;}
         #hudState{font-size:15px; white-space:nowrap;}
         #stateSub{font-size:10px; white-space:nowrap;}
@@ -468,6 +478,32 @@
       body.touring #chatPanel{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
       /* thẻ phủ (bắt đầu / kết thúc / chia team) chừa đệm đáy để nút cuối thẻ không bị nút CHAT đè */
       #startCard .card, #endCard .card, #teamCard .card{padding-bottom:72px;}
+
+      /* #23 (cycle 38): sảnh chờ ở màn hình rộng nhưng thấp (1280×800) —
+         card 1 cột cao ~1340px trong khi chỉ thấy 736px (92vh) nên nút
+         CHƠI ĐƠN / CHƠI NHIỀU NGƯỜI + mục QC nằm dưới nếp gấp, phải cuộn
+         trong card mới tới được. Ở ≥1280px rộng và ≤860px cao: card rộng
+         900px chia 2 cột (trái: giới thiệu + luật; phải: nút chơi +
+         tên/phòng + QC + phím tắt) để toàn bộ nội dung vừa trong 92vh mà
+         không cuộn. Ngưỡng rộng 1280px (không phải 1100px) để mép phải
+         card (x≈1090 ở 1280px) không chồng cột nút kinh tế #econBar
+         (x≈1098, z-index 21 khi sảnh chờ mở — xem cycle 30); ở màn hẹp
+         hơn giữ nguyên 1 cột như cũ. Ngoài dải này .lobby-cols chỉ là
+         khối block thường, không ảnh hưởng layout. */
+      @media (min-width:1280px) and (max-height:860px){
+        #startCard .card{max-width:900px; padding:14px 22px 16px;}
+        #startCard .card h1{font-size:30px; margin:0 0 2px;}
+        .lobby-cols{display:flex; gap:20px; align-items:flex-start; text-align:left;}
+        .lobby-col{flex:1 1 0; min-width:0;}
+        .lobby-col p{font-size:13.5px; line-height:1.5; margin:4px 0;}
+        .lobby-col .rules{margin:10px 0 0; font-size:13px; line-height:1.55; padding:9px 12px;}
+        .lobby-col > .bigBtn{display:block; width:100%; box-sizing:border-box; margin-top:8px; font-size:18px; padding:10px 16px;}
+        /* .ctrls ở cột hẹp 414px bị gãy thành ~10 dòng (đo lần 1: cao
+           202px, card tràn 44px) nên thu chữ + giãn dòng ở chế độ gọn;
+           nội dung phím tắt đầy đủ vẫn ở onboarding 3 bước + nút
+           HƯỚNG DẪN CHƠI. */
+        .lobby-col .ctrls{font-size:11px; line-height:1.5; margin-top:8px;}
+      }
     
 
 /* ==========================================================================

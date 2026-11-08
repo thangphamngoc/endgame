@@ -994,7 +994,7 @@ function endRound(room, n, reason) {
   if (!room.qc) survivorsOf(room).forEach((pl) => {
     let res = null;
     econSafe((ec) => { res = ec.awardRoundSurvived(pl.id, pl.name); });
-    if (res && res.profile && pl.ws) send(pl.ws, { type: 'economy', action: 'earned', reason: 'roundSurvived', amount: 10, profile: res.profile });
+    if (res && res.profile && pl.ws) send(pl.ws, { type: 'economy', action: 'earned', reason: 'roundSurvived', amount: 10 + (res.lixi || 0), lixi: res.lixi || 0, seasonId: res.seasonId || null, profile: res.profile });
   });
   logEvent('round_end', { room: room.code, matchId: room.matchId, round: n, game, reason, survivors: survivors.length, eliminated: eliminated.length, target, isFinal });
   // Báo luôn vòng tiếp theo (trò đã bốc theo số người còn sống) để client
@@ -1068,7 +1068,7 @@ function endMatch(room, reason) {
   if (winner && !room.qc) {
     let res = null;
     econSafe((ec) => { res = ec.awardWin(winner.id, winner.name); });
-    if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50, profile: res.profile });
+    if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50 + (res.lixi || 0), lixi: res.lixi || 0, seasonId: res.seasonId || null, profile: res.profile });
   }
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length, reason: reason || 'last-standing' });
   // P3-06: chốt số đếm của trận (trận QC tách riêng, không vào KPI).

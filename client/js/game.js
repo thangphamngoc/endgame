@@ -3126,7 +3126,15 @@
       if (typeof msg.matchTimeLimit === 'number') matchTimeLimit = msg.matchTimeLimit;
       startRoundCommon(msg.round, msg.game, msg.name, msg.timeLimit, msg.seed, msg.target, msg.isFinal); return;
     }
-    if (msg.type === 'economy' && window.HoiShop && window.HoiShop.onMessage) { window.HoiShop.onMessage(msg); return; }
+    if (msg.type === 'economy' && window.HoiShop && window.HoiShop.onMessage) {
+      window.HoiShop.onMessage(msg);
+      // #16 bước 2b — lì xì Tết ở chơi nhiều người: server gửi kèm lixi
+      // trong message earned (roundSurvived/win); toast 1 lần mỗi lần nhận
+      // (vòng và thắng là 2 thời điểm khác nhau nên toast riêng, không gộp
+      // như chơi đơn). Trận QC không thưởng nên không bao giờ có lixi.
+      if (msg.action === 'earned' && msg.lixi > 0) toast('🧧 Lì xì Tết: +' + msg.lixi + ' Hội Xu!');
+      return;
+    }
     if (msg.type === 'roundEnd') { onRoundEnd(msg); return; }
     if (msg.type === 'tick') { onTick(msg); return; }
     if (msg.type === 'rooms') {
@@ -4868,8 +4876,11 @@
     if (round >= 3) {
       if (mode === 'single') resetYardPositions();
     }
-    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + (name || '');
-    if (hr) hr.title = roundTarget ? ('Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (roundIsFinal ? ' · CHUNG KẾT' : '')) : '';
+    // #22 (cycle 37): ô VÒNG chỉ ghi số vòng — tên trò đã có ở #hudState,
+    // tên đầy đủ + CHUNG KẾT + mục tiêu giữ trong title (tooltip) để
+    // không tràn 2 dòng đè lên thanh tiến độ như ảnh 06-round5-sim.png cũ.
+    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round;
+    if (hr) hr.title = 'VÒNG ' + round + (name ? ' — ' + name : '') + (roundIsFinal ? ' (CHUNG KẾT)' : '') + (roundTarget ? ' · mục tiêu giữ ~' + roundTarget + ' người' : '');
     setHudDrum(name || currentRoundName || '');
     hideInterstitial();
     // An toàn: màn CHIA TEAM và dải team không được nấn ná sang vòng chơi —
@@ -4935,9 +4946,16 @@
     if (window.Rounds) window.Rounds.endRound();
     // #19 bước 1 — kinh tế chơi đơn (localStorage): +10 xu/vòng sống sót,
     // +50 xu khi là người sống sót duy nhất; trận QC không thưởng (FR-46).
+    // #16 bước 2a — lì xì Tết: award* trả về lixi (>0 chỉ khi mùa Tết
+    // đang chạy, xem local-economy.js); toast gộp 1 lần để không bị ghi đè.
     if (window.HoiLocalEconomy && player && player.alive && !qcMode) {
-      window.HoiLocalEconomy.awardRoundSurvived();
-      if (survivors <= 1) window.HoiLocalEconomy.awardWin();
+      var awardR = window.HoiLocalEconomy.awardRoundSurvived();
+      var lixiTotal = awardR ? (awardR.lixi || 0) : 0;
+      if (survivors <= 1) {
+        var awardW = window.HoiLocalEconomy.awardWin();
+        lixiTotal += awardW ? (awardW.lixi || 0) : 0;
+      }
+      if (lixiTotal > 0) toast('🧧 Lì xì Tết: +' + lixiTotal + ' Hội Xu!');
     }
     // Vòng tiếp theo bốc theo số người còn sống (không giới hạn ở vòng 6);
     // nếu chỉ còn 1 người hoặc vừa xong chung kết thì trận kết thúc.
@@ -4974,8 +4992,9 @@
     phase = 'round' + round;
     resetYardPositions();
     fogOverride = null; applyFogPreset(fogPresetForRound(round));
-    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round + ' — ' + name;
-    if (hr) hr.title = 'Mục tiêu vòng này: giữ ~' + roundTarget + ' người' + (isFinal ? ' · CHUNG KẾT' : '');
+    // #22 (cycle 37): như startRoundCommon — ô VÒNG chỉ ghi số vòng.
+    var hr = $('hud-round'); if (hr) hr.textContent = 'VÒNG ' + round;
+    if (hr) hr.title = 'VÒNG ' + round + (name ? ' — ' + name : '') + (isFinal ? ' (CHUNG KẾT)' : '') + (roundTarget ? ' · mục tiêu giữ ~' + roundTarget + ' người' : '');
     setHudDrum(name);
     hideInterstitial();
     if (window.Rounds) window.Rounds.startRound(round, game, { timeLimit: roundTimeLimit, local: true, seed: Date.now(), isFinal: isFinal });
@@ -5262,6 +5281,14 @@
   // Script nằm cuối body nên #seasonBadge đã có trong DOM; không chờ
   // DOMContentLoaded, vì nhánh THREE đầy đủ chạy ngay tại đây.
   if (window.__seasonal) window.__season = window.__seasonal.applySeason(window.__seasonal.detectSeason(new Date()));
+  // #23 (cycle 38): ở màn chính (chưa vào trận) ẩn dải HUD trên cùng.
+  // "VÒNG 1 / ĐẾM NGƯỢC 0:00 / CÒN LẠI 61" là trạng thái trận — chưa bắt
+  // đầu thì không có ý nghĩa, và card sảnh chờ (top 32px ở 1280×800) che
+  // mất nửa chip "VÒNG 1". showHUD(true) lúc bắt đầu trận gỡ .hidden;
+  // showHUD(false) lúc về menu gắn lại. Chỉ ẩn #hud — minimap + nút
+  // CHAT giữ nguyên vì sảnh chờ vẫn dùng (bấm đảo trên minimap để bay
+  // tới xem, chat ở sảnh chờ).
+  var hudEl0 = $('hud'); if (hudEl0) hudEl0.classList.add('hidden');
   if (window.THREE) {
     buildWorld();
     buildPoiProxies();

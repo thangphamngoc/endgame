@@ -279,6 +279,20 @@
   // những gì rounds.js đã có.
   var activeSim = null, activeSimGame = null;
   function simFor(game) { return (window.RoundSims || {})[game] || null; }
+  // Vòng cần di chuyển mà overlay vẫn hiện (Rồng Rắn chạy cờ, Bịt Mắt khi
+  // làm dê): trên cảm ứng, overlay sim-mode dạng bottom-sheet sẽ đè lên
+  // joystick + nút NHẢY nên chuyển thành dải gọn phía trên (class move-mode).
+  // (P4-03, cycle 14)
+  function setOverlayMoveMode(on) {
+    var ov = $('round-overlay');
+    if (ov) ov.classList.toggle('move-mode', !!on);
+  }
+  function moveModeFor(st) {
+    if (!st) return false;
+    if (st.game === 'rong-ran') return true;
+    if (st.game === 'bit-mat' && st.state && st.state.goatIsMe) return true;
+    return false;
+  }
   function simBuild(st) {
     var s = simFor(st.game);
     activeSim = null; activeSimGame = null;
@@ -287,6 +301,7 @@
     }
     var ov = $('round-overlay');
     if (ov) ov.classList.toggle('sim-mode', !!activeSim);
+    setOverlayMoveMode(moveModeFor(st));
   }
   function simUpdate(dt, st) {
     if (activeSim && activeSim.update) {
@@ -300,6 +315,7 @@
     activeSim = null; activeSimGame = null;
     var ov = $('round-overlay');
     if (ov) ov.classList.remove('sim-mode');
+    setOverlayMoveMode(false);
   }
   function updateCue(st, dir, dist) {
     var arrow = $('cue-arrow'), txt = $('cue-text');
@@ -667,7 +683,7 @@
           showOverlay(seekerPanelHtml(st)); // chờ server gửi blind:true thì mới tối màn hình
         }
         if (st.state.goatIsMe) showGoatMarker();
-        if (b.setHudDrum) b.setHudDrum('Bịt Mắt Bắt Dê — nghe tiếng, tìm dê!');
+        if (b.setHudDrum) b.setHudDrum('Bịt Mắt Bắt Dê'); // #22: chỉ tên trò — luật đã ở overlay + roundHint, chữ dài tràn plate đè thanh tiến độ
       },
       update: function (dt, st) {
         var b = B();
@@ -755,12 +771,14 @@
           if (msg.blind) {
             st.state.goatIsMe = false;
             hideOverlay(); showBlind(true, blindHtml(st));
+            setOverlayMoveMode(false); // người tìm: màn tối (pointer-events:none) nên joystick vẫn bấm được
           }
           else {
             hideBlind();
             st.state.goatIsMe = true;
             st.state.goat = B().player;
             showOverlay(goatPanelHtml(st));
+            setOverlayMoveMode(true); // dê phải chạy bằng joystick, không để sheet đè
             showGoatMarker();
           }
           return true;
@@ -785,7 +803,7 @@
         st.state.turnsTaken = { me: 0, bot: 0 };
         st.state.scores = { me: 0, bot: 0 };
         oqRender(st);
-        if (B().setHudDrum) B().setHudDrum('Ô Ăn Quan — tới lượt bạn rải quân.');
+        if (B().setHudDrum) B().setHudDrum('Ô Ăn Quan'); // #22: chỉ tên trò (luật ở overlay + roundHint)
       },
       update: function () { },
       timeout: function (st) { if (!st.state.over) oqResolve(st); },
@@ -931,7 +949,7 @@
         flagMarker.textContent = '🚩 CẦM CỜ';
         flagMarker.style.display = 'none';
         $('labels').appendChild(flagMarker);
-        if (b.setHudDrum) b.setHudDrum('Rồng Rắn Cướp Cờ — chạm cờ rồi về vạch xuất phát!');
+        if (b.setHudDrum) b.setHudDrum('Rồng Rắn Cướp Cờ'); // #22: chỉ tên trò — luật đã ở overlay + roundHint + #flag-status; chuỗi dài cũ tràn plate đè thanh tiến độ
       },
       update: function (dt, st) {
         var b = B();
@@ -1031,7 +1049,11 @@
       startAlive: alive.map(function (p) { return p.name; }),
       state: {}, opts: opts || {}
     };
-    if (b.setHudDrum) b.setHudDrum(meta.name + ' — ' + meta.ruleShort);
+    // #22 (cycle 37): dải trạng thái chỉ ghi TÊN trò — ruleShort vẫn giữ
+    // trong meta để overlay/roundHint dùng, không nối vào HUD nữa: chuỗi
+    // "Tên — luật" dài ~40 ký tự ở 19px tràn plate 2 dòng, đè lên thanh
+    // tiến độ (ảnh 06-round5/06-round6-sim.png, backlog #22).
+    if (b.setHudDrum) b.setHudDrum(meta.name);
     meta.start(active);
     simBuild(active);
     if (game === 'bit-mat' && !active.local) {
@@ -1041,6 +1063,7 @@
         active.state.goat = b.player;
         hideBlind();
         showOverlay(goatPanelHtml(active));
+        setOverlayMoveMode(true); // dê phải chạy bằng joystick, không để sheet đè
         showGoatMarker();
       }
       if (pendingBlindGoatId !== null && pendingBlindGoatId !== undefined) {

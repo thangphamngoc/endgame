@@ -136,6 +136,17 @@ const ROUND_TIME_LIMITS = {
 // thì người đó bị loại và lượt chuyển cho người tiếp theo. Xem BRD §9.4 OD-09.
 const R2_TURN_TIME_LIMIT = 30;
 
+// Timer trận tổng (P1-07, ĐÃ QUYẾT tạm 2026-11-06 — QC/Sudo lật được sau
+// play-test): một trận tối đa 30 phút. Cơ sở: trận dài nhất hợp lý =
+// V1 120s + V2 180s + ~8 vòng giữa × 90s + chung kết 120s ≈ 25 phút,
+// nên 30 phút đủ chỗ cho phòng đông nhiều vòng mà vẫn chặn được trận kẹt
+// (vd mọi người đứng yên qua nhiều vòng). Hết giờ tổng thì trận kết thúc
+// có kết quả: người dẫn đầu theo tiến độ vòng hiện tại thắng. Phòng QC
+// được miễn (chỉ để test, nhảy vòng có thể kéo dài). Server là nguồn
+// chuẩn; client chỉ hiển thị đếm ngược. Đổi bằng biến môi trường
+// MATCH_TIME_LIMIT_S khi test/vận hành.
+const MATCH_TIME_LIMIT = 30 * 60;
+
 // Tracing targets for Nặn Tò He: points in a 0..100 x 0..100 box.
 const TRACE_SHAPES = {
   star: { name: 'Ngôi sao', points: [[50,5],[61,38],[95,38],[68,59],[79,92],[50,71],[21,92],[32,59],[5,38],[39,38]] },
@@ -151,5 +162,6 @@ module.exports = {
   mulberry32, hashSeed, shuffle, pickRounds, drawPoolCycle, nextTarget,
   ELIMINATION_CURVE, CURVE_RATIOS, scaledTargets,
   ROUND_POOL, ROUND_NAMES, ROUND_TIME_LIMITS, R2_TURN_TIME_LIMIT,
+  MATCH_TIME_LIMIT,
   TRACE_SHAPES, TRACE_SHAPE_KEYS,
 };

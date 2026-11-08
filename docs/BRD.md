@@ -232,7 +232,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
-| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Chưa làm: trò biến thể Tết (bước 2) |
+| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Đã làm bước 2a (cycle 35, 2026-11-08): lì xì Hội Xu chơi đơn — mùa Tết thì +8 xu/vòng sống sót, +20 xu/thắng (chỉ xu, không XP; toast gộp "🧧 Lì xì Tết: +N Hội Xu!"). Chưa làm: trống Tết (bước 2c). Đã làm bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu chơi nhiều người (server tự tính mùa theo ngày ICT, không tin mùa client; +8 xu/vòng, +20 xu/thắng, chỉ xu không XP; message `earned` kèm `lixi` + `seasonId`, client toast riêng mỗi lần nhận). |
 | FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, +50 xu/thắng, +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
 
 ## 7. Yêu cầu phi chức năng (NFR)
@@ -950,6 +950,92 @@ báo. Chưa đo bằng tay: cảm giác chủ đề Tết trên trình duyệt t
 trong cửa sổ 30/01–10/02/2027 (ngoài cửa sổ chỉ test được bằng
 `?season=tet`), Sudo chốt lại ngày âm lịch mỗi năm trước khi mở
 (cửa sổ ghi bằng ngày dương cố định).
+
+**Lì xì Hội Xu Tết ở chơi đơn — ĐÃ QUYẾT (cycle 35, 2026-11-08 — backlog
+#16, P4-06 bước 2a, QC/Sudo lật được):** trò biến thể Tết đầu tiên là
+lì xì Hội Xu, chỉ ở chơi đơn (ví local, `client/js/local-economy.js`):
+khi mùa Tết đang chạy (`window.__season.id === 'tet'`), thưởng vòng
+sống sót +10 xu cộng thêm lì xì 8 xu (thành +18), thắng trận +50 xu
+cộng thêm lì xì 20 xu (thành +70). Chỉ cộng XU, không cộng XP (tiến
+độ Pass không đổi); trận QC không lì xì vì `localRoundEnd` chặn toàn
+bộ thưởng khi `qcMode` (FR-46). Số 8/20: 8 là số phát, 20 là lì xì
+thắng — nhỏ so với giá shop (60–300 xu) nên không phá cân bằng kinh
+tế; chỉ là niềm vui trong 12 ngày Tết. `awardRoundSurvived()` /
+`awardWin()` nhận thêm `opts.seasonId` ghi đè rõ (phục vụ test;
+`null` nghĩa là ép "không mùa", như `?season=none`); không truyền
+thì đọc `window.__season`; message `earned` gửi về shop mang thêm
+`lixi` + `seasonId` nên ví HUD cập nhật ngay. `game.js` ở
+`localRoundEnd` gộp lì xì cả vòng + thắng rồi toast 1 lần
+("🧧 Lì xì Tết: +28 Hội Xu!" khi vừa qua vòng vừa thắng) để không bị
+toast khác ghi đè. Đã làm bước 2b ở cycle 36 (lì xì multi, cộng vào ví
+server — xem mục ĐÃ QUYẾT ngay sau). Chưa làm (bước 2c): trống Tết
+(biến thể vòng 1). Một lỗi
+thật bắt được khi kiểm chứng: lần đầu `seasonId()` chỉ coi chuỗi mới
+là ghi đè nên `{seasonId:null}` vẫn rơi về `__season` (lì xì sai khi
+đang Tết) — nay khóa `seasonId` có mặt trong opts là có hiệu lực, kể
+cả null; test lần 1 rớt 1/23 vì lỗi này, đã sửa code rồi chạy lại đủ.
+Chưa đo bằng tay: cảm giác lì xì Tết trên trình duyệt thật khi qua
+vòng/thắng trong cửa sổ Tết (toast + ví HUD tăng), Sudo chốt lại ngày
+âm lịch mỗi năm trước khi mở (như bước 1).
+
+**Lì xì Hội Xu Tết ở chơi nhiều người — ĐÃ QUYẾT (cycle 36, 2026-11-08 —
+backlog #16, P4-06 bước 2b, QC/Sudo lật được):** lì xì Tết nay có cả ở
+chơi nhiều người (ví server, `server/economy.js`): khi mùa Tết đang chạy,
+thưởng vòng sống sót +10 xu cộng thêm lì xì 8 xu (thành +18), thắng trận
++50 xu cộng thêm lì xì 20 xu (thành +70) — cùng mức chơi đơn (cycle 35).
+Chỉ cộng XU, không cộng XP; trận QC không lì xì vì hook thưởng ở
+`server.js` đã chặn toàn bộ khi `room.qc` (FR-46). Server tự tính mùa
+theo ngày ICT (UTC+7), KHÔNG tin mùa client gửi: `?season=tet` của client
+chỉ đổi chủ đề/toast, không đổi thưởng — chống cày xu bằng cách giả mùa.
+Cửa sổ Tết mirror `client/js/seasonal.js` (30/01–10/02/2027, nguồn chân lý
+về ngày đã kiểm chứng); ghi đè để test/QC ngoài cửa sổ bằng env
+`HOI_SEASON_OVERRIDE=tet | none`. `awardRoundSurvived()`/`awardWin()`
+nhận thêm `opts.seasonId` ghi đè rõ (y hệt chơi đơn; mùa lạ cũng thành
+null — không lì xì), trả về thêm `lixi` + `seasonId`; message `earned`
+server gửi kèm `amount` tổng (18/70), `lixi`, `seasonId` nên ví HUD cập
+nhật ngay; `game.js` toast riêng mỗi lần nhận earned có lixi
+("🧧 Lì xì Tết: +8 Hội Xu!" khi qua vòng, "+20 Hội Xu!" khi thắng — vòng
+và thắng là 2 thời điểm khác nhau nên không gộp như chơi đơn). Người bị
+loại ở vòng đó KHÔNG nhận thưởng vòng (đúng luật loại trừ: chỉ người sống
+sót mới được thưởng). Chưa làm (bước 2c): trống Tết (biến thể vòng 1).
+
+**HUD gọn 1 dòng ở mọi vòng — ĐÃ QUYẾT (cycle 37, 2026-11-08 — backlog
+#22, QC/Sudo lật được):** dải trạng thái (`#hudState`) chỉ ghi TÊN trò
+("Rồng Rắn Cướp Cờ", "Nhảy Bao Bố", "Bịt Mắt Bắt Dê", ...), ô VÒNG
+(`#hudRound`) chỉ ghi số vòng ("VÒNG 5"), KHÔNG nối luật chơi hay tên
+trò vào 2 ô này nữa. Trước đây sim vòng 3+ gọi `setHudDrum("Tên — luật")`
+(chuỗi ~40 ký tự ở 19px) và `#hudRound` ghi "VÒNG 5 — Rồng Rắn Cướp
+Cờ (CHUNG KẾT)" nên cả hai plate xuống 2 dòng, chữ tràn ra ngoài đè
+lên thanh tiến độ, nhãn "ĐẾM NGƯỢC" cũng gãy 2 dòng (ảnh
+06-round5/06-round6-sim.png, 2026-11-06). Luật chơi không mất: vẫn ở
+overlay đầu vòng + dải gợi ý phím `#roundHint` + trạng thái riêng của
+trò (vd. `#flag-status` ở Rồng Rắn); tên đầy đủ + CHUNG KẾT + mục tiêu
+giữ lại của vòng chuyển vào `title` (tooltip) của ô VÒNG. CSS khóa
+thêm để chuỗi dài sau này không bao giờ làm HUD cao lên đè thanh tiến
+độ: `.stat b` / `.stat span` `white-space:nowrap` (ô tự rộng ra thay
+vì cao lên), `#hudState` / `#stateSub` `nowrap` + `overflow:hidden` +
+`text-overflow:ellipsis`, `#statePlate` `max-width:min(420px,52vw)`
+(desktop; mobile giữ `flex:1 1 auto` không giới hạn). Đo thật:
+desktop 1280×800 đáy HUD 70px < đỉnh thanh tiến độ 74px, mobile 360px
+110px < 114px, không plate nào giao rect thanh tiến độ; nhét lại chuỗi
+dài cũ vào `setHudDrum` thì plate vẫn 1 dòng, chữ cắt bằng "…". Chưa
+đo bằng tay: cảm giác đọc HUD trên trình duyệt/điện thoại thật khi
+đang chạy (tên trò ngắn có đủ rõ luật không — luật vẫn ở gợi ý phím
+12 giây đầu vòng).
+Hai lỗi thật bắt được khi kiểm chứng: (a) test lần 1 dùng WebSocket
+global của Node (không có `.on`) — phải require `ws` từ repo
+node_modules như các test live trước; (b) test live lần 1 bước theo poll
+300ms để 1 người dính chiêng (broadcast 'gong' đến chậm hơn lệnh bước) —
+nay bước theo sự kiện: burst 3 bước ngay khi nhận broadcast 'drum' mới
+(lần chuyển sang chiêng tiếp theo luôn ≥2.5s sau); (c) test live lần 1
+kiểm ví tuyệt đối 18 xu nhưng id người chơi là số tăng dần (1, 2, ...)
+nên profile cũ trong `data/economy.json` (270 xu từ các cycle trước) làm
+lệch — nay test ghi file economy rỗng trước mỗi lần chạy server live và
+restore lại sau. Chưa đo bằng tay: cảm giác lì xì Tết ở multi trên trình
+duyệt thật khi qua vòng/thắng trong cửa sổ Tết; Sudo chốt lại ngày âm
+lịch mỗi năm trước khi mở (như bước 1).
+
+**Card sảnh chờ 2 cột ở màn hình rộng + thấp, HUD ẩn ở sảnh chờ — ĐÃ QUYẾT (cycle 38, 2026-11-08 — backlog #23, QC/Sudo lật được):** ở 1280×800, card sảnh chờ 1 cột cao 1340px trong khi chỉ thấy 736px (92vh) nên nút CHƠI ĐƠN / CHƠI NHIỀU NGƯỜI (y 889–935) + mục QC (y 1011–1092) nằm dưới nếp gấp, phải cuộn trong card; dải HUD trên cùng hiện ngay từ lúc tải trang ("VÒNG 1 / ĐẾM NGƯỢC 0:00 / CÒN LẠI 61" — trạng thái trận chưa bắt đầu) nên card (top 32px) che mất nửa chip "VÒNG 1". Sửa: (a) nội dung card chia 2 cột `.lobby-cols` (trái: giới thiệu + luật; phải: nút chơi + tên/phòng + QC + phím tắt), chỉ bật ở `@media (min-width:1280px) and (max-height:860px)` với card rộng 900px — ngưỡng rộng 1280px (không phải 1100px) để mép phải card (x≈1090) không chồng cột nút kinh tế `#econBar` (x≈1098, z-index 21 khi sảnh chờ mở — cycle 30); ngoài dải này 2 div cột chỉ là block thường, layout 1 cột như cũ (mobile 360px không đổi); (b) `#hud` ẩn ngay lúc tải trang (chỉ ẩn `#hud`, minimap + nút CHAT giữ nguyên vì sảnh chờ vẫn dùng); `showHUD(true)` lúc bắt đầu trận gỡ `.hidden`, `showHUD(false)` lúc về menu gắn lại. Đo thật ở 1280×800: card scrollH 702 < clientH 728 (không cuộn), mọi nút + QC + phím tắt trên nếp gấp 800px, HUD hiện lại khi vào trận với ô VÒNG "VÒNG 1". Chưa đo bằng tay: cảm giác đọc card 2 cột trên trình duyệt thật ở 1280×800 (cột phải có chật không; nút CHƠI NHIỀU NGƯỜI gãy 2 dòng có khó chịu không).
 
 **Nút kinh tế ở sảnh chờ — ĐÃ QUYẾT (cycle 30, 2026-11-07 — backlog #21,
 QC/Sudo lật được):** cột nút phải (`#econBar`: CỬA HÀNG / VÉ MÙA / GIẢI

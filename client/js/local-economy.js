@@ -12,9 +12,19 @@
  *   giải đấu / cổ vũ / tặng quà / vé tour cần người chơi khác nên chỉ có
  *   ở multi — bấm ở chơi đơn thì báo rõ, không gửi WS vô ích.
  * - Trận QC chơi đơn KHÔNG thưởng (game.js chặn ở localRoundEnd, như FR-46).
+ * - Lì xì Tết (cycle 35, backlog #16 bước 2a — P4-06): khi mùa Tết đang
+ *   chạy (`window.__season.id === 'tet'`, seasonal.js), thưởng vòng/thắng
+ *   cộng thêm lì xì +8 xu/vòng sống sót, +20 xu khi thắng trận. Chỉ cộng
+ *   XU, không cộng XP (tiến độ Pass không đổi); trận QC không lì xì vì
+ *   game.js chặn toàn bộ thưởng ở localRoundEnd. Số 8/20: 8 là số phát,
+ *   20 là lì xì thắng — nhỏ so với giá shop (60–300 xu) nên không phá
+ *   cân bằng; chỉ là niềm vui trong 12 ngày Tết. Chơi nhiều người đã có
+ *   lì xì cùng mức từ cycle 36 (bước 2b — server/economy.js, server tự
+ *   tính mùa theo ngày ICT).
  * - Chưa có ở bước 1: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
  *   Còn nợ Sudo test tay: mua/trang bị thật ở chơi đơn, ví giữ sau khi
  *   tải lại trang, cảm giác số dư khi chuyển chơi đơn ↔ nhiều người.
+ *   + Cảm giác lì xì Tết trên trình duyệt thật (toast + ví HUD tăng).
  *
  * Cách nối: shop.js gọi `HoiLocalEconomy.handle(msg)` TRƯỚC khi gửi WS;
  * handle trả 'handled' (đã xử lý local), 'server-only' (chỉ có ở multi)
@@ -29,6 +39,26 @@
   var XU_PER_ROUND = 10, XU_PER_WIN = 50;
   var XP_PER_ROUND = 100, XP_PER_WIN = 500;
   var XP_PER_LEVEL = 500, MAX_LEVEL = 20;
+  // Lì xì Tết (cycle 35, #16 bước 2a): chỉ khi mùa Tết đang chạy.
+  var LIXI_XU_PER_ROUND = 8, LIXI_XU_PER_WIN = 20;
+
+  // Mùa hiện tại do game.js đặt (window.__season, từ seasonal.js).
+  // opts.seasonId ghi đè rõ (phục vụ test); khi có khóa seasonId thì
+  // lấy đúng giá trị đó — null nghĩa là ép "không mùa" (như ?season=none).
+  function seasonId(opts) {
+    if (opts && Object.prototype.hasOwnProperty.call(opts, 'seasonId')) {
+      return (typeof opts.seasonId === 'string') ? opts.seasonId : null;
+    }
+    try {
+      if (typeof window !== 'undefined' && window.__season && typeof window.__season.id === 'string') return window.__season.id;
+    } catch (e) { /* __season chưa có: coi như không mùa */ }
+    return null;
+  }
+
+  function lixiFor(kind, sid) {
+    if (sid !== 'tet') return 0;
+    return kind === 'win' ? LIXI_XU_PER_WIN : LIXI_XU_PER_ROUND;
+  }
 
   // Bản sao catalogue server (nguồn chân lý: server/economy.js).
   // price null = chỉ nhận qua Pass, không bán trực tiếp bằng xu.
@@ -226,22 +256,26 @@
     return false; // action lạ: để WS thử
   }
 
-  function awardRoundSurvived() {
+  function awardRoundSurvived(opts) {
     if (!isActive()) return null;
-    profile.xu += XU_PER_ROUND;
+    var sid = seasonId(opts);
+    var lixi = lixiFor('round', sid);
+    profile.xu += XU_PER_ROUND + lixi;
     var rewards = grantXp(XP_PER_ROUND);
     save(profile);
-    replyToShop({ type: 'economy', action: 'earned', reason: 'round', amount: XU_PER_ROUND, rewards: rewards, profile: snapshot() });
-    return { profile: snapshot(), rewards: rewards };
+    replyToShop({ type: 'economy', action: 'earned', reason: 'round', amount: XU_PER_ROUND, lixi: lixi, seasonId: sid, rewards: rewards, profile: snapshot() });
+    return { profile: snapshot(), rewards: rewards, lixi: lixi, seasonId: sid };
   }
 
-  function awardWin() {
+  function awardWin(opts) {
     if (!isActive()) return null;
-    profile.xu += XU_PER_WIN;
+    var sid = seasonId(opts);
+    var lixi = lixiFor('win', sid);
+    profile.xu += XU_PER_WIN + lixi;
     var rewards = grantXp(XP_PER_WIN);
     save(profile);
-    replyToShop({ type: 'economy', action: 'earned', reason: 'win', amount: XU_PER_WIN, rewards: rewards, profile: snapshot() });
-    return { profile: snapshot(), rewards: rewards };
+    replyToShop({ type: 'economy', action: 'earned', reason: 'win', amount: XU_PER_WIN, lixi: lixi, seasonId: sid, rewards: rewards, profile: snapshot() });
+    return { profile: snapshot(), rewards: rewards, lixi: lixi, seasonId: sid };
   }
 
   window.HoiLocalEconomy = {
@@ -253,6 +287,8 @@
     getBalance: function () { return profile.xu; },
     KEY: KEY,
     XU_PER_ROUND: XU_PER_ROUND,
-    XU_PER_WIN: XU_PER_WIN
+    XU_PER_WIN: XU_PER_WIN,
+    LIXI_XU_PER_ROUND: LIXI_XU_PER_ROUND,
+    LIXI_XU_PER_WIN: LIXI_XU_PER_WIN
   };
 })();
