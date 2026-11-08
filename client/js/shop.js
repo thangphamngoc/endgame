@@ -113,7 +113,7 @@
     if (!panel) return;
     var owned = (profile && profile.inventory) || [];
     var html = '<h3>Cửa hàng — đồ trang trí (chỉ đổi hình thức, không đổi chỉ số)</h3>'
-      + '<p>Ví của bạn: <strong>' + walletBalance + ' Hội Xu</strong> — kiếm xu bằng cách chơi: +10 xu/vòng sống sót, +50 xu khi thắng trận, +20 xu/nhiệm vụ ngày.</p>'
+      + '<p>Ví của bạn: <strong>' + walletBalance + ' Hội Xu</strong> — kiếm xu bằng cách chơi: +10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 Hội Xu), +20 xu/nhiệm vụ ngày.</p>'
       + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
         ? '<p class="shop-note">Ví chơi đơn lưu trên trình duyệt này — không đồng bộ lên máy chủ.</p>' : '')
       + '<div class="shop-grid">';

@@ -175,6 +175,12 @@ function blankTotals() {
     reportsByReason: { spam: 0, 'xuc-pham': 0, 'gian-lan': 0, khac: 0 },
     qcReportsTotal: 0, // tố cáo trong phòng QC (đếm riêng)
     qcReportsResolved: 0,
+    // #39 bước 1 (cycle 41): Hũ Vàng Hội Làng — chỉ đếm hũ ĐÃ TRẢ cho
+    // người thắng ở phòng thường (QC không trả thưởng nên không đếm).
+    // totalPotsPaid là TỔNG XU hũ đã trả (không phải số trận).
+    potsPaidTotal: 0, // tổng Hội Xu hũ đã trả cho người thắng
+    potsPaidCount: 0, // số trận đã trả hũ (mẫu số avgPot)
+    maxPot: 0, // hũ lớn nhất từng trả
     qcMatchesStarted: 0,
     qcMatchesFinished: 0,
     updatedAt: null,
@@ -447,6 +453,21 @@ function dropMatch(room) {
   save();
 }
 
+// #39 bước 1 (cycle 41): Hũ Vàng Hội Làng đã trả cho người thắng.
+// Chỉ phòng thường (QC không trả thưởng). Trả false nếu bỏ (phòng QC,
+// không có người thắng, hoặc amount không hợp lệ) để server không nhầm
+// là đã ghi. Ghi ngay lúc endMatch, không chờ grace 30s của recordMatchEnd.
+function recordPotPaid(room, amount) {
+  if (!room || room.qc) return false;
+  const pot = Math.floor(Number(amount) || 0);
+  if (pot <= 0) return false;
+  totals.potsPaidTotal += pot;
+  totals.potsPaidCount += 1;
+  if (pot > totals.maxPot) totals.maxPot = pot;
+  save();
+  return true;
+}
+
 function rate(num, den) {
   if (!den) return null;
   return Math.round((num / den) * 10000) / 10000;
@@ -504,6 +525,15 @@ function summary() {
       reportsByReason: Object.assign({}, totals.reportsByReason),
       reportsResolvedRate: rate(totals.reportsResolved, totals.reportsTotal),
       qcReportsTotal: totals.qcReportsTotal,
+      // #39 bước 1: Hũ Vàng Hội Làng — trung bình / lớn nhất / tổng xu
+      // hũ đã trả cho người thắng (phòng thường; QC không trả nên không
+      // đếm). avgPot null khi chưa có trận nào trả hũ.
+      avgPot: totals.potsPaidCount
+        ? Math.round(totals.potsPaidTotal / totals.potsPaidCount)
+        : null,
+      maxPot: totals.maxPot,
+      totalPotsPaid: totals.potsPaidTotal,
+      potsPaidCount: totals.potsPaidCount,
       avgDurationSec: totals.matchesFinished
         ? Math.round(totals.totalDurationMs / totals.matchesFinished / 100) / 10
         : null,
@@ -530,6 +560,7 @@ module.exports = {
   resolveReport,
   listPendingReports,
   recordMatchEnd,
+  recordPotPaid,
   dropMatch,
   summary,
   // Chỉ dùng cho test: chốt ngay mọi trận đang chờ grace.

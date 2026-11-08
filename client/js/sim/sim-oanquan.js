@@ -160,6 +160,41 @@
     };
   }
 
+  // Đồng bộ dải strip (điểm + lượt) với lượt thật — gọi ở 3 chỗ:
+  // (a) cuối build() để strip bắt đầu đúng lượt thay vì chữ mặc định
+  // "Đang chờ lượt…"; (b) mỗi khung update() như trước; (c) qua
+  // RoundSims sync() mà oqRender() (rounds.js) gọi mỗi lần lượt/điểm đổi
+  // — vì strip chỉ cập nhật theo khung animate, mà animate không chạy
+  // khi WebGL lỗi (startApp không gọi animate khi buildWorld false, #24)
+  // nên strip kẹt ở chữ mặc định trong khi overlay đã ghi "Tới lượt bạn"
+  // (ảnh 06-round4-sim.png, backlog #26, cycle 44).
+  function syncStrip(s) {
+    if (!s || !s.strip) return;
+    var state = (s.st && s.st.state) || {};
+    var scores = scoresOf(s.st);
+    var turn = state.turn || null, over = !!state.over;
+    var turns = state.turnsTaken;
+    var turnsText = '';
+    if (s.st && s.st.local && turns) {
+      turnsText = ' · Lượt đã đi: bạn ' + ((+turns.me) || 0) + '/3 — đối thủ ' + ((+turns.bot) || 0) + '/3';
+    }
+    var turnText;
+    if (over) {
+      turnText = 'Hết ván: bạn ' + scores.me + ' — đối thủ ' + scores.bot + '. ' +
+        (scores.me > scores.bot ? 'Bạn thắng!' : scores.me < scores.bot ? 'Bạn thua.' : 'Hòa!');
+    } else if (turn === 'me') {
+      turnText = 'Tới lượt bạn — bấm một ô bên mình còn quân.' + turnsText;
+    } else {
+      turnText = 'Đối thủ đang đi…' + turnsText;
+    }
+    var key = scores.me + '|' + scores.bot + '|' + turnText + '|' + over;
+    if (key === s.lastStripKey) return;
+    s.lastStripKey = key;
+    s.strip.score.innerHTML = 'Ô ĂN QUAN · Bạn <b>' + scores.me + '</b> quân — Đối thủ <b>' + scores.bot + '</b> quân';
+    s.strip.turn.textContent = turnText;
+    s.strip.turn.classList.toggle('sim-oanquan-myturn', turn === 'me' && !over);
+  }
+
   // ================= build =================
   function build(st, api) {
     if (S) teardown(S.st, S.api);
@@ -176,6 +211,7 @@
       onDown: null, onUp: null, onMove: null
     };
     s.strip = buildDom();
+    syncStrip(s); // #26: strip hiện lượt thật ngay từ lúc dựng, không chờ khung animate
 
     // Nhãn số quân + thẻ hàng (tạo trước, đặt vị trí mỗi frame trong update).
     var i;
@@ -620,29 +656,9 @@
     }
 
     // HUD strip (tối đa 2 dòng): điểm, lượt, lượt đã đi (chỉ chơi đơn).
-    if (s.strip) {
-      var turns = state.turnsTaken;
-      var turnsText = '';
-      if (s.st && s.st.local && turns) {
-        turnsText = ' · Lượt đã đi: bạn ' + ((+turns.me) || 0) + '/3 — đối thủ ' + ((+turns.bot) || 0) + '/3';
-      }
-      var turnText;
-      if (over) {
-        turnText = 'Hết ván: bạn ' + scores.me + ' — đối thủ ' + scores.bot + '. ' +
-          (scores.me > scores.bot ? 'Bạn thắng!' : scores.me < scores.bot ? 'Bạn thua.' : 'Hòa!');
-      } else if (turn === 'me') {
-        turnText = 'Tới lượt bạn — bấm một ô bên mình còn quân.' + turnsText;
-      } else {
-        turnText = 'Đối thủ đang đi…' + turnsText;
-      }
-      var key = scores.me + '|' + scores.bot + '|' + turnText + '|' + over;
-      if (key !== s.lastStripKey) {
-        s.lastStripKey = key;
-        s.strip.score.innerHTML = 'Ô ĂN QUAN · Bạn <b>' + scores.me + '</b> quân — Đối thủ <b>' + scores.bot + '</b> quân';
-        s.strip.turn.textContent = turnText;
-        s.strip.turn.classList.toggle('sim-oanquan-myturn', turn === 'me' && !over);
-      }
-    }
+    // Đồng bộ qua syncStrip() — cùng hàm oqRender gọi trực tiếp mỗi lần
+    // lượt đổi (#26), nên strip đúng cả khi vòng lặp animate chết (#24).
+    syncStrip(s);
   }
 
   // ================= teardown =================
@@ -685,5 +701,10 @@
   }
 
   window.RoundSims = window.RoundSims || {};
-  window.RoundSims['o-an-quan'] = { build: build, update: update, teardown: teardown };
+  // sync(st): oqRender() gọi mỗi lần lượt/điểm đổi để dải strip hiện đúng
+  // ngay, không chờ khung animate (#26 — animate chết khi WebGL lỗi, #24).
+  window.RoundSims['o-an-quan'] = {
+    build: build, update: update, teardown: teardown,
+    sync: function (st) { if (S) { if (st) S.st = st; syncStrip(S); } }
+  };
 })();

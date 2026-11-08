@@ -5,8 +5,9 @@
  *   (`hoilang_local_profile_v1`) trên máy người chơi, KHÔNG đồng bộ lên
  *   server. Lý do: chống cày xu chơi đơn (bot dễ) rồi mang sang multi.
  * - Mức thưởng Y HỆT multi (server/economy.js): +10 xu/vòng sống sót,
- *   +50 xu khi thắng (là người sống sót duy nhất), +100 XP/vòng,
- *   +500 XP/thắng, 500 XP/cấp, tối đa cấp 20; lên cấp tự nhận thưởng
+ *   thắng trận lấy CẢ HŨ VÀNG (khởi đầu 100 + 10 xu mỗi người bị loại,
+ *   bot bị loại cũng cộng — #39 bước 1, cycle 41) thay cho +50 xu cố định
+ *   trước đây; +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20; lên cấp tự nhận thưởng
  *   track MIỄN PHÍ (track trả phí không mở ở chơi đơn vì tier luôn free).
  * - Chỉ shop mua/trang bị chạy local. Pass hiển thị cấp/XP local;
  *   giải đấu / cổ vũ / tặng quà / vé tour cần người chơi khác nên chỉ có
@@ -271,11 +272,16 @@
     if (!isActive()) return null;
     var sid = seasonId(opts);
     var lixi = lixiFor('win', sid);
-    profile.xu += XU_PER_WIN + lixi;
+    // #39 bước 1 — Hũ Vàng: opts.potXu (số hũ lúc thắng, game.js giữ
+    // localPot) thay cho +50 xu thắng cố định; không có potXu thì giữ
+    // mức cũ 50 (tương thích test/cuộc gọi cũ). Chỉ cộng XU, XP vẫn 500.
+    var potXu = (opts && typeof opts.potXu === 'number' && isFinite(opts.potXu) && opts.potXu >= 0) ? Math.floor(opts.potXu) : null;
+    var winXu = (potXu === null) ? XU_PER_WIN : potXu;
+    profile.xu += winXu + lixi;
     var rewards = grantXp(XP_PER_WIN);
     save(profile);
-    replyToShop({ type: 'economy', action: 'earned', reason: 'win', amount: XU_PER_WIN, lixi: lixi, seasonId: sid, rewards: rewards, profile: snapshot() });
-    return { profile: snapshot(), rewards: rewards, lixi: lixi, seasonId: sid };
+    replyToShop({ type: 'economy', action: 'earned', reason: 'win', amount: winXu, pot: potXu, lixi: lixi, seasonId: sid, rewards: rewards, profile: snapshot() });
+    return { profile: snapshot(), rewards: rewards, lixi: lixi, seasonId: sid, potAmount: potXu };
   }
 
   window.HoiLocalEconomy = {
@@ -288,6 +294,8 @@
     KEY: KEY,
     XU_PER_ROUND: XU_PER_ROUND,
     XU_PER_WIN: XU_PER_WIN,
+    POT_START_XU: 100, // #39 bước 1 — khớp server/economy.js POT_START_XU
+    POT_PER_ELIMINATION_XU: 10, // #39 bước 1 — khớp server POT_PER_ELIMINATION_XU
     LIXI_XU_PER_ROUND: LIXI_XU_PER_ROUND,
     LIXI_XU_PER_WIN: LIXI_XU_PER_WIN
   };

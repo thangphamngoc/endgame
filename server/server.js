@@ -325,6 +325,7 @@ function matchStateForClient(room) {
     matchTimeLimit: room.qc ? 0 : MATCH_TIME_LIMIT_S,
     roundTimeLimit: room.roundTimeLimit || 0,
     roundEndsIn: room.roundDeadline ? Math.max(0, room.roundDeadline - Date.now()) : 0,
+    pot: room.pot || 0, // #39 bước 1 — Hũ Vàng: người vào giữa trận đồng bộ hũ hiện tại
   };
 }
 function broadcastLobbyList() {
@@ -345,6 +346,9 @@ function makeRoom() {
     roundDeadline: 0, roundTimeLimit: 0, roundState: null, roundStartCount: 0,
     matchDeadline: 0, // P1-07: hết giờ tổng thì trận kết thúc có kết quả (0 = QC, miễn)
     subArenas: [], targets: [], inputQueue: [],
+    // #39 bước 1 — Hũ Vàng Hội Làng (OD-12): pot = 0 khi chưa có trận
+    // (server làm chủ hũ); startMatch đặt 100, mỗi lần loại +10.
+    pot: 0, potEliminations: 0,
   };
   rooms.set(room.code, room);
   // P3-06 bước 2 (KPI-02, cycle 23): ghi lúc tạo phòng để đo thời gian
@@ -507,6 +511,14 @@ function eliminatePlayer(room, player, reason) {
   analyticsSafe((a) => a.recordElimination(room, player.id));
   logEvent('elimination', { room: room.code, matchId: room.matchId, round: room.round, playerId: player.id, name: player.name, reason });
   broadcast(room, { type: 'eliminated', id: player.id, reason });
+  // #39 bước 1 — Hũ Vàng: mỗi lần có người bị loại, hũ +10 xu (cả phòng
+  // QC: hiện hũ nhưng không trả thưởng — payout chỉ ở endMatch phòng
+  // thường). Chỉ cộng khi trận đã bắt đầu (room.pot > 0).
+  if (room.pot > 0) {
+    room.pot += (economy && economy.POT_PER_ELIMINATION_XU) || 10;
+    room.potEliminations += 1;
+    broadcast(room, { type: 'pot', amount: room.pot });
+  }
   // Bảng trực tiếp (P1-09): ghi lại người vừa bị loại (mới nhất trước,
   // tối đa 5) để khán giả thấy ngay, không phải chờ hết vòng.
   room.recentEliminations.unshift({ id: player.id, name: player.name, round: room.round, reason });
@@ -605,6 +617,10 @@ function startMatch(room) {
   // Phòng QC: matchId + roundPlan đã chốt lúc tạo phòng (để host thấy đúng
   // tên các vòng 3-5 đã bốc trước khi bắt đầu) — không bốc lại ở đây.
   if (!room.qc) { room.matchId = nextMatchId++; buildRoundPlan(room); }
+  // #39 bước 1 — Hũ Vàng Hội Làng (OD-12): hũ khởi đầu 100 Hội Xu
+  // (lễ khai hội), server làm chủ; mỗi lần có người bị loại +10 xu.
+  room.pot = (economy && economy.POT_START_XU) || 100;
+  room.potEliminations = 0;
   room.matchStart = Date.now();
   // Timer trận tổng P1-07: phòng thường có deadline, phòng QC miễn (0).
   room.matchDeadline = room.qc ? 0 : room.matchStart + MATCH_TIME_LIMIT_S * 1000;
@@ -628,6 +644,9 @@ function startMatch(room) {
   // Trận QC không ghi "đã chơi trận" vào kinh tế (không thưởng, không XP).
   if (!room.qc) starters.forEach((pl) => econSafe((ec) => ec.recordMatchPlayed(pl.id, pl.name)));
   broadcast(room, { type: 'phase', phase: 'countdown', players: publicPlayers(room) });
+  // #39 bước 1 — báo hũ khởi đầu ngay khi trận bắt đầu để mọi client
+  // (kể cả khán giả) thấy ô HŨ VÀNG từ đầu, không chờ lần loại đầu tiên.
+  broadcast(room, { type: 'pot', amount: room.pot });
   setTimeout(() => {
     if (room.phase !== 'countdown') return;
     // Phòng QC bắt đầu ở vòng đã chọn thay vì vòng 1.
@@ -1012,7 +1031,7 @@ function endRound(room, n, reason) {
   // hiện được tên vòng sau mà không cần đoán — số vòng không giới hạn nên
   // không còn khái niệm "vòng 6 là vòng cuối" để suy ra.
   const nextEntry = (survivors.length > 1 && !isFinal) ? roundEntryFor(room, n + 1, survivors.length) : null;
-  broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated,
+  broadcast(room, { type: 'roundEnd', round: n, game, survivors, eliminated, pot: room.pot,
     nextRound: nextEntry ? nextEntry.round : null, nextGame: nextEntry ? nextEntry.game : null, nextName: nextEntry ? nextEntry.name : null });
   broadcast(room, { type: 'players', players: publicPlayers(room) });
   broadcastLeaderboard(room);
@@ -1077,14 +1096,20 @@ function endMatch(room, reason) {
     room.ranking.unshift({ id: winner.id, name: winner.name, team: winner.team, time: Date.now() - room.matchStart });
   }
   if (winner && !room.qc) {
+    // #39 bước 1 — Hũ Vàng (OD-12): người thắng lấy TẤT CẢ hũ thay cho
+    // +50 xu thắng cố định (lì xì Tết +20 thắng vẫn cộng thêm, xem
+    // economy.awardPotWin); hũ tối thiểu 100 nên luôn hơn mức cũ.
     let res = null;
-    econSafe((ec) => { res = ec.awardWin(winner.id, winner.name); });
-    if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: 50 + (res.lixi || 0), lixi: res.lixi || 0, seasonId: res.seasonId || null, profile: res.profile });
+    econSafe((ec) => { res = ec.awardPotWin(winner.id, winner.name, room.pot); });
+    if (res && res.profile && winner.ws) send(winner.ws, { type: 'economy', action: 'earned', reason: 'win', amount: (res.potAmount || 0) + (res.lixi || 0), pot: res.potAmount || 0, lixi: res.lixi || 0, seasonId: res.seasonId || null, profile: res.profile });
+    // #39 bước 1 — analytics: chốt hũ đã trả ngay (không chờ grace 30s
+    // của recordMatchEnd vì pot không phụ thuộc sự kiện sau trận).
+    analyticsSafe((a) => a.recordPotPaid(room, room.pot));
   }
   logEvent('match_end', { room: room.code, matchId: room.matchId, winnerId: winner ? winner.id : null, ranking: room.ranking.length, reason: reason || 'last-standing' });
   // P3-06: chốt số đếm của trận (trận QC tách riêng, không vào KPI).
   analyticsSafe((a) => a.recordMatchEnd(room, reason, winner));
-  broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null, reason: reason || undefined });
+  broadcast(room, { type: 'phase', phase: 'finished', ranking: room.ranking, winnerId: winner ? winner.id : null, reason: reason || undefined, potPaid: (winner && !room.qc) ? room.pot : 0 });
   broadcastLobbyList();
 }
 

@@ -632,6 +632,16 @@ body.touch #round-overlay.sim-mode.move-mode{top:calc(184px + env(safe-area-inse
 #round-timer-fill{height:100%;width:100%;background:#53e0d4}
 #round-timer-fill.urgent{background:#e2483a}
 .stat b.urgent{color:#ff6b5e}
+/* --- #39 bước 1 — Hũ Vàng Hội Làng (OD-12): ô HŨ VÀNG chữ vàng, nhấp
+   nháy nền vàng ~0.9s mỗi khi hũ tăng (setPot gắn class pot-flash) --- */
+.stat.pot b{color:#ffd54a}
+.stat.pot span{color:#ffe082}
+@keyframes potFlash{0%{background:#ffd54a;box-shadow:0 0 0 2px #ffd54a,0 0 14px rgba(255,213,74,.9)}100%{background:transparent;box-shadow:none}}
+.stat.pot.pot-flash{animation:potFlash .9s ease}
+/* Trong lúc nháy nền vàng, chữ vàng trên nền vàng sẽ mất hút — đổi chữ
+   sang nâu đậm trong suốt thời gian có class pot-flash. */
+.stat.pot.pot-flash b,.stat.pot.pot-flash span{color:#7a4a00}
+#interstitial .potLine,#team-screen .potLine{font-size:17px;font-weight:900;color:#ffd54a}
 @media (max-width:620px){
   #round-timer-wrap{top:calc(150px + env(safe-area-inset-top));width:88vw}
 }

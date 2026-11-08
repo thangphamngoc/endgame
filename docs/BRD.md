@@ -233,7 +233,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
 | FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Đã làm bước 2a (cycle 35, 2026-11-08): lì xì Hội Xu chơi đơn — mùa Tết thì +8 xu/vòng sống sót, +20 xu/thắng (chỉ xu, không XP; toast gộp "🧧 Lì xì Tết: +N Hội Xu!"). Đã làm bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu chơi nhiều người (server tự tính mùa theo ngày ICT, không tin mùa client; +8 xu/vòng, +20 xu/thắng, chỉ xu không XP; message `earned` kèm `lixi` + `seasonId`, client toast riêng mỗi lần nhận). Đã làm bước 2c (cycle 39, 2026-11-08): trống Tết — vòng 1 tên "Trống Hội Tết" (đơn qua `tetRoundName` client, multi qua server tự tính mùa ICT + message `roundStart`), dải trống/chiêng "🧧 TRỐNG TẾT / CHIÊNG TẾT", nhịp trống chơi đơn tum–tum–TUM (0.42/0.42/0.84s) qua `nextTetBeat` trong `seasonal.js`. P4-06 HOÀN TẤT. |
-| FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, +50 xu/thắng, +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
+| FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 xu), +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -306,7 +306,19 @@ không trả thưởng. Chủ Hội (giải đấu) sau này: host đặt hũ kh
 (host-funded). Analytics: thêm `avgPot`/`maxPot`/`totalPotsPaid` vào
 `GET /analytics`. Số tạm — chỉnh sau khi có số liệu trả thưởng thật. Làm
 2 bước nếu 1 cycle không xuể: (1) server hũ + HUD + trả thưởng +
-analytics; (2) hũ 3D + xu bay + capture. Backlog #39.
+analytics — XONG cycle 41, 2026-11-08 (test hu-vang-test.js 40/40, probe
+hu-vang-probe.js 17/17; sửa kèm: showRanking ẩn interstitial để bảng cuối
+trận không bị màn "hết vòng" che — lỗi có từ trước, thấy ở ảnh probe);
+(2) hũ 3D + xu bay + capture — XONG cycle 42, 2026-11-08 (test
+hu-vang-3d-test.js 32/32, probe hu-vang-3d-probe.js 15/15): cổng hội gỗ ở
+sân gạch trước đình (z=-46, giữa vạch đích -35 và đình -64), 2 trụ + xà
+ngang + mái ngói đỏ + nóc vàng + biển "HỘI LÀNG" + 2 đèn lồng đỏ; hũ vàng
+(thân trụ r1.5, vành torus, 7 đồng xu gò trên miệng) treo dưới xà bằng 2
+dây, đung đưa nhẹ như con lắc (tắt khi reduced-motion); mỗi lần có người
+bị loại, 5 đồng xu bay theo parabol từ chỗ người đó về miệng hũ (tối đa
+60 xu bay cùng lúc); đống xu trong hũ to theo số hũ (0.7 ở 0 xu → 1.3 từ
+2000 xu, không tràn miệng); chấm vàng Hũ Vàng trên minimap ở cổng.
+Backlog #39 HOÀN TẤT.
 
 **Bịt Mắt — ĐÃ QUYẾT (cycle 2, 2026-11-06):** server gửi `goatId` trong tin
 `blind` cho cả người tìm (`blind:true`) lẫn dê (`blind:false`, goatId là id
@@ -902,7 +914,8 @@ sách rỗng).
 backlog #19 bước 1, QC/Sudo lật được):** chơi đơn không có server nên
 ví + đồ đã mua lưu ở localStorage (`hoilang_local_profile_v1`),
 KHÔNG đồng bộ lên server. Mức thưởng y hệt multi: +10 xu/vòng sống
-sót, +50 xu khi là người sống sót duy nhất, +100 XP/vòng, +500 XP/
+sót, lấy cả Hũ Vàng khi là người sống sót duy nhất (khởi đầu 100 xu +
+10 xu mỗi người bị loại), +100 XP/vòng, +500 XP/
 thắng, 500 XP/cấp, tối đa cấp 20; lên cấp tự nhận thưởng track miễn
 phí (track trả phí không mở vì tier local luôn free). Triển khai:
 `client/js/local-economy.js` mới (`window.HoiLocalEconomy` — load/save
@@ -973,8 +986,8 @@ trong cửa sổ 30/01–10/02/2027 (ngoài cửa sổ chỉ test được bằn
 #16, P4-06 bước 2a, QC/Sudo lật được):** trò biến thể Tết đầu tiên là
 lì xì Hội Xu, chỉ ở chơi đơn (ví local, `client/js/local-economy.js`):
 khi mùa Tết đang chạy (`window.__season.id === 'tet'`), thưởng vòng
-sống sót +10 xu cộng thêm lì xì 8 xu (thành +18), thắng trận +50 xu
-cộng thêm lì xì 20 xu (thành +70). Chỉ cộng XU, không cộng XP (tiến
+sống sót +10 xu cộng thêm lì xì 8 xu (thành +18), thắng trận lấy cả Hũ
+Vàng cộng thêm lì xì 20 xu. Chỉ cộng XU, không cộng XP (tiến
 độ Pass không đổi); trận QC không lì xì vì `localRoundEnd` chặn toàn
 bộ thưởng khi `qcMode` (FR-46). Số 8/20: 8 là số phát, 20 là lì xì
 thắng — nhỏ so với giá shop (60–300 xu) nên không phá cân bằng kinh
@@ -1000,7 +1013,7 @@ vòng/thắng trong cửa sổ Tết (toast + ví HUD tăng), Sudo chốt lại 
 backlog #16, P4-06 bước 2b, QC/Sudo lật được):** lì xì Tết nay có cả ở
 chơi nhiều người (ví server, `server/economy.js`): khi mùa Tết đang chạy,
 thưởng vòng sống sót +10 xu cộng thêm lì xì 8 xu (thành +18), thắng trận
-+50 xu cộng thêm lì xì 20 xu (thành +70) — cùng mức chơi đơn (cycle 35).
+lấy cả Hũ Vàng cộng thêm lì xì 20 xu — cùng mức chơi đơn (cycle 35).
 Chỉ cộng XU, không cộng XP; trận QC không lì xì vì hook thưởng ở
 `server.js` đã chặn toàn bộ khi `room.qc` (FR-46). Server tự tính mùa
 theo ngày ICT (UTC+7), KHÔNG tin mùa client gửi: `?season=tet` của client
@@ -1115,7 +1128,10 @@ Không chọn `pointer-events:none` cho overlay: click sẽ xuyên qua vùng m�
 tới canvas 3D (bấm nhầm đảo → bay tour, kéo xoay camera) trong lúc card
 sảnh chờ đang mở. Chưa đo bằng tay: bấm CỬA HÀNG thật ở sảnh chờ trên
 trình duyệt/máy thật + cảm giác cột nút nổi trên nền mờ có rõ là bấm được
+
+**Nhãn nút QC phải khớp đúng trò khi nhảy vòng — ĐÃ QUYẾT (cycle 43, 2026-11-08 — backlog #25, QC/Sudo lật được):** trước đây `localPoolCycle()` lấy seed từ `matchStartAt` — 0 lúc ở sảnh (nhãn V3/V4/V5 tính bằng seed 1) nhưng `Date.now()` lúc nhảy vòng (`qcJumpSingle` đặt lại `matchStartAt`) — nhãn và trò thật xáo kho khác nhau: panel QC ghi "V4 · Bịt Mắt Bắt Dê · 9 người" nhưng nhảy thẳng V4 lại vào "Ô Ăn Quan" (đo bằng `localRng` thật: seed 1 cho V4 = Bịt Mắt, seed `Date.now()` 1794123425898 cho V4 = Ô Ăn Quan). Sửa: seed riêng `localPoolSeed` cho việc bốc kho chơi đơn — cố định 1 lần/phiên QC ngay lần đầu nhãn hiện (`renderQcButtons`: `if (qcMode && !localPoolSeed) localPoolSeed = Date.now()`), trận thường bốc seed mới mỗi trận (`startSingle`: `if (!qcMode) localPoolSeed = Date.now()`), về menu reset seed + vẽ lại nhãn (`exitToMenu`); `qcJumpSingle` vẫn đặt lại `matchStartAt` (đồng hồ trận + seed xáo lượt V2) nhưng không còn ảnh hưởng bốc kho. Cùng lỗi ở multi: V6–V8 không có entry trong plan server (`buildRoundPlan` chỉ tới V5) nên trước đây rơi vào `localNameForRound` (seed local) — nay ghi "Vòng n · bốc từ kho" cho mọi vòng ≥ 3 chưa có plan, chỉ tin tên trong plan server gửi. Đo thật: test `hidden_files/qc-v4-label-test.js` 30/30 PASS (tái hiện lỗi cũ + nhãn == trò thật với 6 seed + renderQcButtons đơn/multi), probe trình duyệt thật `hidden_files/qc-v4-label-probe.js` 20/20 PASS (bấm thật V4 → vào đúng trò trong nhãn, nhảy giữa trận sang V3 vẫn khớp, về menu bốc seed mới rồi nhảy lại V4 vẫn khớp), ảnh `tools/captures/2026-11-08-cycle43/` đã đọc bằng mắt. Chưa đo bằng tay: bấm nút QC V4 trên trình duyệt thật rồi xem có vào đúng trò trong nhãn không (headless chỉ kiểm DOM/HUD).
 không.
+**Dải strip sim Ô Ăn Quan phải theo lượt thật, không chờ khung animate — ĐÃ QUYẾT (cycle 44, 2026-11-08 — backlog #26, QC/Sudo lật được):** trước đây dải strip của sim (điểm + lượt) chỉ cập nhật trong `update()` theo khung `animate()`; khi WebGL lỗi (`startApp` không gọi `animate` khi `buildWorld` false, #24) thì `Rounds.update` không bao giờ chạy nên strip kẹt ở chữ mặc định lúc `buildDom` là "Đang chờ lượt…" trong khi overlay (`oqRender`, vẽ đồng bộ) đã ghi "Tới lượt bạn" (ảnh 06-round4-sim.png, 2026-11-06). Gốc đã đo: strip là chữ mặc định, overlay là lượt thật — strip không sai luật, chỉ không được cập nhật. Sửa: tách `syncStrip(s)` trong `client/js/sim/sim-oanquan.js` — gọi ở cuối `build()` (strip bắt đầu đúng lượt thật), giữ ở `update()`, lộ `sync(st)` trên `window.RoundSims['o-an-quan']`; `oqRender()` trong `client/js/rounds.js` gọi `activeSim.sync(st)` (có guard, vì lúc `start` sim chưa build xong) mỗi lần vẽ lại lượt — `oqRender` là phễu duy nhất (start / sow / bot / `oanquanState` / resolve) nên mọi lần đổi lượt đều đồng bộ strip ngay, kể cả khi `animate` chết. Chữ trong strip giữ nguyên ("Tới lượt bạn…" / "Đối thủ đang đi…" / "Hết ván…"), chỉ sửa thời điểm cập nhật. Đo thật: test `hidden_files/oanquan-strip-test.js` 17/17 PASS (build đã đúng lượt không cần `update()`, `sync()` đổi lượt/điểm/hết ván không cần `update()`, `update()` vẫn đồng bộ như cũ, `sync()` an toàn khi chưa có phiên), probe trình duyệt thật `hidden_files/oanquan-strip-probe.js` 15/15 PASS (WebGL null, vào vòng strip "Tới lượt bạn" khớp overlay, bấm ô 3 thật thì strip đổi "Đối thủ đang đi…" ngay trước khi bot đi 700ms, bot đi xong strip về lại "Tới lượt bạn", 0 pageerror mới), ảnh `tools/captures/2026-11-08-cycle44/` đã đọc bằng mắt. Quan sát phụ (không sửa trong cycle này, thuộc #32): dải `#roundHint` (top 122px, z-index 7) nằm cùng dải với strip sim (top 118px, z-index 25) nên strip che nửa dải gợi ý phím trong 12s đầu vòng Ô Ăn Quan — ghi thêm vào #32. Chưa đo bằng tay: strip đổi lượt trên trình duyệt thật có WebGL (headless chỉ kiểm DOM).
 
 Đường loại dưới đây là **mục tiêu giữ lại theo tỉ lệ**, không phải cam kết
 cứng từng vòng. Tỉ lệ giữ lại áp theo chu kỳ (0.614, 0.536, 0.467, 0.343,
@@ -1211,7 +1227,7 @@ riêng, có thể ít hơn mục tiêu) — xem OD-11.
 | OD-09 | Đếm ngược lượt qua cầu vòng 2 là bao lâu? | **ĐÃ QUYẾT (tạm) 2026-11-05 — Muse chọn theo chỉ đạo "thấy phương án nào hợp lý thì triển khai", QC có thể lật:** 30 giây/lượt — một người qua hết 9 bước cầu. Lý do: 9 bước × ~3 giây suy nghĩ mỗi bước, đủ để nghĩ nhưng không đủ để đứng chờ cho cầu lộ hết ván rồi mới đi; lượt không bắt đầu và lượt đi quá chậm là một (đồng hồ chạy từ lúc lượt bắt đầu, hết giờ thì bị loại, lượt chuyển người tiếp theo). Áp cả 2 chế độ: server ép ở multi (server/server.js, tick kiểm tra turnStartedAt), client ép ở chơi đơn (game.js r2Turn; bot cũng chịu cùng luật, tốc độ bot qua cầu đã tăng lên 2.4–3.7 để qua hết trong ~10–15 giây). Mọi vòng đều hiện đếm ngược trên HUD (ô ĐẾM NGƯỢC cạnh ô VÒNG, đỏ khi ≤ 10 giây); vòng 2 hiện đếm ngược theo lượt, các vòng còn lại hiện đếm ngược cả vòng (vòng 1: 120 giây; vòng 2 cả vòng multi: 180 giây; các vòng sau theo games.js ROUND_TIME_LIMITS). Panel team vòng 2 thu gọn thành dải 2 dòng ở mép trên (không che giữa màn hình, không chặn bấm ván) sau khi Sudo báo banner "qua cầu 0/0" chắn màn hình. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
 | OD-10 | Chế độ QC nhảy vòng: số người sống khi vào thẳng vòng sau là bao nhiêu, và nhảy Vòng 2 thì thứ tự lượt tính sao? | **ĐÃ QUYẾT 2026-11-05 — theo yêu cầu của Sudo ("cần chế độ cho admin để QC test, chọn vòng để chơi luôn, không thì test rất lâu"):** chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2 — tối thiểu 2 người để còn test được cờ, thay vì 1 theo đường cong); nhảy Vòng 2 qua CHIA TEAM như thường nhưng thứ tự lượt xáo trộn theo seed của trận vì không có thời gian về đích Vòng 1 (ghi rõ trên màn team). Trận QC không thưởng Hội Xu / XP Pass, không tính BXH; tuỳ chọn "Không loại" tắt mặc định, chỉ để test giao diện. **Cập nhật OD-11 (2026-11-06):** số người sống tính bằng cùng tỉ lệ chu kỳ cho mọi vòng (không hardcode bảng 6 vòng), panel QC có nút tới V8 và "VÒNG SAU" nhảy được qua vòng 6. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
 | OD-11 | Số vòng chơi có giới hạn ở 6 không? | **ĐÃ QUYẾT 2026-11-06 — theo yêu cầu của Sudo ("không giới hạn số vòng chơi, số vòng phụ thuộc vào số người còn lại; ví dụ mọi người đều chơi tốt thì 6 vòng không thể loại hết chỉ còn 1 được"):** KHÔNG giới hạn số vòng. Trận chỉ kết thúc khi còn 1 người thắng. Vòng 1–2 cố định; từ vòng 3 bốc theo chu kỳ kho 5 trò (không lặp trong chu kỳ, hết kho xáo lại chu kỳ mới, không lặp liền kề qua biên); Rồng Rắn là chung kết chỉ khi ≤ 6 người sống lúc bắt đầu vòng; một vòng kết thúc với đúng 1 người sống thì trận kết thúc ngay. Mỗi vòng loại ít nhất 1 người (cắt ép tối thiểu theo xếp hạng/điểm của trò; các trò xếp hạng cắt về đúng mục tiêu tỉ lệ chu kỳ 0.614, 0.536, 0.467, 0.343, 0.25, 0.167). HUD hiện "VÒNG x" không có "/6" và hiện mục tiêu giữ lại của vòng. Thường 6–8 vòng với phòng đủ người; giới hạn xấu nhất N−1 vòng từ N người. QC: nhảy được qua vòng 6, số người sống tính bằng cùng tỉ lệ chu kỳ. | Phase 1 (đã triển khai ở PR #3, nhánh feat/reverse-team-order) |
-| OD-12 | Tiền thưởng top 1 tính sao (có tăng theo người bị loại không)? | **ĐÃ QUYẾT 2026-11-08 — theo yêu cầu của Sudo (tiền thưởng top 1 như Squid Game, mỗi người thua tăng tiền thưởng, có hình ảnh tiền thưởng treo):** Hũ Vàng Hội Làng: khởi đầu 100 Hội Xu + 10 xu mỗi lần có người bị loại; server làm chủ, broadcast `{type:'pot'}`; người thắng lấy tất cả, thay cho +50 xu thắng cố định (lì xì Tết +20 thắng vẫn cộng thêm; chơi đơn ví local đổi theo). Tối đa trận 456 người: 4.650 xu. Chỉ Hội Xu, không tiền thật, không đổi ra tiền, không cược. Hiển thị: ô HUD "HŨ VÀNG", hũ vàng 3D treo ở cổng hội, đồng xu bay từ người bị loại về hũ, màn giữa vòng + màn kết thúc hiện số hũ to. QC: hiện hũ nhưng không trả thưởng. Số tạm — chỉnh sau khi có số liệu trả thưởng thật. Backlog #39. | Phase 1 (chưa triển khai — backlog #39) |
+| OD-12 | Tiền thưởng top 1 tính sao (có tăng theo người bị loại không)? | **ĐÃ QUYẾT 2026-11-08 — theo yêu cầu của Sudo (tiền thưởng top 1 như Squid Game, mỗi người thua tăng tiền thưởng, có hình ảnh tiền thưởng treo):** Hũ Vàng Hội Làng: khởi đầu 100 Hội Xu + 10 xu mỗi lần có người bị loại; server làm chủ, broadcast `{type:'pot'}`; người thắng lấy tất cả, thay cho +50 xu thắng cố định (lì xì Tết +20 thắng vẫn cộng thêm; chơi đơn ví local đổi theo). Tối đa trận 456 người: 4.650 xu. Chỉ Hội Xu, không tiền thật, không đổi ra tiền, không cược. Hiển thị: ô HUD "HŨ VÀNG", hũ vàng 3D treo ở cổng hội, đồng xu bay từ người bị loại về hũ, màn giữa vòng + màn kết thúc hiện số hũ to. QC: hiện hũ nhưng không trả thưởng. Số tạm — chỉnh sau khi có số liệu trả thưởng thật. Backlog #39. | ✅ HOÀN TẤT (cycle 41: server hũ + HUD + trả thưởng + analytics; cycle 42, 2026-11-08: hũ 3D treo cổng hội + xu bay + chấm vàng minimap) |
 
 ## 10. Kinh tế trong game (MONETIZATION) — ĐÃ QUYẾT 2026-11-05
 
@@ -1243,7 +1259,7 @@ riêng, có thể ít hơn mục tiêu) — xem OD-11.
 | Kiếm xu | Mức |
 |---|---|
 | Sống sót 1 vòng | +10 xu |
-| Thắng trận | +50 xu |
+| Thắng trận | Lấy cả Hũ Vàng (khởi đầu 100 xu + 10 xu mỗi người bị loại; tối thiểu 100 xu) |
 | Nhiệm vụ ngày (mỗi nhiệm vụ 1 lần/ngày) | +20 xu |
 | Được người khác cổ vũ / tặng sticker | +5 xu |
 

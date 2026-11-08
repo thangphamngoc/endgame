@@ -409,6 +409,14 @@
         }
       };
     });
+    // #26 (cycle 44): đồng bộ dải strip của sim ngay khi lượt/điểm đổi.
+    // Strip chỉ cập nhật theo khung animate, mà animate không chạy khi
+    // WebGL lỗi (startApp không gọi animate khi buildWorld false, #24) nên
+    // strip kẹt ở chữ mặc định "Đang chờ lượt…" trong khi overlay đã ghi
+    // "Tới lượt bạn" (ảnh 06-round4-sim.png). oqRender là phễu duy nhất
+    // vẽ lại lượt (start / sow / bot / oanquanState / resolve) nên gọi
+    // sync ở đây là đủ; lúc start sim chưa build xong nên phải guard.
+    if (activeSim && activeSim.sync) { try { activeSim.sync(st); } catch (e) { /* strip là hiển thị phụ, không được làm vỡ overlay */ } }
   }
   function oqSow(st, pit, isBot) {
     var board = st.state.board;

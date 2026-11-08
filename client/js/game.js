@@ -72,7 +72,14 @@
   var tourGroups = {}, detailedIsland = null;
   var mode = null, ws = null, myId = null, isHost = false, roomCode = null;
   var phase = 'menu'; // menu | flyover | countdown | round1 | team | round2 | round3..6 | interstitial | spectator | finished | tourism
-  var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0;
+  var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0, localPoolSeed = 0;
+  // #25 (cycle 43): seed RIÊNG cho việc bốc kho ở chơi đơn. Trước đây
+  // localPoolCycle lấy seed từ matchStartAt — 0 lúc ở sảnh (nhãn V3/V4/V5
+  // tính bằng seed 1) nhưng Date.now() lúc nhảy vòng (qcJumpSingle đặt lại
+  // matchStartAt) — nhãn và trò thật xáo khác nhau (V4 ghi "Bịt Mắt Bắt
+  // Dê" nhưng nhảy vào "Ô Ăn Quan"). Nay seed cố định 1 lần/phiên QC lúc
+  // nhãn hiện lần đầu (renderQcButtons), trận thường bốc mới mỗi trận
+  // (startSingle), về menu thì reset để phiên sau bốc mới.
   // Timer trận tổng (P1-07, ĐÃ QUYẾT tạm 2026-11-06 — 30 phút, QC lật
   // được): server là nguồn chuẩn và gửi matchTimeLimit theo từng tin
   // roundStart; hằng số dưới đây là mặc định cho chơi đơn (và fallback).
@@ -99,11 +106,12 @@
       return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
     };
   }
-  // Xáo kho 5 trò của một chu kỳ (seed theo thời điểm bắt đầu trận + chu kỳ);
-  // không lặp liền kề qua biên chu kỳ: chu kỳ mới mở đầu bằng trò cuối của
-  // chu kỳ trước thì đổi chỗ 2 trò đầu (giống server drawPoolCycle).
+  // Xáo kho 5 trò của một chu kỳ (seed = localPoolSeed, cố định trong một
+  // phiên/trận + chu kỳ — xem ghi chú #25 ở matchStartAt); không lặp liền
+  // kề qua biên chu kỳ: chu kỳ mới mở đầu bằng trò cuối của chu kỳ trước
+  // thì đổi chỗ 2 trò đầu (giống server drawPoolCycle).
   function localPoolCycle(cycle) {
-    var rng = localRng((matchStartAt || 1) + cycle * 7919);
+    var rng = localRng((localPoolSeed || 1) + cycle * 7919);
     var order = [0, 1, 2, 3, 4];
     for (var i = order.length - 1; i > 0; i--) {
       var j = Math.floor(rng() * (i + 1));
@@ -133,6 +141,20 @@
     return POOL_NAMES[g] + (g === 'rong-ran' ? ' (CHUNG KẾT)' : '');
   }
   var currentRound = 0, currentRoundName = '', currentRoundGame = null, roundTimeLimit = 0, roundEndsAt = 0, roundStartAlive = [], roundTarget = 0, roundIsFinal = false;
+  // #39 bước 1 — Hũ Vàng Hội Làng (OD-12): hũ khởi đầu 100 Hội Xu
+  // + 10 xu mỗi lần có người bị loại; server làm chủ ở multi (broadcast
+  // {type:'pot'}), chơi đơn game.js tự giữ localPot (bot bị loại cũng cộng).
+  // currentPot là số đang hiện trên ô HUD; localPot là hũ của trận đơn.
+  var POT_START_XU = 100, POT_PER_ELIMINATION_XU = 10;
+  var currentPot = POT_START_XU, localPot = 0;
+  // #39 bước 2 — Hũ Vàng 3D treo ở cổng hội: cổng gỗ dựng trên sân gạch,
+  // trước đình (giữa vạch đích z=-35 và đình z=-64) để người chơi chạy về
+  // đích là thấy hũ; flyover nhìn về (0,1,-4) cũng quét qua cổng. beamY là
+  // cao độ xà ngang, potY là cao độ tâm hũ (miệng hũ = potY + 0.8).
+  var POT_GATE_POS = { x: 0, z: -46, beamY: 6.4, potY: 4.05 };
+  // Đống xu trong hũ to tới tối đa khi hũ chạm 2000 xu (trận 456 người tối
+  // đa 4650 xu — đống xu không tràn khỏi miệng hũ).
+  var POT_PILE_MAX_XU = 2000;
   var lastInputSentAt = 0, jumpQueued = false, interstitialTimer = null;
   var keys = {}, typing = false, joy = { x: 0, y: 0, active: false };
   // Camera người chơi (hệ damping của bản prototype).
@@ -200,9 +222,20 @@
   }
   function renderQcButtons() {
     var box = $('qc-round-btns'); if (!box) return;
+    // #25 (cycle 43): cố định seed bốc kho của phiên QC ngay lần đầu nhãn
+    // hiện — nhãn V3/V4/V5 phải khớp đúng trò mà nút nhảy sẽ vào. Nếu để
+    // seed trôi theo matchStartAt (0 ở sảnh, Date.now() lúc nhảy) thì nhãn
+    // và trò thật xáo khác nhau. Trận thường không qua đây: startSingle
+    // bốc seed mới mỗi trận.
+    if (qcMode && !localPoolSeed) localPoolSeed = Date.now();
     var html = '';
     for (var r = 1; r <= 8; r++) { // QC nhảy được qua vòng 6 (vòng 7, 8, ...)
-      var name = (mode === 'multi' && !qcPlan && r >= 3 && r <= 5)
+      // #25: ở multi chỉ tin tên trong plan server gửi; vòng >= 3 chưa có
+      // plan thì ghi 'bốc từ kho' (server bốc lúc bắt đầu vòng, client
+      // không đoán bằng seed local — trước đây V6-V8 multi rơi vào
+      // localNameForRound nên cũng có thể sai tên như V4 chơi đơn).
+      var planned = qcPlan && qcPlan[r - 1] && qcPlan[r - 1].name;
+      var name = (mode === 'multi' && r >= 3 && !planned)
         ? 'Vòng ' + r + ' · bốc từ kho' : qcRoundName(r);
       html += '<button type="button" class="qcRoundBtn' + (r === qcStartRound ? ' on' : '') +
         '" data-qc-round="' + r + '">V' + r + ' · ' + escapeHtml(name) +
@@ -491,6 +524,23 @@
     o.connect(g); g.connect(AC.destination);
     o.start(t); o.stop(t + 0.42);
   }
+  // #39 bước 1 — tiếng xu khi Hũ Vàng tăng: 2 nốt cao ngắn kiểu "ting-ting"
+  // (WebAudio, không file ngoài như các âm khác). AC null (chưa có tương
+  // tác người dùng) thì im lặng — setPot vẫn cập nhật số.
+  function coinSound() {
+    if (!AC) return;
+    var t = AC.currentTime;
+    [1318.5, 1760].forEach(function (f, i) {
+      var o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      var tt = t + i * 0.09;
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(0.3, tt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, tt + 0.25);
+      o.connect(g); g.connect(AC.destination);
+      o.start(tt); o.stop(tt + 0.28);
+    });
+  }
   /* Âm nền vịnh: sóng rì rào (to dần khi gần bờ), gió nhẹ, chim hót rải rác gần lũy tre */
   var amb = { started: false, waveGain: null, windGain: null, birdT: 3, splashGain: null };
   function startAmbient() {
@@ -646,6 +696,10 @@
   var LOTUS = { x: 35, z: 12, r: 10 }, FISHPOND = { x: -35, z: -8, r: 9 };
   var drumGroup, hostGroup, hostArmL, hostArmR, playerRing, playerArrow, specRing, specArrow;
   var confetti = [], confettiGroup = null;
+  // #39 bước 2 — Hũ Vàng 3D: potGate (nhóm cổng + hũ), potPivot (điểm treo
+  // để hũ đung đưa), potCoinPile (đống xu trong hũ, to theo số hũ),
+  // potCoins (đồng xu đang bay từ người bị loại về hũ).
+  var potGate = null, potPivot = null, potCoinPile = null, potCoins = [], potCoinSharedMat = null;
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function isleSign(text, x, z, y) {
@@ -829,6 +883,136 @@
   }
   // Trả true khi dựng xong thế giới 3D, false khi WebGL lỗi (startApp bỏ
   // qua phần 3D nhưng vẫn chạy sảnh chờ + chat + danh sách đảo).
+  // #39 bước 2 — Hũ Vàng 3D treo ở cổng hội + đồng xu bay.
+  // potPileScale: tỉ lệ đống xu trong hũ theo số hũ (thuần, test được
+  // trong vm): 0 xu -> 0.7, 100 xu -> 0.73, 2000 xu trở lên -> 1.3 (cố
+  // định, không tràn khỏi miệng hũ).
+  function potPileScale(pot) {
+    var p = Math.max(0, Number(pot) || 0);
+    return 0.7 + Math.min(p, POT_PILE_MAX_XU) / POT_PILE_MAX_XU * 0.6;
+  }
+  // stepPotCoin: bước bay của 1 đồng xu — từ from tới to theo parabol,
+  // t đi 0->1 trong dur giây, arc là độ cao vòng cung. Trả {x,y,z,done}.
+  // Thuần, test được trong vm; updatePotCoins chỉ việc đặt mesh theo đó.
+  function stepPotCoin(c, dt) {
+    c.t = Math.min(1, c.t + dt / c.dur);
+    var e = c.t;
+    return {
+      x: c.fx + (c.tx - c.fx) * e,
+      y: c.fy + (c.ty - c.fy) * e + Math.sin(e * Math.PI) * c.arc,
+      z: c.fz + (c.tz - c.fz) * e,
+      done: c.t >= 1
+    };
+  }
+  // Vị trí miệng hũ — đích đến của đồng xu bay.
+  function potMouthPos() {
+    return { x: POT_GATE_POS.x, y: POT_GATE_POS.potY + 0.8, z: POT_GATE_POS.z };
+  }
+  // Dựng cổng hội + Hũ Vàng 3D. Chỉ dùng THREE geometry/material nên gọi
+  // được cả khi WebGL lỗi (probe headless gọi trực tiếp — buildWorld dừng
+  // sớm khi không tạo được renderer, nhưng scene vẫn có). Idempotent: gọi
+  // lại trả về nhóm cũ, không nhân đôi cổng.
+  function buildGoldenPotGate() {
+    if (potGate) return potGate;
+    var g = new THREE.Group();
+    g.position.set(POT_GATE_POS.x, 0, POT_GATE_POS.z);
+    var wood = mat(0x7a4a24, 0.8), woodDark = mat(0x5d3717, 0.85),
+        stone = mat(0xb8ab98, 0.95), roofM = mat(0xb5451b, 0.75),
+        goldM = mat(0xf2c01e, 0.3, 0.8), goldDark = mat(0xd8a03c, 0.4, 0.7);
+    // 2 trụ gỗ + đế đá (x=±8.5, trong lòng sân gạch, không chắn đường chạy
+    // vì cổng ở z=-46, sau vạch đích z=-35).
+    [-8.5, 8.5].forEach(function (px) {
+      box(1.3, 0.8, 1.3, stone, px, 0.4, 0, g);
+      box(0.9, 6.0, 0.9, wood, px, 3.8, 0, g);
+      box(1.1, 0.35, 1.1, woodDark, px, 6.9, 0, g);
+    });
+    // Xà ngang + mái ngói đỏ 2 dốc + nóc vàng.
+    box(19, 0.9, 1.1, woodDark, 0, POT_GATE_POS.beamY, 0, g);
+    var roofL = box(10.2, 0.35, 2.4, roofM, -5, 7.35, 0, g); roofL.rotation.z = 0.10;
+    var roofR = box(10.2, 0.35, 2.4, roofM, 5, 7.35, 0, g); roofR.rotation.z = -0.10;
+    box(19.6, 0.3, 0.7, goldM, 0, 7.75, 0, g);
+    // Biển "HỘI LÀNG" mặt trước xà (hướng +z, về phía người chơi chạy tới).
+    var sign = signBoard('HỘI LÀNG', 6, 1.2, '#8f1f14', '#ffedb8');
+    sign.position.set(0, POT_GATE_POS.beamY, 0.65); g.add(sign);
+    // 2 đèn lồng đỏ treo 2 bên xà — nhấp nháy cùng đèn làng (lanterns).
+    [-5.5, 5.5].forEach(function (lx) {
+      box(0.08, 0.7, 0.08, woodDark, lx, 5.6, 0, g, false);
+      var lm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.75, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0xe2483a, emissive: 0xe2483a, emissiveIntensity: 0.5, roughness: 0.6 }));
+      lm.position.set(lx, 5.05, 0); g.add(lm); lanterns.push(lm);
+    });
+    // Hũ vàng treo dưới xà bằng 2 dây — pivot ở sát xà để animate đung đưa
+    // quanh điểm treo như con lắc (không xoay cả cổng).
+    var pivot = new THREE.Group();
+    pivot.position.set(0, POT_GATE_POS.beamY - 0.45, 0);
+    g.add(pivot);
+    [-0.9, 0.9].forEach(function (rx) {
+      box(0.07, 1.1, 0.07, woodDark, rx, -0.55, 0, pivot, false);
+    });
+    var pot = new THREE.Group();
+    pot.position.set(0, POT_GATE_POS.potY - pivot.position.y, 0);
+    pivot.add(pot);
+    // Thân hũ: hình trụ thu nhỏ dần xuống đáy, vàng kim loại.
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.05, 1.6, 14), goldM);
+    body.castShadow = true; body.receiveShadow = true; pot.add(body);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.18, 8, 20), goldDark);
+    rim.rotation.x = Math.PI / 2; rim.position.set(0, 0.8, 0); rim.castShadow = true; pot.add(rim);
+    // Đống xu trong hũ: 7 đồng xếp gò lên trên miệng hũ; to theo số hũ
+    // (setPot đổi scale — xem potPileScale).
+    var pile = new THREE.Group();
+    pile.position.set(0, 0.72, 0);
+    pot.add(pile);
+    var coinM = mat(0xf2c01e, 0.35, 0.75);
+    var top = cyl(0.32, 0.32, 0.09, 10, coinM, 0, 0.28, 0, pile, false);
+    top.rotation.x = 0.12;
+    for (var ci = 0; ci < 6; ci++) {
+      var ca = ci / 6 * Math.PI * 2;
+      var cc = cyl(0.32, 0.32, 0.09, 10, coinM, Math.cos(ca) * 0.62, 0.05, Math.sin(ca) * 0.62, pile, false);
+      cc.rotation.x = (ci % 2 ? -0.1 : 0.1);
+    }
+    potCoinPile = pile;
+    potCoinPile.scale.setScalar(potPileScale(currentPot));
+    potGate = g; potPivot = pivot;
+    scene.add(g);
+    return g;
+  }
+  // Bắn n đồng xu từ vị trí from bay về miệng hũ. Không có cổng/hũ (WebGL
+  // lỗi mà probe chưa dựng) thì thôi — không ném lỗi giữa trận.
+  function spawnPotCoins(from, n) {
+    if (!scene || !potGate || !from) return;
+    if (!potCoinSharedMat) potCoinSharedMat = mat(0xf2c01e, 0.3, 0.8);
+    var to = potMouthPos();
+    var count = Math.min(n || 5, 8);
+    for (var i = 0; i < count; i++) {
+      if (potCoins.length >= 60) return; // trần 60 xu bay cùng lúc
+      var m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 10), potCoinSharedMat);
+      m.position.set(from.x + (Math.random() - 0.5) * 1.2, (from.y || 0) + Math.random() * 0.8, from.z + (Math.random() - 0.5) * 1.2);
+      scene.add(m);
+      potCoins.push({
+        m: m, fx: m.position.x, fy: m.position.y, fz: m.position.z,
+        tx: to.x, ty: to.y, tz: to.z, t: 0,
+        dur: 0.85 + Math.random() * 0.35, arc: 3.5 + Math.random() * 2
+      });
+    }
+  }
+  // Bắn xu từ vị trí figure của người vừa bị loại (cao ~1.2 trên mặt đất).
+  function spawnPotCoinsFrom(person) {
+    if (!person || !person.group || !person.group.position) return;
+    var p = person.group.position;
+    spawnPotCoins({ x: p.x, y: (p.y || 0) + 1.2, z: p.z }, 5);
+  }
+  // Tiến đồng xu bay mỗi frame (gọi trong animate). Hết hành trình thì gỡ
+  // mesh khỏi scene — geometry/material dùng chung nên không dispose.
+  function updatePotCoins(dt) {
+    for (var i = potCoins.length - 1; i >= 0; i--) {
+      var c = potCoins[i];
+      var s = stepPotCoin(c, dt);
+      c.m.position.set(s.x, s.y, s.z);
+      c.m.rotation.x += dt * 9; c.m.rotation.z += dt * 5;
+      if (s.done) { if (c.m.parent) c.m.parent.remove(c.m); potCoins.splice(i, 1); }
+    }
+  }
+
   function buildWorld() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffc98a);
@@ -1623,6 +1807,7 @@
       scene.add(tuft);
     })();
 
+    buildGoldenPotGate(); // #39 bước 2 — cổng hội + Hũ Vàng 3D
     buildBridgeMeshes();
     buildDrumAndHost();
     buildRingsAndConfetti();
@@ -1969,6 +2154,10 @@
     if (qcMode && qcNoElim && person === player) { toast('QC: Không loại — bạn vẫn tiếp tục (chỉ test giao diện).'); return; }
     person.alive = false; person.spectator = true;
     if (person.isBot) person.fallAnim = 0.0001;
+    // #39 bước 2 — đồng xu bay từ chỗ người vừa bị loại về Hũ Vàng
+    // (chơi đơn: người chơi + bot đều qua đây; multi: người chơi qua đây,
+    // người khác qua tin 'eliminated').
+    spawnPotCoinsFrom(person);
     if (person === player) {
       elimSound();
       phase = 'spectator';
@@ -2855,6 +3044,11 @@
     mmCtx.fillRect(MX(-28), MZ(-63), 56 * SC, 26 * SC);
     mmCtx.fillStyle = '#8f1f14';          // đình
     mmCtx.fillRect(MX(-15), MZ(-70), 30 * SC, 12 * SC);
+    // #39 bước 2 — Hũ Vàng ở cổng hội (trước sân đình): chấm vàng + viền nâu
+    mmCtx.fillStyle = '#f2c01e';
+    mmCtx.beginPath(); mmCtx.arc(MX(POT_GATE_POS.x), MZ(POT_GATE_POS.z), 4.5, 0, Math.PI * 2); mmCtx.fill();
+    mmCtx.strokeStyle = '#7a4a24'; mmCtx.lineWidth = 1.6;
+    mmCtx.beginPath(); mmCtx.arc(MX(POT_GATE_POS.x), MZ(POT_GATE_POS.z), 4.5, 0, Math.PI * 2); mmCtx.stroke();
     mmCtx.fillStyle = '#ffffff';          // vạch đích
     mmCtx.fillRect(MX(-TRACK_HALF_W), MZ(FINISH_Z) - 1.5, TRACK_HALF_W * 2 * SC, 3);
     mmCtx.fillStyle = '#d63c2f';          // vạch xuất phát
@@ -2891,6 +3085,28 @@
 
   // ---- HUD / pha trống-chiêng ----
   function setHudDrum(t) { var el = $('hud-drum'); if (el) el.textContent = t; }
+  // #39 bước 1 — Hũ Vàng Hội Làng: cập nhật ô HUD "HŨ VÀNG". Hũ tăng thì
+  // ô nhấp nháy vàng ~0.9s (class pot-flash, CSS) + tiếng xu; hũ giữ
+  // nguyên/giảm (đồng bộ lúc vào giữa trận) thì chỉ đổi số, không nháy.
+  // silent=true: đồng bộ lần đầu (vào giữa trận / bắt đầu trận đơn).
+  function setPot(amount, silent) {
+    var n = Math.max(0, Math.floor(Number(amount) || 0));
+    var el = $('hudPot'); if (el) el.textContent = String(n);
+    if (!silent && n > currentPot) {
+      var plate = el && el.parentElement;
+      if (plate) {
+        plate.classList.remove('pot-flash');
+        void plate.offsetWidth; // ép reflow để animation chạy lại
+        plate.classList.add('pot-flash');
+        setTimeout(function () { plate.classList.remove('pot-flash'); }, 950);
+      }
+      coinSound();
+    }
+    currentPot = n;
+    // #39 bước 2 — đống xu trong hũ 3D to theo số hũ (setPot chạy cả khi
+    // hũ chưa dựng — potCoinPile null thì thôi).
+    if (potCoinPile) potCoinPile.scale.setScalar(potPileScale(n));
+  }
   // ---- Trống Tết (P4-06 bước 2c, cycle 39) ----
   // Mùa Tết thì vòng 1 là "Trống Hội Tết": tên vòng đổi, dải trống/chiêng
   // thêm 🧧, nhịp trống chơi đơn theo mẫu tum–tum–TUM thay vì ngẫu nhiên.
@@ -3105,6 +3321,9 @@
     closeReportPanel();
     updateReportsButton();
     matchStartAt = 0; matchTimeLimit = 0;
+    // #25 (cycle 43): về menu thì reset seed bốc kho để phiên QC sau bốc
+    // mới (nhãn vẽ lại ở cuối hàm này bằng renderQcButtons).
+    localPoolSeed = 0;
     if (player) { player.alive = true; player.spectator = false; player.finished = false; }
     clearFogOverride();
     applyFogPreset('yard');
@@ -3112,6 +3331,8 @@
     showHUD(false);
     syncBodyMode();
     syncQcBar();
+    // #25 (cycle 43): vẽ lại nhãn QC với seed mới (phiên QC sau bốc mới).
+    renderQcButtons();
     var menu = $('menu'); if (menu) menu.classList.remove('hidden');
     toast('Đã thoát về màn chính.');
     return true;
@@ -3120,6 +3341,13 @@
     announceSeasonOnce();
     ensureAudio();
     mode = 'single';
+    // #25 (cycle 43): trận thường bốc kho mới mỗi trận (seed = lúc bắt đầu
+    // trận); trận QC GIỮ seed đã cố định lúc nhãn hiện để trò thật khớp
+    // nhãn V3/V4/V5 trong sảnh QC.
+    if (!qcMode) localPoolSeed = Date.now();
+    // #39 bước 1 — Hũ Vàng chơi đơn: hũ khởi đầu 100 Hội Xu.
+    localPot = POT_START_XU;
+    setPot(localPot, true);
     var menu = $('menu'); if (menu) menu.classList.add('hidden');
     exitTour(false);
     exitSpectator();
@@ -3185,6 +3413,10 @@
       if (msg.action === 'earned' && msg.lixi > 0) toast('🧧 Lì xì Tết: +' + msg.lixi + ' Hội Xu!');
       return;
     }
+    // #39 bước 1 — Hũ Vàng: server broadcast {type:'pot'} mỗi lần có
+    // người bị loại (+10 xu) và lúc bắt đầu trận (100 xu); khán giả cũng
+    // nhận được tin này nên thấy hũ tăng trực tiếp.
+    if (msg.type === 'pot') { setPot(msg.amount); return; }
     if (msg.type === 'roundEnd') { onRoundEnd(msg); return; }
     if (msg.type === 'tick') { onTick(msg); return; }
     if (msg.type === 'rooms') {
@@ -3246,6 +3478,9 @@
         matchStartAt = Date.now() - (msg.match.matchElapsed || 0);
         updateAliveHUD();
       }
+      // #39 bước 1 — Hũ Vàng: vào giữa trận thì đồng bộ hũ hiện tại từ
+      // matchStateForClient (không nháy, không tiếng xu vì không phải tăng mới).
+      if (msg.match && typeof msg.match.pot === 'number') setPot(msg.match.pot, true);
       var bs = $('btn-start'); if (bs) bs.classList.toggle('hidden', !isHost);
       return;
     }
@@ -3323,9 +3558,17 @@
         }
       }
       if (msg.phase === 'finished') {
+        // #39 bước 1 — Hũ Vàng: tên người thắng lấy từ ranking (entry đầu
+        // có winnerId trùng) để màn kết thúc ghi rõ hũ thuộc về ai.
+        var wName = null;
+        if (msg.winnerId && msg.ranking) {
+          for (var wi = 0; wi < msg.ranking.length; wi++) {
+            if (String(msg.ranking[wi].id) === String(msg.winnerId)) { wName = msg.ranking[wi].name; break; }
+          }
+        }
         showRanking(msg.ranking || [], msg.reason === 'match-timeout'
           ? 'Hết giờ trận (giới hạn ' + fmtTime(matchTimeLimit || MATCH_TIME_LIMIT_S) + ') — xếp hạng theo tiến độ vòng hiện tại.'
-          : null);
+          : null, msg.potPaid || 0, wName);
       }
       if (msg.players) syncRemotePlayers(msg.players);
       updateAliveHUD();
@@ -3380,7 +3623,9 @@
     }
     if (msg.type === 'eliminated') {
       var p = remotePlayers[msg.id];
-      if (p) { p.alive = false; if (p.isBot) p.fallAnim = 0.0001; }
+      // #39 bước 2 — đồng xu bay từ chỗ người vừa bị loại về Hũ Vàng
+      // (chỉ người khác; chính mình đi qua eliminate() ở dưới, tránh bắn 2 lần).
+      if (p) { p.alive = false; if (p.isBot) p.fallAnim = 0.0001; if (msg.id !== myId) spawnPotCoinsFrom(p); }
       if (msg.id === myId) eliminate(player, msg.reason || 'Bị loại');
       updateAliveHUD();
       return;
@@ -3507,9 +3752,20 @@
     var tc = $('team-screen'); if (!tc) return;
     tc.classList.toggle('ranking', mode === 'ranking');
   }
-  function showRanking(ranking, note) {
+  function showRanking(ranking, note, potPaid, winnerName) {
+    // #39 bước 1 — màn kết thúc phải đọc được ngay: ở multi, tin roundEnd
+    // (hiện interstitial 3s) và tin phase 'finished' tới gần như cùng lúc
+    // (endRound gọi endMatch ngay khi còn ≤1 người / xong chung kết) nên
+    // interstitial (z-index 35) che lên trên bảng xếp hạng (z-index 20),
+    // che cả dòng Hũ Vàng + 2 hàng xếp hạng đầu + nút chơi lại — đã thấy ở
+    // ảnh probe 02-ranking-pot.png cycle 41. Ẩn interstitial ở đây để mọi
+    // đường gọi showRanking đều sạch (chơi đơn đã ẩn trước đó ở timer
+    // localRoundEnd nên gọi thêm cũng vô hại).
+    hideInterstitial();
     phase = 'finished';
     var html =
+      // #39 bước 1 — Hũ Vàng: màn kết thúc hiện số hũ to + ai lấy hũ.
+      ((potPaid > 0) ? '<p class="potLine">🏆 Hũ Vàng Hội Làng: <b>' + potPaid + ' Hội Xu</b>' + (winnerName ? ' — thuộc về <b>' + escapeHtml(winnerName) + '</b>' : '') + '</p>' : '') +
       '<p class="note">Xếp theo thời gian cá nhân — nhanh nhất đứng đầu.</p>' +
       (note ? '<p class="note">' + escapeHtml(note) + '</p>' : '') +
       (ranking.length ? ranking.map(function (r, i) {
@@ -4970,7 +5226,11 @@
       return pp ? pp.name : id;
     });
     showInterstitial(msg.round, survivors, elimNames.length ? elimNames : st.eliminated,
-      msg.nextName || null);
+      msg.nextName || null, (typeof msg.pot === 'number') ? msg.pot : null);
+    // #39 bước 1 — Hũ Vàng: roundEnd kèm số hũ hiện tại; đồng bộ lại đề
+    // phòng tin 'pot' của lần loại cuối tới sau (thứ tự WS giữ nguyên nên
+    // thường đã đúng, đây chỉ là chốt chặn — không nháy vì số không đổi).
+    if (typeof msg.pot === 'number') setPot(msg.pot);
     if (window.Rounds) window.Rounds.endRound();
     phase = 'interstitial';
     clearTimeout(interstitialTimer);
@@ -4990,13 +5250,15 @@
     });
     updateAliveHUD();
   }
-  function showInterstitial(round, survivors, eliminated, nextName) {
+  function showInterstitial(round, survivors, eliminated, nextName, pot) {
     var el = $('interstitial'); if (!el) return;
     el.innerHTML = '<h2>HẾT VÒNG ' + round + ' — ' + (currentRoundName || '') + '</h2>' +
       '<p>Còn sống: <b>' + survivors + '</b> người</p>' +
       (eliminated && eliminated.length
         ? '<p>Bị loại: ' + eliminated.map(function (n) { return escapeHtml(n); }).join(', ') + '</p>'
         : '<p>Không ai bị loại ở vòng này.</p>') +
+      // #39 bước 1 — Hũ Vàng: màn giữa vòng hiện số hũ to.
+      ((pot !== undefined && pot !== null) ? '<p class="potLine">🏆 Hũ Vàng Hội Làng: <b>' + pot + ' Hội Xu</b></p>' : '') +
       (nextName ? '<p>Vòng tiếp theo: <b>' + escapeHtml(nextName) + '</b></p>'
         : '<p>Trận đấu kết thúc — xem bảng xếp hạng.</p>');
     el.classList.remove('hidden');
@@ -5005,23 +5267,38 @@
   // Kết thúc một vòng ở chế độ chơi đơn: hiện interstitial 3s rồi sang vòng sau.
   function localRoundEnd(round, survivors, eliminated) {
     if (window.Rounds) window.Rounds.endRound();
+    // #39 bước 1 — Hũ Vàng chơi đơn: bot bị loại cũng cộng hũ (+10/người);
+    // hũ tăng TRƯỚC khi trả thưởng để người thắng lấy cả hũ của vòng này.
+    // Tăng cả khi người chơi đã chết (đang xem bot chơi tiếp) và cả trận QC
+    // (hiện hũ nhưng không trả thưởng — payout chặn ở dưới như multi).
+    var elimCount = Array.isArray(eliminated) ? eliminated.length : 0;
+    localPot += POT_PER_ELIMINATION_XU * elimCount;
+    setPot(localPot);
     // #19 bước 1 — kinh tế chơi đơn (localStorage): +10 xu/vòng sống sót,
-    // +50 xu khi là người sống sót duy nhất; trận QC không thưởng (FR-46).
+    // thắng trận lấy cả Hũ Vàng (#39: thay cho mức thắng cố định trước đây);
+    // trận QC không thưởng (FR-46).
     // #16 bước 2a — lì xì Tết: award* trả về lixi (>0 chỉ khi mùa Tết
     // đang chạy, xem local-economy.js); toast gộp 1 lần để không bị ghi đè.
+    // #39 bước 1 — thắng trận lấy CẢ HŨ (awardWin({potXu: localPot}))
+    // thay cho +50 cố định; toast gộp hũ + lì xì 1 lần.
     if (window.HoiLocalEconomy && player && player.alive && !qcMode) {
       var awardR = window.HoiLocalEconomy.awardRoundSurvived();
       var lixiTotal = awardR ? (awardR.lixi || 0) : 0;
+      var potWon = 0;
       if (survivors <= 1) {
-        var awardW = window.HoiLocalEconomy.awardWin();
+        var awardW = window.HoiLocalEconomy.awardWin({ potXu: localPot });
         lixiTotal += awardW ? (awardW.lixi || 0) : 0;
+        potWon = awardW ? (awardW.potAmount || 0) : 0;
       }
-      if (lixiTotal > 0) toast('🧧 Lì xì Tết: +' + lixiTotal + ' Hội Xu!');
+      var toastParts = [];
+      if (potWon > 0) toastParts.push('🏆 Hũ Vàng: +' + potWon + ' Hội Xu!');
+      if (lixiTotal > 0) toastParts.push('🧧 Lì xì Tết: +' + lixiTotal + ' Hội Xu!');
+      if (toastParts.length) toast(toastParts.join(' '));
     }
     // Vòng tiếp theo bốc theo số người còn sống (không giới hạn ở vòng 6);
     // nếu chỉ còn 1 người hoặc vừa xong chung kết thì trận kết thúc.
     var nextName = (survivors > 1 && !roundIsFinal) ? localNameForRound(round + 1, survivors) : null;
-    showInterstitial(round, survivors, eliminated, nextName);
+    showInterstitial(round, survivors, eliminated, nextName, localPot);
     phase = 'interstitial';
     clearTimeout(interstitialTimer);
     interstitialTimer = setTimeout(function () {
@@ -5121,6 +5398,7 @@
     get renderer() { return renderer; },
     get webglFailed() { return webglFailed; }, // #24
     get matchStartAt() { return matchStartAt; },
+    get localPoolSeed() { return localPoolSeed; }, // #25: seed bốc kho chơi đơn
     get matchTimeLimit() { return matchTimeLimit; },
     matchTimeLeft: matchTimeLeft, endMatchOnTimeoutIfNeeded: endMatchOnTimeoutIfNeeded,
     allPersons: allPersons, eliminate: eliminate, sendWS: sendWS, toast: toast, validatePlayerName: validatePlayerName,
@@ -5152,6 +5430,18 @@
     get watchedId() { return watchedId; },
     get spectatorList() { return spectatorList; },
     setHudDrum: setHudDrum, setFogOverride: setFogOverride, clearFogOverride: clearFogOverride,
+    setPot: setPot, // #39 bước 1 — Hũ Vàng (probe gọi để kiểm HUD/nháy/tiếng)
+    get currentPot() { return currentPot; },
+    get localPot() { return localPot; },
+    POT_START_XU: POT_START_XU, POT_PER_ELIMINATION_XU: POT_PER_ELIMINATION_XU,
+    // #39 bước 2 — Hũ Vàng 3D (probe gọi buildGoldenPotGate trực tiếp vì
+    // buildWorld dừng sớm khi WebGL null; spawn/update kiểm được không cần renderer)
+    buildGoldenPotGate: buildGoldenPotGate, spawnPotCoins: spawnPotCoins,
+    spawnPotCoinsFrom: spawnPotCoinsFrom, updatePotCoins: updatePotCoins,
+    potPileScale: potPileScale, stepPotCoin: stepPotCoin, potMouthPos: potMouthPos,
+    POT_GATE_POS: POT_GATE_POS, POT_PILE_MAX_XU: POT_PILE_MAX_XU,
+    get potGate() { return potGate; }, get potPivot() { return potPivot; },
+    get potCoinPile() { return potCoinPile; }, get potCoins() { return potCoins; },
     isTetSeason: isTetSeason, tetRoundName: tetRoundName,
     qcJumpSingle: qcJumpSingle, // QC nhảy thẳng vòng (phục vụ probe headless — flyover cần animate() vốn chết khi WebGL null, #24)
     get r1BeatDelays() { return r1BeatDelays.slice(); },
@@ -5183,6 +5473,13 @@
       swy.g.rotation.z = Math.sin(t * 0.9 + swy.phase) * swy.amp;
       swy.g.rotation.x = Math.cos(t * 0.7 + swy.phase) * swy.amp * 0.7;
     }
+    // #39 bước 2 — Hũ Vàng treo ở cổng hội đung đưa nhẹ như con lắc quanh
+    // điểm treo + đồng xu bay về hũ (tắt đung đưa khi reduced-motion).
+    if (potPivot && !reducedMotion) {
+      potPivot.rotation.z = Math.sin(t * 0.8) * 0.05;
+      potPivot.rotation.x = Math.cos(t * 0.62) * 0.03;
+    }
+    updatePotCoins(dt);
     // sự sống quanh đảo: chim bay, bướm, cá nhảy, cua, khỉ, đèn dấu, tre đảo đung đưa
     updateWildlife(dt, t);
     // cá bơi vòng trong hồ
