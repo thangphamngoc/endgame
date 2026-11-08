@@ -112,7 +112,18 @@
     parseSeasonOverride: parseSeasonOverride,
     applySeason: applySeason,
     announceSeason: announceSeason,
-    todayStr: todayStr
+    todayStr: todayStr,
+    // Nhịp trống Tết (P4-06 bước 2c, cycle 39) — biến thể vòng 1 Trống Hội:
+    // tum–tum–TUM: 2 tiếng vừa (0.42s, vol 0.9) rồi 1 tiếng vang (0.84s,
+    // vol 1.0), lặp lại. Chỉ đổi nhịp âm thanh — luật chạy/đứng yên không
+    // đổi. nextTetBeat(idx) thuần túy để test được trong vm (game.js chỉ
+    // gọi nó trong updateSingleR1 khi mùa Tết đang chạy).
+    TET_BEAT_PATTERN: [0.42, 0.42, 0.84],
+    TET_BEAT_VOLS: [0.9, 0.9, 1.0],
+    nextTetBeat: function (idx) {
+      var i = ((idx % 3) + 3) % 3;
+      return { delay: [0.42, 0.42, 0.84][i], vol: [0.9, 0.9, 1.0][i], next: idx + 1 };
+    }
   };
 
   if (typeof window !== 'undefined') {

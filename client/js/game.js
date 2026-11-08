@@ -127,7 +127,7 @@
   }
   function localNameForRound(round, aliveCount) {
     var g = localGameForRound(round, aliveCount);
-    if (round === 1) return 'Trống Hội';
+    if (round === 1) return tetRoundName('trong-hoi', 'Trống Hội');
     if (round === 2) return 'Cầu Khỉ Sương Mù';
     return POOL_NAMES[g] + (g === 'rong-ran' ? ' (CHUNG KẾT)' : '');
   }
@@ -2867,9 +2867,34 @@
 
   // ---- HUD / pha trống-chiêng ----
   function setHudDrum(t) { var el = $('hud-drum'); if (el) el.textContent = t; }
+  // ---- Trống Tết (P4-06 bước 2c, cycle 39) ----
+  // Mùa Tết thì vòng 1 là "Trống Hội Tết": tên vòng đổi, dải trống/chiêng
+  // thêm 🧧, nhịp trống chơi đơn theo mẫu tum–tum–TUM thay vì ngẫu nhiên.
+  // Chỉ đổi hiển thị + nhịp âm thanh — luật chơi không đổi (trống chạy,
+  // chiêng đứng yên), nên client ở múi giờ khác lệch tối đa 1 ngày ở biên
+  // cửa sổ cũng chấp nhận được như chủ đề Tết (cycle 25).
+  function isTetSeason() { return !!(typeof window !== 'undefined' && window.__season && window.__season.id === 'tet'); }
+  function tetRoundName(game, name) {
+    if (game !== 'trong-hoi' || !name) return name;
+    if (!isTetSeason()) return name;
+    if (name.slice(-4) === ' Tết') return name; // server đã gửi tên Tết sẵn
+    return name + ' Tết';
+  }
+  // Mẫu nhịp trống Tết: tum–tum–TUM (0.42s, 0.42s, 0.84s), tiếng thứ ba
+  // to hơn. Nguồn chân lý ở seasonal.js (nextTetBeat, test được trong vm);
+  // ở đây chỉ giữ bản dự phòng khi seasonal.js chưa nạp.
+  var TET_BEAT_PATTERN = [0.42, 0.42, 0.84];
+  var TET_BEAT_VOLS = [0.9, 0.9, 1.0];
+  function nextTetBeat(idx) {
+    if (typeof window !== 'undefined' && window.__seasonal && window.__seasonal.nextTetBeat) return window.__seasonal.nextTetBeat(idx);
+    var i = ((idx % 3) + 3) % 3;
+    return { delay: TET_BEAT_PATTERN[i], vol: TET_BEAT_VOLS[i], next: idx + 1 };
+  }
+  var r1TetBeatIdx = 0;
+  var r1BeatDelays = []; // log các delay nhịp đã chọn (phục vụ probe)
   function setPhaseUI() {
-    if (drumState === 'drum') setHudDrum('TRỐNG ĐÁNH — Chạy đi!');
-    else if (drumState === 'gong') setHudDrum('CHIÊNG VANG — Đứng yên!');
+    if (drumState === 'drum') setHudDrum(isTetSeason() ? '🧧 TRỐNG TẾT — Chạy đi!' : 'TRỐNG ĐÁNH — Chạy đi!');
+    else if (drumState === 'gong') setHudDrum(isTetSeason() ? '🧧 CHIÊNG TẾT — Đứng yên!' : 'CHIÊNG VANG — Đứng yên!');
     else setHudDrum('CHUẨN BỊ — Nghe trống hiệu…');
   }
   function showBanner(text, isGong, ms) { toast(text); }
@@ -2884,6 +2909,7 @@
     if (name === 'drum') {
       r1PhaseT = 2.2 + Math.random() * 3.4; // NHỊP NGẪU NHIÊN HOÀN TOÀN — bốc mới mỗi pha, không pattern
       r1DrumBeatT = 0;
+      r1TetBeatIdx = 0; // Trống Tết: mỗi pha trống bắt đầu lại mẫu tum–tum–TUM
       drumHit(1);
       if (hostArmL) { hostArmL.rotation.x = -1.4; hostArmR.rotation.x = -0.6; }
       showBanner('TRỐNG ĐÁNH — CHẠY!', false, 900);
@@ -3102,7 +3128,7 @@
     phase = 'flyover'; flyT = 0; introBlend = 0;
     ensureFlyoverEls();
     flyoverTitleEl.style.display = 'block';
-    setHudDrum('VÒNG 1 — Trống Hội');
+    setHudDrum('VÒNG 1 — ' + tetRoundName('trong-hoi', 'Trống Hội'));
     toast('Bay tổng quan quanh đảo… bấm phím bất kỳ để bỏ qua.');
   }
   function connectWS() {
@@ -3284,7 +3310,7 @@
     if (msg.type === 'drum') {
       drumState = msg.drum;
       if (msg.drum === 'drum') drumHit(0.9); else gongHit();
-      setHudDrum(drumState === 'drum' ? 'TRỐNG ĐÁNH — Chạy đi!' : 'CHIÊNG VANG — Đứng yên!');
+      setPhaseUI(); // Trống Tết: dải trống/chiêng thêm 🧧 khi mùa Tết
       return;
     }
     if (msg.type === 'turn') {
@@ -4179,7 +4205,17 @@
       r1GongAge += dt;
       if (r1Phase === 'drum') {
         r1DrumBeatT -= dt;
-        if (r1DrumBeatT <= 0) { r1DrumBeatT = 0.42 + Math.random() * 0.2; drumHit(0.9); }
+        if (r1DrumBeatT <= 0) {
+          if (isTetSeason()) {
+            // Trống Tết (P4-06 bước 2c): nhịp cố định tum–tum–TUM thay vì
+            // ngẫu nhiên — chỉ đổi nhịp âm thanh, luật chạy/đứng yên không đổi.
+            var tb = nextTetBeat(r1TetBeatIdx); r1TetBeatIdx = tb.next;
+            r1DrumBeatT = tb.delay; drumHit(tb.vol);
+          } else {
+            r1DrumBeatT = 0.42 + Math.random() * 0.2; drumHit(0.9);
+          }
+          r1BeatDelays.push(r1DrumBeatT); if (r1BeatDelays.length > 24) r1BeatDelays.shift();
+        }
       }
       if (r1PhaseT <= 0) startPhase(r1Phase === 'drum' ? 'gong' : 'drum');
       updatePlayerR1(dt); // khán giả: chỉ còn hoạt ảnh ngã của người chơi (hàm tự return khi đã chết)
@@ -4860,6 +4896,7 @@
     });
   }
   function startRoundCommon(round, game, name, timeLimit, seed, target, isFinal) {
+    name = tetRoundName(game, name); // Trống Tết (P4-06 bước 2c): "Trống Hội Tết" khi mùa Tết
     currentRound = round;
     currentRoundGame = game;
     currentRoundName = name || '';
@@ -5090,6 +5127,9 @@
     get watchedId() { return watchedId; },
     get spectatorList() { return spectatorList; },
     setHudDrum: setHudDrum, setFogOverride: setFogOverride, clearFogOverride: clearFogOverride,
+    isTetSeason: isTetSeason, tetRoundName: tetRoundName,
+    qcJumpSingle: qcJumpSingle, // QC nhảy thẳng vòng (phục vụ probe headless — flyover cần animate() vốn chết khi WebGL null, #24)
+    get r1BeatDelays() { return r1BeatDelays.slice(); },
     get fogOverride() { return fogOverride; },
     project: function (x, y, z) {
       var v = new THREE.Vector3(x, y, z); v.project(camera);

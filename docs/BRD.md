@@ -232,7 +232,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-46 | Chế độ QC — nhảy thẳng tới vòng bất kỳ để test | Nút CHẾ ĐỘ QC trên thẻ bắt đầu + `?qc=1` mở panel chọn vòng 1–8 (nhảy được qua vòng 6); chơi đơn vào thẳng vòng với số người sống theo đường loại co giãn từ 61 người, tính bằng cùng tỉ lệ chu kỳ (V1: 61 · V2: 37 · V3: 20 · V4: 9 · V5: 3 · V6: 2, tối thiểu 2 người để test được cờ và các vòng sau vòng 6 vẫn có bot); multiplayer: host tạo phòng QC, cả phòng cùng bắt đầu ở vòng đã chọn, tên vòng 3–5 đã bốc hiện sau khi tạo phòng, phòng hiện dấu [QC]; nhảy Vòng 2 qua CHIA TEAM, thứ tự lượt xáo theo seed (không có thời gian về đích V1), đồng hồ lượt 30 giây vẫn áp dụng; thanh QC trong lúc chơi cho nhảy vòng / sang vòng sau (không dừng ở vòng 6) / chơi lại vòng này (multi chỉ host); tuỳ chọn "Không loại (chỉ test giao diện)" tắt mặc định; trận QC không thưởng Hội Xu / XP Pass, không tính BXH, economy bị chặn trong phòng QC; người chơi vẫn bị loại bình thường trong vòng đã chọn | Đã làm — `client/index.html` (#qcSection, #qcBar) + `client/js/game.js` (qcJumpSingle/qcSetupSingle/qcSkipTo, qcAliveForRound) + `server/server.js` (phòng qc/qcStartRound/qcNoElim, qcJumpToRound, qcSkip, chặn hook kinh tế) — PR #3, nhánh feat/reverse-team-order |
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
-| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Đã làm bước 2a (cycle 35, 2026-11-08): lì xì Hội Xu chơi đơn — mùa Tết thì +8 xu/vòng sống sót, +20 xu/thắng (chỉ xu, không XP; toast gộp "🧧 Lì xì Tết: +N Hội Xu!"). Chưa làm: trống Tết (bước 2c). Đã làm bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu chơi nhiều người (server tự tính mùa theo ngày ICT, không tin mùa client; +8 xu/vòng, +20 xu/thắng, chỉ xu không XP; message `earned` kèm `lixi` + `seasonId`, client toast riêng mỗi lần nhận). |
+| FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Đã làm bước 2a (cycle 35, 2026-11-08): lì xì Hội Xu chơi đơn — mùa Tết thì +8 xu/vòng sống sót, +20 xu/thắng (chỉ xu, không XP; toast gộp "🧧 Lì xì Tết: +N Hội Xu!"). Đã làm bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu chơi nhiều người (server tự tính mùa theo ngày ICT, không tin mùa client; +8 xu/vòng, +20 xu/thắng, chỉ xu không XP; message `earned` kèm `lixi` + `seasonId`, client toast riêng mỗi lần nhận). Đã làm bước 2c (cycle 39, 2026-11-08): trống Tết — vòng 1 tên "Trống Hội Tết" (đơn qua `tetRoundName` client, multi qua server tự tính mùa ICT + message `roundStart`), dải trống/chiêng "🧧 TRỐNG TẾT / CHIÊNG TẾT", nhịp trống chơi đơn tum–tum–TUM (0.42/0.42/0.84s) qua `nextTetBeat` trong `seasonal.js`. P4-06 HOÀN TẤT. |
 | FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, +50 xu/thắng, +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
 
 ## 7. Yêu cầu phi chức năng (NFR)
@@ -968,8 +968,8 @@ thì đọc `window.__season`; message `earned` gửi về shop mang thêm
 `localRoundEnd` gộp lì xì cả vòng + thắng rồi toast 1 lần
 ("🧧 Lì xì Tết: +28 Hội Xu!" khi vừa qua vòng vừa thắng) để không bị
 toast khác ghi đè. Đã làm bước 2b ở cycle 36 (lì xì multi, cộng vào ví
-server — xem mục ĐÃ QUYẾT ngay sau). Chưa làm (bước 2c): trống Tết
-(biến thể vòng 1). Một lỗi
+server — xem mục ĐÃ QUYẾT ngay sau). Đã làm bước 2c ở cycle 39
+(trống Tết — xem mục ĐÃ QUYẾT sau mục lì xì multi). Một lỗi
 thật bắt được khi kiểm chứng: lần đầu `seasonId()` chỉ coi chuỗi mới
 là ghi đè nên `{seasonId:null}` vẫn rơi về `__season` (lì xì sai khi
 đang Tết) — nay khóa `seasonId` có mặt trong opts là có hiệu lực, kể
@@ -997,7 +997,44 @@ nhật ngay; `game.js` toast riêng mỗi lần nhận earned có lixi
 ("🧧 Lì xì Tết: +8 Hội Xu!" khi qua vòng, "+20 Hội Xu!" khi thắng — vòng
 và thắng là 2 thời điểm khác nhau nên không gộp như chơi đơn). Người bị
 loại ở vòng đó KHÔNG nhận thưởng vòng (đúng luật loại trừ: chỉ người sống
-sót mới được thưởng). Chưa làm (bước 2c): trống Tết (biến thể vòng 1).
+sót mới được thưởng). Đã làm bước 2c ở cycle 39 (trống Tết — xem mục
+ĐÃ QUYẾT ngay sau).
+
+**Trống Tết — ĐÃ QUYẾT (cycle 39, 2026-11-08 — backlog #16, P4-06
+bước 2c, QC/Sudo lật được):** biến thể vòng 1 trong mùa Tết, cả chơi
+đơn lẫn chơi nhiều người — chỉ đổi hiển thị + nhịp âm thanh, luật
+không đổi (trống đánh thì chạy, chiêng vang thì đứng yên). (a) Tên
+vòng thành **"Trống Hội Tết"**: chơi đơn qua `tetRoundName()` trong
+`client/js/game.js` (áp ở `localNameForRound` vòng 1, `startRoundCommon`
+— idempotent nên tên server gửi sẵn không bị cộng 2 lần — và dòng
+flyover "VÒNG 1 — …"); chơi nhiều người qua `tetRoundName()` trong
+`server/server.js` (`roundEntryFor` + `buildRoundPlan` vòng 1) — server
+tự tính mùa theo ngày ICT qua `economy.detectSeason()` (giống lì xì
+cycle 36, KHÔNG tin mùa client; ghi đè test/QC bằng env
+`HOI_SEASON_OVERRIDE=tet | none`), tên đi theo message `roundStart`
+(`name: plan.name`) nên HUD + interstitial + thanh QC đều hiện tên Tết.
+(b) Dải trống/chiêng (`#hudState` qua `setPhaseUI()`, cả 2 chế độ):
+"🧧 TRỐNG TẾT — Chạy đi!" / "🧧 CHIÊNG TẾT — Đứng yên!" khi mùa Tết;
+handler tin `drum` của multi nay gọi `setPhaseUI()` thay vì ghi text
+trực tiếp (trước đây 2 chỗ ghi cùng chuỗi — dễ lệch). (c) Nhịp trống
+chơi đơn theo mẫu cố định **tum–tum–TUM** (0.42s, 0.42s, 0.84s; tiếng
+thứ ba vol 1.0, 2 tiếng đầu vol 0.9) thay vì ngẫu nhiên 0.42–0.62s;
+mỗi pha trống bắt đầu lại mẫu (`r1TetBeatIdx = 0` trong `startPhase`);
+multi không có vòng lặp nhịp ở client (chỉ 1 tiếng trống mỗi lần đổi
+pha theo tin `drum`) nên nhịp Tết chỉ có ở chơi đơn. Mẫu nhịp là hàm
+thuần `nextTetBeat(idx)` trong `client/js/seasonal.js` (nguồn chân lý,
+test được trong vm); `game.js` gọi qua `window.__seasonal` với bản dự
+phòng cùng giá trị. P4-06 HOÀN TẤT sau bước này (chủ đề + lì xì đơn +
+lì xì multi + trống Tết). Một lỗi thật bắt được khi kiểm chứng: probe
+lần 1 chờ vòng 1 qua nút CHƠI ĐƠN thì kẹt mãi ở flyover — `animate()`
+chết khi WebGL null (#24 đã biết) nên flyover không chạy hết; nay
+probe nhảy QC thẳng vòng 1 qua `__game.qcJumpSingle(1)` (mới lộ trên
+cầu nối `__game` cho mục đích này), còn nhịp trống trong headless vẫn
+không log được vì `updateSingleR1` chỉ chạy theo từng frame của
+`animate()` — mẫu nhịp đã kiểm trong vm thay cho probe. Chưa đo bằng
+tay: nghe nhịp tum–tum–TUM + thấy tên/dải Tết trên trình duyệt thật
+trong cửa sổ Tết (ngoài cửa sổ chỉ test được bằng `?season=tet` /
+`HOI_SEASON_OVERRIDE=tet`); cảm giác trống Tết có đủ "Tết" không.
 
 **HUD gọn 1 dòng ở mọi vòng — ĐÃ QUYẾT (cycle 37, 2026-11-08 — backlog
 #22, QC/Sudo lật được):** dải trạng thái (`#hudState`) chỉ ghi TÊN trò

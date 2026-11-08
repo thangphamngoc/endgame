@@ -373,8 +373,19 @@ function roundSeedStr(room, round) { return room.code + ':' + room.matchId + ':R
 //   kho 5 trò theo chu kỳ có seed (games.drawPoolCycle): không lặp trong
 //   một chu kỳ, hết kho thì xáo lại chu kỳ mới, không lặp liền kề qua biên
 //   chu kỳ. Seed theo phòng + matchId nên mọi client/server đều bốc giống nhau.
+// Trống Tết (P4-06 bước 2c, cycle 39): mùa Tết (server tự tính theo ngày
+// ICT qua economy.detectSeason, giống lì xì cycle 36 — KHÔNG tin mùa
+// client gửi) thì vòng 1 multi cũng tên "Trống Hội Tết". Chỉ đổi tên
+// hiển thị, luật không đổi. Ghi đè test/QC: HOI_SEASON_OVERRIDE=tet|none.
+function tetRoundName(game) {
+  if (game !== 'trong-hoi') return games.ROUND_NAMES[game];
+  try {
+    if (economy && economy.detectSeason && economy.detectSeason() === 'tet') return games.ROUND_NAMES['trong-hoi'] + ' Tết';
+  } catch (e) { /* economy lỗi: rơi về tên thường */ }
+  return games.ROUND_NAMES['trong-hoi'];
+}
 function roundEntryFor(room, n, aliveCount) {
-  if (n === 1) return { round: 1, game: 'trong-hoi', name: games.ROUND_NAMES['trong-hoi'], timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] };
+  if (n === 1) return { round: 1, game: 'trong-hoi', name: tetRoundName('trong-hoi'), timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] };
   if (n === 2) return { round: 2, game: 'cau-khi', name: games.ROUND_NAMES['cau-khi'], timeLimit: games.ROUND_TIME_LIMITS['cau-khi'] };
   if (aliveCount <= 6) return { round: n, game: 'rong-ran', name: games.ROUND_NAMES['rong-ran'], timeLimit: games.ROUND_TIME_LIMITS['rong-ran'] };
   const idx = (n - 3) % games.ROUND_POOL.length;
@@ -391,7 +402,7 @@ function buildRoundPlan(room) {
   const order = games.drawPoolCycle(room.code + ':' + room.matchId, 0);
   const mid = order.slice(0, 3).map((i) => games.ROUND_POOL[i]);
   const plan = [
-    { round: 1, game: 'trong-hoi', name: games.ROUND_NAMES['trong-hoi'], timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] },
+    { round: 1, game: 'trong-hoi', name: tetRoundName('trong-hoi'), timeLimit: games.ROUND_TIME_LIMITS['trong-hoi'] },
     { round: 2, game: 'cau-khi', name: games.ROUND_NAMES['cau-khi'], timeLimit: games.ROUND_TIME_LIMITS['cau-khi'] },
     { round: 3, game: mid[0], name: games.ROUND_NAMES[mid[0]], timeLimit: games.ROUND_TIME_LIMITS[mid[0]] },
     { round: 4, game: mid[1], name: games.ROUND_NAMES[mid[1]], timeLimit: games.ROUND_TIME_LIMITS[mid[1]] },
