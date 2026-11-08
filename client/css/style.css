@@ -575,6 +575,16 @@ body.season-tet #hud .plate{border-color:#b45309}
 .pass-reached{background:#ffe1a1}
 .shop-error{color:#c62828;font-weight:700}
 .shop-note{font-size:13px;color:#5a4632;font-style:italic}
+/* Nhiệm vụ ngày (cycle 45, #19 bước 2) — mục trong panel Cửa hàng. */
+.quest-list{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.quest-row{display:flex;align-items:center;gap:10px;border:3px solid var(--edge);border-radius:3px;padding:8px 10px;background:#fff8e6}
+.quest-row>div:first-child{flex:1}
+.quest-name{font-weight:900;color:#9c3418}
+.quest-desc{font-size:13px;color:#5a4632;line-height:1.4}
+.quest-progress{font-weight:800;color:#33200f;white-space:nowrap}
+.quest-row button{min-height:44px;border:3px solid var(--edge);background:#fff7ea;color:#33200f;font-family:inherit;font-weight:800;cursor:pointer;padding:8px 10px;border-radius:3px;box-shadow:0 3px 0 var(--edge)}
+.quest-row button:disabled{opacity:.55;cursor:default}
+.quest-row button:not(:disabled):hover{background:#ffe1a1}
 #tournament-list ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.6}
 #tournament-list li{margin:4px 0}
 

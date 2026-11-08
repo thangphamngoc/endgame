@@ -2892,6 +2892,9 @@
       sendWS({ type: 'chat', text: text });
     } else {
       if (!sendPlayerChat(text)) return;
+      // #19 bước 2 — nhiệm vụ ngày chơi đơn: đếm 1 tin chat
+      // (chỉ khi đang trong trận đơn, không QC; chat ở sảnh chờ/menu không đếm).
+      if (mode === 'single' && !qcMode && window.HoiLocalEconomy && typeof window.HoiLocalEconomy.recordChatSent === 'function') window.HoiLocalEconomy.recordChatSent();
       // Bot trả lời mẫu, luôn ghi rõ là bot.
       setTimeout(function () {
         var bot = bots[Math.floor(Math.random() * bots.length)];
@@ -3348,6 +3351,9 @@
     // #39 bước 1 — Hũ Vàng chơi đơn: hũ khởi đầu 100 Hội Xu.
     localPot = POT_START_XU;
     setPot(localPot, true);
+    // #19 bước 2 — nhiệm vụ ngày chơi đơn: đếm 1 trận đã chơi
+    // (trận QC không đếm, như server chặn economy ở phòng QC).
+    if (!qcMode && window.HoiLocalEconomy && typeof window.HoiLocalEconomy.recordMatchPlayed === 'function') window.HoiLocalEconomy.recordMatchPlayed();
     var menu = $('menu'); if (menu) menu.classList.add('hidden');
     exitTour(false);
     exitSpectator();

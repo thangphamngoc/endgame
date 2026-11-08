@@ -63,6 +63,10 @@
   var stickers = FALLBACK_STICKERS.slice();
   var walletBalance = 0;
   var profile = null;
+  // Nhiệm vụ ngày (cycle 45, #19 bước 2): server trả qua action 'quests'
+  // ({quests, progress}); chơi đơn thì local-economy.js trả y hệt.
+  var quests = null;
+  var questProgress = null;
   var selectedSticker = FALLBACK_STICKERS[0].id;
   var retried = false;
   var rendered = false;
@@ -108,12 +112,51 @@
     if (hud) hud.textContent = 'Hội Xu: ' + walletBalance + ' xu';
   }
 
+  function questNeed(id) { return { 'play-match': 1, 'survive-2': 2, 'chat-5': 5 }[id] || 0; }
+
+  function questProgressValue(id) {
+    if (!questProgress) return 0;
+    if (id === 'play-match') return questProgress.playMatch || 0;
+    if (id === 'survive-2') return questProgress.surviveRounds || 0;
+    if (id === 'chat-5') return questProgress.chats || 0;
+    return 0;
+  }
+
+  // Mục "Nhiệm vụ ngày" trong panel Cửa hàng (cycle 45): hiện cả 2 chế độ
+  // — multi lấy từ server, chơi đơn lấy từ local-economy.js. Trước đây
+  // server đã có sẵn action 'quests'/'claimQuest' nhưng client chưa vẽ UI
+  // nên người chơi không xem/nhận được nhiệm vụ.
+  function renderQuests() {
+    var html = '<h4>Nhiệm vụ ngày — mỗi nhiệm vụ +20 Hội Xu, nhận 1 lần/ngày</h4>';
+    if (!quests || !questProgress) {
+      return html + '<p class="shop-note">Đang tải nhiệm vụ ngày…</p>';
+    }
+    html += '<div class="quest-list">';
+    quests.forEach(function (q) {
+      var prog = questProgressValue(q.id);
+      var need = questNeed(q.id);
+      var claimed = (questProgress.claimed || []).indexOf(q.id) !== -1;
+      var done = prog >= need;
+      html += '<div class="quest-row"><div><div class="quest-name">' + esc(q.name) + '</div>'
+        + '<div class="quest-desc">' + esc(q.desc || '') + '</div></div>'
+        + '<div class="quest-progress">' + prog + '/' + need + '</div>'
+        + (claimed
+          ? '<button type="button" disabled>Đã nhận ✓</button>'
+          : (done
+            ? '<button type="button" data-claim-quest="' + esc(q.id) + '">Nhận +' + (q.reward || 20) + ' xu</button>'
+            : '<button type="button" disabled>Chưa đủ</button>'))
+        + '</div>';
+    });
+    return html + '</div>';
+  }
+
   function renderShop() {
     var panel = el('shop-panel');
     if (!panel) return;
     var owned = (profile && profile.inventory) || [];
     var html = '<h3>Cửa hàng — đồ trang trí (chỉ đổi hình thức, không đổi chỉ số)</h3>'
       + '<p>Ví của bạn: <strong>' + walletBalance + ' Hội Xu</strong> — kiếm xu bằng cách chơi: +10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 Hội Xu), +20 xu/nhiệm vụ ngày.</p>'
+      + renderQuests()
       + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
         ? '<p class="shop-note">Ví chơi đơn lưu trên trình duyệt này — không đồng bộ lên máy chủ.</p>' : '')
       + '<div class="shop-grid">';
@@ -135,6 +178,9 @@
     });
     html += '</div>';
     panel.innerHTML = html;
+    panel.querySelectorAll('[data-claim-quest]').forEach(function (btn) {
+      btn.addEventListener('click', function () { sendEconomy({ action: 'claimQuest', questId: btn.getAttribute('data-claim-quest') }); });
+    });
     panel.querySelectorAll('[data-buy]').forEach(function (btn) {
       btn.addEventListener('click', function () { sendEconomy({ action: 'buy', itemId: btn.getAttribute('data-buy') }); });
     });
@@ -260,6 +306,7 @@
     sendEconomy({ action: 'getProfile' });
     sendEconomy({ action: 'shop' });
     sendEconomy({ action: 'pass' });
+    sendEconomy({ action: 'quests' });
     return true;
   }
 
@@ -277,9 +324,14 @@
     if (msg.profile) {
       profile = msg.profile;
       setWallet(msg.profile.xu);
+      if (msg.profile.quests) questProgress = msg.profile.quests;
     }
     if (msg.catalogue) { catalogue = msg.catalogue; }
     if (msg.stickers) { stickers = msg.stickers; }
+    if (msg.action === 'quests' && msg.quests) {
+      quests = msg.quests;
+      if (msg.progress) questProgress = msg.progress;
+    }
     if (msg.action === 'shop' && msg.catalogue) { renderShop(); return; }
     if (msg.action === 'listTournaments' && msg.tournaments) { renderTournamentList(msg.tournaments); return; }
     if (msg.action === 'tournamentCreated' && msg.tournament) { sendEconomy({ action: 'listTournaments' }); }

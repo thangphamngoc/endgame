@@ -23,6 +23,17 @@
  *   lì xì cùng mức từ cycle 36 (bước 2b — server/economy.js, server tự
  *   tính mùa theo ngày ICT).
  * - Chưa có ở bước 1: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
+ *   (Bước 2, cycle 45, 2026-11-08 — backlog #19: nhiệm vụ ngày chơi đơn
+ *   đã làm, xem QUESTS bên dưới. Còn lại: đồng bộ ví khi đổi máy.)
+ * - Nhiệm vụ ngày chơi đơn (cycle 45, #19 bước 2) — Y HỆT server/economy.js:
+ *   3 nhiệm vụ (chơi 1 trận / sống sót 2 vòng / gửi 5 chat), mỗi nhiệm vụ
+ *   +20 xu, nhận 1 lần/ngày; tiến độ reset khi sang ngày mới (ngày UTC như
+ *   server). Tiến độ đếm ở game.js: startSingle -> recordMatchPlayed,
+ *   awardRoundSurvived -> surviveRounds, sendChat (trận đơn) -> recordChatSent.
+ *   Trận QC không đếm (game.js chặn như FR-46). Panel Cửa hàng (shop.js)
+ *   vẽ mục "Nhiệm vụ ngày" để xem tiến độ + nhận thưởng — mục này hiện cả
+ *   ở multi vì server đã có sẵn action 'quests'/'claimQuest' từ trước,
+ *   trước đây client chưa vẽ UI nên không nhận được.
  *   Còn nợ Sudo test tay: mua/trang bị thật ở chơi đơn, ví giữ sau khi
  *   tải lại trang, cảm giác số dư khi chuyển chơi đơn ↔ nhiều người.
  *   + Cảm giác lì xì Tết trên trình duyệt thật (toast + ví HUD tăng).
@@ -42,6 +53,35 @@
   var XP_PER_LEVEL = 500, MAX_LEVEL = 20;
   // Lì xì Tết (cycle 35, #16 bước 2a): chỉ khi mùa Tết đang chạy.
   var LIXI_XU_PER_ROUND = 8, LIXI_XU_PER_WIN = 20;
+
+  // Nhiệm vụ ngày (cycle 45, #19 bước 2) — bản sao y hệt server/economy.js.
+  var QUESTS = [
+    { id: 'play-match', name: 'Chơi 1 trận', reward: 20, desc: 'Chơi 1 trận bất kỳ.' },
+    { id: 'survive-2', name: 'Sống sót 2 vòng', reward: 20, desc: 'Sống sót qua 2 vòng trong ngày.' },
+    { id: 'chat-5', name: 'Gửi 5 tin chat', reward: 20, desc: 'Gửi 5 tin nhắn chat trong ngày.' }
+  ];
+  var QUEST_NEED = { 'play-match': 1, 'survive-2': 2, 'chat-5': 5 };
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC, như server)
+  }
+
+  function blankQuests() {
+    return { date: todayStr(), playMatch: 0, surviveRounds: 0, chats: 0, claimed: [] };
+  }
+
+  // Profile cũ (trước cycle 45) chưa có quests thì thêm mới; sang ngày
+  // mới thì reset tiến độ (giữ nguyên xu / đồ / Pass).
+  function normalizeQuests(p) {
+    if (!p.quests || typeof p.quests !== 'object' || typeof p.quests.date !== 'string'
+      || typeof p.quests.playMatch !== 'number' || typeof p.quests.surviveRounds !== 'number'
+      || typeof p.quests.chats !== 'number' || !Array.isArray(p.quests.claimed)) {
+      p.quests = blankQuests();
+    } else if (p.quests.date !== todayStr()) {
+      p.quests = blankQuests();
+    }
+    return p;
+  }
 
   // Mùa hiện tại do game.js đặt (window.__season, từ seasonal.js).
   // opts.seasonId ghi đè rõ (phục vụ test); khi có khóa seasonId thì
@@ -113,7 +153,8 @@
     return {
       id: 'local', name: 'Người chơi', xu: 0, inventory: [],
       pass: { tier: 'free', level: 1, xp: 0, claimedLevels: [] },
-      cosmetics: { skin: null, hat: null, banner: null, bubble: null }
+      cosmetics: { skin: null, hat: null, banner: null, bubble: null },
+      quests: blankQuests()
     };
   }
 
@@ -131,7 +172,7 @@
     if (raw) {
       try {
         var p = JSON.parse(raw);
-        if (validProfile(p)) return p;
+        if (validProfile(p)) return normalizeQuests(p);
       } catch (e) { /* dữ liệu hỏng: tạo mới bên dưới */ }
     }
     return blankProfile();
@@ -153,7 +194,8 @@
       id: profile.id, name: profile.name, xu: profile.xu,
       inventory: profile.inventory.slice(),
       pass: { tier: profile.pass.tier, level: profile.pass.level, xp: profile.pass.xp, claimedLevels: profile.pass.claimedLevels.slice() },
-      cosmetics: { skin: profile.cosmetics.skin, hat: profile.cosmetics.hat, banner: profile.cosmetics.banner, bubble: profile.cosmetics.bubble }
+      cosmetics: { skin: profile.cosmetics.skin, hat: profile.cosmetics.hat, banner: profile.cosmetics.banner, bubble: profile.cosmetics.bubble },
+      quests: { date: profile.quests.date, playMatch: profile.quests.playMatch, surviveRounds: profile.quests.surviveRounds, chats: profile.quests.chats, claimed: profile.quests.claimed.slice() }
     };
   }
 
@@ -254,11 +296,80 @@
       }
       return 'handled';
     }
+    if (action === 'quests') {
+      normalizeQuests(profile);
+      replyToShop({ type: 'economy', action: 'quests', quests: QUESTS.map(function (q) { return { id: q.id, name: q.name, reward: q.reward, desc: q.desc }; }), progress: { date: profile.quests.date, playMatch: profile.quests.playMatch, surviveRounds: profile.quests.surviveRounds, chats: profile.quests.chats, claimed: profile.quests.claimed.slice() } });
+      return 'handled';
+    }
+    if (action === 'claimQuest' || action === 'quest') {
+      var r = claimDailyQuest(msg.questId);
+      if (!r) {
+        replyToShop({ type: 'economy', action: 'claimQuest', ok: false, error: 'Nhiệm vụ ngày chỉ có ở chế độ chơi đơn.' });
+      } else if (!r.ok) {
+        replyToShop({ type: 'economy', action: 'claimQuest', ok: false, error: r.error });
+      } else {
+        replyToShop({ type: 'economy', action: 'claimQuest', ok: true, reward: r.reward, profile: r.profile });
+      }
+      return 'handled';
+    }
     return false; // action lạ: để WS thử
+  }
+
+  function questProgressFor(questId) {
+    if (questId === 'play-match') return profile.quests.playMatch;
+    if (questId === 'survive-2') return profile.quests.surviveRounds;
+    if (questId === 'chat-5') return profile.quests.chats;
+    return 0;
+  }
+
+  // Đẩy tiến độ nhiệm vụ mới về shop để panel đang mở cập nhật ngay
+  // (không đợi người chơi mở lại panel — panel mở từ sảnh chờ vẫn mở
+  // khi trận bắt đầu vì startSingle không ẩn panel kinh tế).
+  function replyQuests() {
+    replyToShop({ type: 'economy', action: 'quests', quests: QUESTS.map(function (q) { return { id: q.id, name: q.name, reward: q.reward, desc: q.desc }; }), progress: { date: profile.quests.date, playMatch: profile.quests.playMatch, surviveRounds: profile.quests.surviveRounds, chats: profile.quests.chats, claimed: profile.quests.claimed.slice() } });
+  }
+
+  // Y hệt server/economy.js recordMatchPlayed / recordChatSent / claimDailyQuest.
+  function recordMatchPlayed() {
+    if (!isActive()) return null;
+    normalizeQuests(profile);
+    profile.quests.playMatch += 1;
+    save(profile);
+    replyQuests();
+    return snapshot();
+  }
+
+  function recordChatSent() {
+    if (!isActive()) return null;
+    normalizeQuests(profile);
+    profile.quests.chats += 1;
+    save(profile);
+    replyQuests();
+    return snapshot();
+  }
+
+  function claimDailyQuest(questId) {
+    if (!isActive()) return null;
+    normalizeQuests(profile);
+    var quest = null;
+    for (var i = 0; i < QUESTS.length; i++) {
+      if (QUESTS[i].id === questId) { quest = QUESTS[i]; break; }
+    }
+    if (!quest) return { ok: false, error: 'Nhiệm vụ không tồn tại.' };
+    if (profile.quests.claimed.indexOf(questId) !== -1) return { ok: false, error: 'Đã nhận thưởng nhiệm vụ này hôm nay.' };
+    var progress = questProgressFor(questId);
+    var need = QUEST_NEED[questId] || 0;
+    if (progress < need) return { ok: false, error: 'Chưa đủ điều kiện (' + progress + '/' + need + ').' };
+    profile.quests.claimed.push(questId);
+    profile.xu += quest.reward; // +20 xu / nhiệm vụ ngày
+    save(profile);
+    return { ok: true, reward: quest.reward, profile: snapshot() };
   }
 
   function awardRoundSurvived(opts) {
     if (!isActive()) return null;
+    normalizeQuests(profile);
+    profile.quests.surviveRounds += 1; // như server: awardRoundSurvived đếm tiến độ nhiệm vụ
     var sid = seasonId(opts);
     var lixi = lixiFor('round', sid);
     profile.xu += XU_PER_ROUND + lixi;
@@ -289,6 +400,11 @@
     handle: handle,
     awardRoundSurvived: awardRoundSurvived,
     awardWin: awardWin,
+    recordMatchPlayed: recordMatchPlayed,
+    recordChatSent: recordChatSent,
+    claimDailyQuest: claimDailyQuest,
+    QUESTS: QUESTS,
+    QUEST_NEED: QUEST_NEED,
     getProfile: snapshot,
     getBalance: function () { return profile.xu; },
     KEY: KEY,

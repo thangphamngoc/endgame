@@ -225,7 +225,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-39 | Cổ vũ & tặng sticker | Khán giả cổ vũ miễn phí (người nhận +5 xu, giới hạn 1 lần/60 giây/cặp) hoặc tặng sticker trả xu (10/20/30 xu, người nhận +5 xu) | Đã làm (bản stub) — `economy.js` `cheer`/`giftSticker` + `shop.js` (#gift-panel); container do workstream client sở hữu, chưa xong |
 | FR-40 | Vé Du Lịch Hạ Long | Vé tour cao cấp cho người bị loại: thêm câu chuyện đảo, tuyến tour cao cấp, huy hiệu lưu niệm; mua bằng 500 xu hoặc stub tiền thật; không ảnh hưởng kết quả trận | Đã làm (bản stub) — `economy.js` `buyTourPass` + nút trong `shop.js` (#gift-panel) |
 | FR-41 | Stub checkout tiền thật | Mọi mua bằng tiền thật (Pass trả phí, Vé Du Lịch) trả về `{ok:true, stub:true}` + thông báo demo, không gọi cổng thanh toán; nút ghi rõ "(Demo — chưa thanh toán thật)" | Đã làm (bản stub) — `economy.js` `buyPass`/`buyTourPass(pay:'stub')` + nhãn stub trong `shop.js` và docs |
-| FR-42 | Nhiệm vụ ngày | 3 nhiệm vụ/ngày, mỗi nhiệm vụ +20 xu: chơi 1 trận, sống sót 2 vòng, gửi 5 chat; mỗi nhiệm vụ nhận 1 lần/ngày | Đã làm (bản stub) — `economy.js` (tiến độ + nhận thưởng); tiến độ chỉ tăng khi server.js gọi các hook `recordMatchPlayed`/`awardRoundSurvived`/`recordChatSent` — workstream server chưa nối hook, nên tiến độ hiện chưa tăng trong game thật |
+| FR-42 | Nhiệm vụ ngày | 3 nhiệm vụ/ngày, mỗi nhiệm vụ +20 xu: chơi 1 trận, sống sót 2 vòng, gửi 5 chat; mỗi nhiệm vụ nhận 1 lần/ngày | Đã làm — `server/economy.js` (QUESTS + `claimDailyQuest` + action `quests`/`claimQuest`, hook `recordMatchPlayed`/`awardRoundSurvived`/`recordChatSent` đã nối ở `server.js`) + `client/js/shop.js` (mục "Nhiệm vụ ngày" trong panel Cửa hàng, hiện cả 2 chế độ — trước cycle 45 client chưa vẽ UI nên nhiệm vụ không xem/nhận được); chơi đơn: `client/js/local-economy.js` (cycle 45, 2026-11-08, backlog #19 bước 2 — tiến độ + nhận thưởng y hệt server, reset theo ngày UTC, trận QC không đếm) |
 | FR-43 | Lưu trữ kinh tế | Hồ sơ (ví, inventory, pass, tour) lưu bền vững qua restart server | Đã làm (bản stub) — JSON `data/economy.json` (RAM + ghi file mỗi lần đổi); chưa phải database production (xem ARCHITECTURE §7.5) |
 | FR-44 | Kiểm duyệt tên shop / giải đấu | Tên giải đấu/thương hiệu bị từ chối khi trống, quá 40 ký tự hoặc chứa từ cấm | Đã làm (bản stub) — `economy.js` `validateTournamentText` |
 | FR-45 | Không pay-to-win / không cá cược / không loot box | Không món nào mua bằng tiền/xu cho chỉ số hay lợi thế trận đấu; không đặt tiền vào kết quả trận; không hộp quà ngẫu nhiên trả phí | Đã làm (bản stub) — catalogue toàn cosmetic; giải thưởng chỉ bằng xu, không đổi ra tiền mặt; xem §10 |
@@ -233,7 +233,7 @@ phần, còn thiếu mục liệt kê; **Dự kiến** = chưa làm.
 | FR-47 | Lọc tên người chơi + giới hạn ký tự đặc biệt (P3-07) | Tên rỗng thành "Người chơi"; tên quá 24 ký tự, không có chữ cái/chữ số, > 3 ký tự đặc biệt, 3 ký tự đặc biệt liên tiếp, hoặc chứa từ cấm đều bị từ chối với thông báo rõ (client báo ngay trước khi gửi, server kiểm lại và trả lỗi) | Đã làm (cycle 18, 2026-11-07) — ĐÃ QUYẾT: tối đa 24 ký tự, tối đa 3 ký tự đặc biệt, không 3 cái liên tiếp, kiểm từ cấm cả dạng bỏ dấu |
 | FR-48 | Nút THOÁT GAME về màn chính (menu phải) | Nút THOÁT GAME (đỏ) cuối cột menu phải, bấm được trong lúc chơi và khi đang xem (khán giả/tour); người bị loại/khán giả thoát thẳng không hỏi; người còn sống trong trận thì hỏi xác nhận (rời trận = bị loại khỏi trận này, không thưởng vòng này); QC không hỏi; thoát xong về màn chính (startCard) với HUD/tour/spectator/sim đều tắt, multi đóng WS (server xóa slot sau 30s grace) | Đã làm (cycle 21, 2026-11-07) — ĐÃ QUYẾT: xem §8.1 |
 | FR-49 | Sự kiện theo mùa (P4-06) | Ít nhất 1 sự kiện theo mùa chạy được: chủ đề, trò biến thể, thông báo trong game | Đã làm bước 1 (cycle 25, 2026-11-07): khung `client/js/seasonal.js` (đăng ký sự kiện, phát hiện theo ngày + ghi đè `?season=` / localStorage `hoilang_season`, `window.__seasonal` / `window.__season`) + sự kiện đầu tiên Tết Hội Làng 2027 (badge đỏ/vàng ở sảnh chờ `#seasonBadge`, tông đỏ/vàng, toast thông báo lúc bắt đầu trận) — ĐÃ QUYẾT: xem §8.1. Đã làm bước 2a (cycle 35, 2026-11-08): lì xì Hội Xu chơi đơn — mùa Tết thì +8 xu/vòng sống sót, +20 xu/thắng (chỉ xu, không XP; toast gộp "🧧 Lì xì Tết: +N Hội Xu!"). Đã làm bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu chơi nhiều người (server tự tính mùa theo ngày ICT, không tin mùa client; +8 xu/vòng, +20 xu/thắng, chỉ xu không XP; message `earned` kèm `lixi` + `seasonId`, client toast riêng mỗi lần nhận). Đã làm bước 2c (cycle 39, 2026-11-08): trống Tết — vòng 1 tên "Trống Hội Tết" (đơn qua `tetRoundName` client, multi qua server tự tính mùa ICT + message `roundStart`), dải trống/chiêng "🧧 TRỐNG TẾT / CHIÊNG TẾT", nhịp trống chơi đơn tum–tum–TUM (0.42/0.42/0.84s) qua `nextTetBeat` trong `seasonal.js`. P4-06 HOÀN TẤT. |
-| FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 xu), +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2. Chưa làm: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy |
+| FR-50 | Kinh tế chơi đơn (ví local) | Chơi đơn/sảnh chờ: ví + đồ đã mua lưu localStorage trên máy người chơi, KHÔNG đồng bộ lên server; mức thưởng y hệt multi (+10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 xu), +100 XP/vòng, +500 XP/thắng, 500 XP/cấp, tối đa cấp 20); lên cấp tự nhận thưởng track miễn phí; shop mua/trang bị chạy local; giải đấu/cheer/tặng quà/vé tour chỉ có ở multi | Đã làm bước 1 (cycle 28, 2026-11-07) — ĐÃ QUYẾT: xem §10.2; bước 2 (cycle 45, 2026-11-08): nhiệm vụ ngày chơi đơn (xem §10.2). Chưa làm: đồng bộ ví khi đổi máy |
 
 ## 7. Yêu cầu phi chức năng (NFR)
 
@@ -1273,8 +1273,21 @@ duyệt người chơi, KHÔNG đồng bộ lên server (chống cày xu chơi �
 mang sang multi). Mức thưởng y hệt multi (bảng trên + §10.4 XP). Shop
 mua/trang bị chạy local; Pass hiển thị cấp/XP local, thưởng track miễn
 phí tự nhận khi lên cấp; giải đấu / cổ vũ / tặng quà / vé tour chỉ có ở
-multi (bấm ở chơi đơn thì báo rõ). Trận QC chơi đơn không thưởng. Chưa
-có: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
+multi (bấm ở chơi đơn thì báo rõ). Trận QC chơi đơn không thưởng.
+
+**Nhiệm vụ ngày chơi đơn — ĐÃ QUYẾT (cycle 45, 2026-11-08 — backlog #19
+bước 2):** 3 nhiệm vụ y hệt multi (chơi 1 trận / sống sót 2 vòng / gửi
+5 tin chat; +20 xu mỗi nhiệm vụ, nhận 1 lần/ngày, reset theo ngày UTC).
+Tiến độ đếm ở `game.js` (`startSingle` → `recordMatchPlayed`,
+`awardRoundSurvived` → sống sót 1 vòng, `sendChat` trong trận đơn →
+`recordChatSent`; trận QC không đếm). Panel Cửa hàng (`shop.js`) vẽ mục
+"Nhiệm vụ ngày" để xem tiến độ + nhận thưởng — mục này hiện cả ở multi
+(server đã có sẵn action `quests`/`claimQuest`, trước đây client chưa vẽ
+UI nên không nhận được). Tiến độ đổi thì `local-economy.js` đẩy message
+`quests` mới về shop để panel đang mở cập nhật ngay (panel mở từ sảnh
+chờ vẫn mở khi trận bắt đầu vì `startSingle` không ẩn panel kinh tế).
+Profile cũ (chưa có `quests`) migrate giữ nguyên xu/đồ/Pass. Chưa có:
+đồng bộ ví khi đổi máy.
 
 ### 10.3. Shop đồ trang trí (cosmetic-only)
 
