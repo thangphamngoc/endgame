@@ -3288,8 +3288,10 @@
   // người xem tour / người đã xong trận thoát thẳng, không hỏi. Người còn sống
   // trong trận thì hỏi lại vì rời trận = bị loại khỏi trận này, không nhận
   // thưởng vòng này. QC không hỏi (trận QC không thưởng, thoát tự do để test).
-  // Multi: đóng WS, server giữ slot 30s grace rồi xóa (chưa có message
-  // 'leave' riêng — xem backlog #34). Chơi đơn: chỉ reset state local.
+  // Multi: gửi 'leave' để server xóa slot ngay (backlog #34, cycle 49) rồi
+  // mới đóng WS — người khác thấy slot trống lập tức, không chờ grace 30s.
+  // Đóng tab/trình duyệt đột ngột (không qua exitToMenu) vẫn giữ grace 30s
+  // để reconnect được. Chơi đơn: chỉ reset state local.
   function exitToMenu() {
     // P0 (phát hiện cycle 31 khi kiểm probe G): sau khi vào phòng multi,
     // phase vẫn là 'menu' (handler 'joined' không đặt phase sảnh chờ,
@@ -3316,6 +3318,7 @@
     });
     if (flyoverTitleEl) flyoverTitleEl.style.display = 'none';
     if (countdownEl) countdownEl.style.display = 'none';
+    if (ws && mode === 'multi') sendWS({ type: 'leave' });
     if (ws) { try { ws.close(); } catch (e) {} ws = null; }
     mode = null; roomCode = null; myId = null; isHost = false;
     // KPI-08 bước 6: về menu thì xóa danh sách tố cáo/mute ở client

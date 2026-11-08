@@ -1357,6 +1357,22 @@ wss.on('connection', (ws) => {
     if (!player) return;
     player.ws = ws; // keep ws fresh after reconnect-style reuse
 
+    if (msg.type === 'leave') {
+      // #34 (cycle 49): thoát chủ động — xóa slot NGAY, không chờ grace 30s.
+      // Hủy token reconnect để handler 'close' chạy sau đó không chạm lại
+      // slot (player đã bị xóa khỏi room nên close cũng early-return; hủy
+      // token để chắc chắn không ai dùng token cũ reconnect vào slot đã xóa).
+      const token = player.reconnectToken;
+      if (token && reconnectTokens.has(token)) {
+        const rec = reconnectTokens.get(token);
+        if (rec.timeout) clearTimeout(rec.timeout);
+        reconnectTokens.delete(token);
+      }
+      player.reconnectToken = null;
+      info.roomCode = null;
+      removePlayerFromRoom(room, id, 'leave');
+      return;
+    }
     if (msg.type === 'start') {
       if (!player.isHost) { send(ws, { type: 'error', message: 'Chỉ chủ phòng mới bắt đầu được.' }); return; }
       if (room.phase !== 'lobby') return;
