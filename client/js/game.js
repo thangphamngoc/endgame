@@ -4989,7 +4989,7 @@
     { title: 'BƯỚC 2 · CẦU KHỈ — ĐI THEO LƯỢT',
       body: 'Trước <b>VÒNG 2</b> có bước <b>CHIA TEAM</b>: tối đa 3 đội (Đỏ / Vàng / Xanh lá), mỗi đội một cầu riêng, <b>đi theo lượt</b> — chỉ người dẫn đầu của đội được lên cầu, người sau chờ trên bệ an toàn, không chen lấn nhảy vượt.<br />Mỗi bước có 2 tấm ván: <b>một chắc, một yếu</b>, ngẫu nhiên riêng cho từng cầu mỗi trận. Giẫm ván yếu là rơi xuống biển, <b>bị loại cá nhân</b>. Ván đã vỡ thành khoảng trống — phải <b>nhảy (Space)</b> qua.' },
     { title: 'BƯỚC 3 · CHAT, KHÁN GIẢ, PHÍM TẮT',
-      body: '<b>Chat:</b> phím <b>Enter</b> mở ô chat và gửi tin, <b>Esc</b> đóng — tin hiện thành bong bóng trên đầu nhân vật và trong panel CHAT.<br /><b>Bị loại</b> vẫn xem tiếp như khán giả (phím <b>1–4</b> đổi góc camera, <b>Tab</b> đổi người xem) hoặc bấm <b>Du lịch Hạ Long</b> để bay tham quan vịnh trong lúc trận vẫn chạy.<br /><b>Phím tắt:</b> WASD / phím mũi tên để chạy · kéo chuột xoay camera · <b>Space</b> nhảy · điện thoại: joystick ảo bên trái, nút NHẢY bên phải.' }
+      body: '<b>Chat:</b> phím <b>Enter</b> mở ô chat và gửi tin, <b>Esc</b> đóng — tin hiện thành bong bóng trên đầu nhân vật và trong panel CHAT.<br /><b>Bị loại</b> vẫn xem tiếp như khán giả (phím <b>1–4</b> đổi góc camera, <b>Tab</b> đổi người xem) hoặc bấm <b>Du lịch Hạ Long</b> để bay tham quan vịnh trong lúc trận vẫn chạy.<br /><b>Phím tắt:</b> WASD / phím mũi tên để chạy · kéo chuột xoay camera · <b>Space</b> nhảy · điện thoại: joystick ảo bên trái, nút NHẢY ngay bên phải joystick.' }
   ];
   var obStep = 0;
   function obSeen() { try { return localStorage.getItem(OB_KEY) === '1'; } catch (e) { return false; } }
