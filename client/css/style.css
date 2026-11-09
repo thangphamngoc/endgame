@@ -256,7 +256,18 @@
         box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px rgba(120,220,200,.18);
         font-family:inherit; font-weight:800; font-size:12.5px;
       }
-      .tourBtn.on{background:#0f766e; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
+      /* #47 (cycle 62): .tourBtn.on phai dat ca color — truoc day chi dat
+         background #0f766e nen color van lay #33200f (nau dam) tu .btn
+         (dong 713, dung sau .tourBtn, cung do dac hieu 0,1,0) — chu toi
+         tren nen teal toi, tuong phan chi 2.5–2.8:1 (do probe that),
+         dong mo ta gan nhu chim vao nen (anh cycle 60-full 09-tour.png).
+         color #eafff7 cho tuong phan ~7:1, dat WCAG AA 4.5:1. Cung mau
+         loi do dac hieu nhu #42. Nut chua chon giu kem/chu toi cua .btn. */
+      .tourBtn.on{background:#0f766e; color:#eafff7; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
+      /* .tbFeat co opacity .85 — tren nut dang chon chu sang bi tron ve
+         phia nen teal nen tuong phan chi 4.26:1 (do probe, duoi 4.5:1);
+         nut dang chon cho mo ta opacity 1 de dat cung ti le nhu tieu de. */
+      .tourBtn.on .tbFeat{opacity:1;}
       .tourBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
       #tourInfo{background:rgba(255,243,217,.1); border:2px solid rgba(174,242,221,.35); border-radius:3px; padding:8px 11px; margin-top:9px;}
       /* Ghi chu trong #tourInfo: .note goc mau nau dam (#5a4632) lam cho nen
