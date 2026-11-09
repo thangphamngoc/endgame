@@ -24,7 +24,10 @@
  *   tính mùa theo ngày ICT).
  * - Chưa có ở bước 1: nhiệm vụ ngày chơi đơn, đồng bộ ví khi đổi máy.
  *   (Bước 2, cycle 45, 2026-11-08 — backlog #19: nhiệm vụ ngày chơi đơn
- *   đã làm, xem QUESTS bên dưới. Còn lại: đồng bộ ví khi đổi máy.)
+ *   đã làm, xem QUESTS bên dưới. Bước 3, cycle 52, 2026-11-09 — backlog
+ *   #19: chuyển ví sang máy khác bằng MÃ SAO LƯU xuất/nhập thủ công,
+ *   xem exportWalletCode/importWalletCode bên dưới; KHÔNG phải đồng bộ
+ *   tự động lên server — quyết định chống cày xu cycle 28 giữ nguyên.)
  * - Nhiệm vụ ngày chơi đơn (cycle 45, #19 bước 2) — Y HỆT server/economy.js:
  *   3 nhiệm vụ (chơi 1 trận / sống sót 2 vòng / gửi 5 chat), mỗi nhiệm vụ
  *   +20 xu, nhận 1 lần/ngày; tiến độ reset khi sang ngày mới (ngày UTC như
@@ -199,6 +202,74 @@
     };
   }
 
+  // Mã sao lưu ví chơi đơn (cycle 52, #19 bước 3 — ĐÃ QUYẾT, BRD §10.2):
+  // `HOI1.<base64url(JSON profile)>.<checksum 8 ký tự hex>`.
+  // Người chơi copy mã từ máy A, dán vào máy B để chuyển ví sang đó
+  // (xu, đồ đã mua, cấp Pass, nhiệm vụ ngày). Nhập sẽ THAY ví local
+  // trên máy đích. Không đồng bộ lên server (quyết định chống cày xu
+  // cycle 28 giữ nguyên): ví multi vẫn riêng, mã chỉ mang ví CHƠI ĐƠN.
+  // Ai có mã cũng nhập được ví này nên chỉ gửi mã cho chính mình —
+  // checksum chỉ chống gõ sai, không phải bảo mật.
+  var WALLET_CODE_PREFIX = 'HOI1';
+
+  function b64urlEncode(str) {
+    // str là chuỗi UTF-8 (JSON có tiếng Việt): mã hoá UTF-8 rồi base64url.
+    if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+      return Buffer.from(str, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    // Trình duyệt: btoa chỉ nhận chuỗi Latin-1 nên qua encodeURIComponent.
+    var bin = unescape(encodeURIComponent(str));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function b64urlDecode(b64) {
+    var std = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (std.length % 4) std += '=';
+    if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+      return Buffer.from(std, 'base64').toString('utf8');
+    }
+    var bin = atob(std);
+    return decodeURIComponent(escape(bin)); // escape/unescape: cặp với encodeURIComponent
+  }
+
+  // Checksum lăn đơn giản (đủ chống gõ sai 1 ký tự); phép nhân *31 giữ
+  // trong số nguyên an toàn (< 2^53) nên không cần Math.imul.
+  function checksumHex(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) {
+      h = ((h * 31) + str.charCodeAt(i)) >>> 0;
+    }
+    var s = h.toString(16);
+    while (s.length < 8) s = '0' + s;
+    return s;
+  }
+
+  function exportWalletCode() {
+    var payload = b64urlEncode(JSON.stringify(snapshot()));
+    return WALLET_CODE_PREFIX + '.' + payload + '.' + checksumHex(payload);
+  }
+
+  function importWalletCode(code) {
+    if (typeof code !== 'string') return { ok: false, error: 'Mã sao lưu không đúng định dạng.' };
+    var c = code.trim();
+    var parts = c.split('.');
+    if (parts.length !== 3 || parts[0] !== WALLET_CODE_PREFIX || !parts[1]
+      || !/^[A-Za-z0-9_-]+$/.test(parts[1]) || !/^[0-9a-f]{8}$/.test(parts[2])) {
+      return { ok: false, error: 'Mã sao lưu không đúng định dạng.' };
+    }
+    if (checksumHex(parts[1]) !== parts[2]) {
+      return { ok: false, error: 'Mã sao lưu sai — kiểm tra lại từng ký tự (có thể gõ thiếu/sai).' };
+    }
+    var p;
+    try { p = JSON.parse(b64urlDecode(parts[1])); } catch (e) {
+      return { ok: false, error: 'Mã sao lưu không đọc được.' };
+    }
+    if (!validProfile(p)) return { ok: false, error: 'Mã sao lưu không chứa ví chơi đơn hợp lệ.' };
+    profile = normalizeQuests(p);
+    save(profile);
+    return { ok: true, profile: snapshot() };
+  }
+
   function levelForXp(xp) {
     return Math.min(MAX_LEVEL, 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL));
   }
@@ -312,6 +383,19 @@
       }
       return 'handled';
     }
+    if (action === 'exportWallet') {
+      replyToShop({ type: 'economy', action: 'exportWallet', ok: true, code: exportWalletCode() });
+      return 'handled';
+    }
+    if (action === 'importWallet') {
+      var r2 = importWalletCode(msg.code);
+      if (r2.ok) {
+        replyToShop({ type: 'economy', action: 'importWallet', ok: true, profile: r2.profile });
+      } else {
+        replyToShop({ type: 'economy', action: 'importWallet', ok: false, error: r2.error });
+      }
+      return 'handled';
+    }
     return false; // action lạ: để WS thử
   }
 
@@ -407,6 +491,9 @@
     QUEST_NEED: QUEST_NEED,
     getProfile: snapshot,
     getBalance: function () { return profile.xu; },
+    exportWalletCode: exportWalletCode,
+    importWalletCode: importWalletCode,
+    WALLET_CODE_PREFIX: WALLET_CODE_PREFIX,
     KEY: KEY,
     XU_PER_ROUND: XU_PER_ROUND,
     XU_PER_WIN: XU_PER_WIN,

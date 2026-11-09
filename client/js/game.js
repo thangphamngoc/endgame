@@ -71,7 +71,7 @@
   var birds = [], butterflies = [], fishes = [], crabs = [], monkeys = [];
   var tourGroups = {}, detailedIsland = null;
   var mode = null, ws = null, myId = null, isHost = false, roomCode = null;
-  var phase = 'menu'; // menu | flyover | countdown | round1 | team | round2 | round3..6 | interstitial | spectator | finished | tourism
+  var phase = 'menu'; // menu | lobby | flyover | countdown | round1 | team | round2 | round3..6 | interstitial | spectator | finished | tourism
   var drumState = 'drum', drumTimer = 0, matchTime = 0, matchStartAt = 0, localPoolSeed = 0;
   // #25 (cycle 43): seed RIÊNG cho việc bốc kho ở chơi đơn. Trước đây
   // localPoolCycle lấy seed từ matchStartAt — 0 lúc ở sảnh (nhãn V3/V4/V5
@@ -2484,7 +2484,7 @@
     setTourInfo('Toàn cảnh Vịnh Hạ Long', 'Từ trên cao nhìn xuống: Đảo Hội Làng ở giữa, quanh là các đảo đá vôi lớn nhỏ của vịnh — vịnh thật có 1.969 đảo trên 1.553 km². Bấm vào bất kỳ đảo nào trong thế giới 3D, trên bản đồ nhỏ hoặc trong danh sách để bay tới xem chi tiết đảo đó.');
   }
   function canExplore() {
-    return phase === 'menu' || phase === 'finished' || phase === 'tourism' || !player || !player.alive || player.finished;
+    return phase === 'menu' || phase === 'lobby' || phase === 'finished' || phase === 'tourism' || !player || !player.alive || player.finished;
   }
   function activateExplore() {
     if (!canExplore()) {
@@ -2492,6 +2492,10 @@
       return false;
     }
     if (tour.active) return true;
+    // #38 (cycle 51): chỉ màn chính thật mới cần hiện lại menu khi thoát
+    // tour. Từ sảnh chờ (phase 'lobby') thì menu vốn đã ẩn (handler
+    // 'joined' ẩn nó) — exploreReturn.menu = false nên exitTour không
+    // hiện lại menu, người chơi ở lại sảnh chờ với phase 'lobby' nguyên.
     exploreReturn.menu = (phase === 'menu');
     exitSpectator();
     tour.active = true;
@@ -3293,13 +3297,12 @@
   // Đóng tab/trình duyệt đột ngột (không qua exitToMenu) vẫn giữ grace 30s
   // để reconnect được. Chơi đơn: chỉ reset state local.
   function exitToMenu() {
-    // P0 (phát hiện cycle 31 khi kiểm probe G): sau khi vào phòng multi,
-    // phase vẫn là 'menu' (handler 'joined' không đặt phase sảnh chờ,
-    // xem backlog #38) nên điều kiện cũ `phase === 'menu'` chặn luôn nút
-    // THOÁT GAME ở sảnh chờ — người chơi kẹt trong phòng, chỉ còn cách
-    // tải lại trang. Chỉ no-op khi ĐANG ở màn chính thật (không trong
-    // phòng nào): mode === 'multi' nghĩa là đang ở sảnh chờ của phòng.
-    if (phase === 'menu' && mode !== 'multi') return false;
+    // #38 (cycle 51): sảnh chờ multi giờ có phase riêng 'lobby' nên điều
+    // kiện no-op chỉ còn `phase === 'menu'` (đang ở màn chính thật). Bản
+    // sửa tối thiểu ở cycle 31 (`phase === 'menu' && mode !== 'multi'`)
+    // không còn cần vì 'joined' đã đặt phase = 'lobby' — giữ lại cũng
+    // đúng nhưng thừa; gọn lại cho khớp với tên phase thật.
+    if (phase === 'menu') return false;
     var inMatch = phase === 'flyover' || phase === 'countdown' ||
       phase.indexOf('round') === 0 || phase === 'team' || phase === 'interstitial';
     if (inMatch && player && player.alive && !qcMode) {
@@ -3437,6 +3440,13 @@
     }
     if (msg.type === 'joined') {
       roomCode = msg.code; isHost = !!msg.isHost; mode = 'multi';
+      // #38 (cycle 51): sảnh chờ multi có phase riêng 'lobby' (server cũng
+      // dùng 'lobby', gửi kèm trong tin 'joined') thay vì ở lại 'menu'.
+      // Hai khối dưới ghi đè khi cần: vào giữa trận thì startRoundCommon
+      // đặt 'round*' (khán giả theo dõi trận), còn lại ở sảnh chờ thì
+      // 'lobby' — exitToMenu, canExplore, camera menu và exploreReturn
+      // đều phân biệt được màn chính thật với sảnh chờ phòng.
+      phase = 'lobby';
       // Phòng QC (server gửi kèm qc/startRound/noElim/plan): bật chế độ QC
       // ở client để hiện thanh QC; phòng thường thì qcMode = false.
       qcMode = !!msg.qc; qcStartRound = msg.startRound || 1; qcNoElim = !!msg.noElim;
@@ -3468,6 +3478,10 @@
         player.alive = false; player.spectator = true;
         setSpectatorBanner(true);
         enterSpectator(); buildSpectatorList();
+        // #38 (cycle 51): vào làm khán giả giữa trận thì phase là
+        // 'spectator', không phải 'lobby' — khối vào giữa trận dưới đây
+        // ghi đè thành 'round*' khi trận đang ở trong một vòng.
+        phase = 'spectator';
       }
       // Vào giữa trận (khán giả / reconnect, P1-07): đồng bộ trạng thái
       // trận để HUD hiện đúng vòng + trò đang chơi và đúng đồng hồ (tổng +
@@ -5095,6 +5109,13 @@
     if (phase === 'finished') { var br = $('btn-replay'); if (br) br.click(); return; }
     if (mode === 'single' && phase === 'team') beginRound2Play();
   };
+  // #35 (cycle 50): nút THOÁT GAME riêng trên màn kết thúc trận — cột menu
+  // phải (#econBar, z-index 6) nằm dưới overlay #teamCard (z-index 20) nên
+  // nút THOÁT GAME ở đó không bấm được khi bảng xếp hạng đang hiện; nút này
+  // chỉ hiện ở chế độ ranking (CSS .rankOnly), bấm là exitToMenu() —
+  // phase 'finished' không nằm trong diện hỏi xác nhận nên thoát thẳng.
+  var btnRankExit = $('btnRankExit');
+  if (btnRankExit) btnRankExit.onclick = function () { exitToMenu(); };
   document.querySelectorAll('.spec-view, .specBtn[data-specmode]').forEach(function (b) {
     b.onclick = function () { setSpecMode(b.dataset.view || b.dataset.specmode); };
   });
@@ -5614,9 +5635,11 @@
     } else if (phase.indexOf('round') === 0) {
       updatePlayerMovement(dt);
       updateHUD();
-    } else if (phase === 'menu') {
-      // menu: camera sau lưng đoàn người, nhìn xuôi đường chạy về phía đình
-      // (đang khám phá đảo từ sảnh thì để hệ camera du lịch điều khiển)
+    } else if (phase === 'menu' || phase === 'lobby') {
+      // menu/lobby (#38, cycle 51): camera sau lưng đoàn người, nhìn xuôi
+      // đường chạy về phía đình (đang khám phá đảo từ sảnh thì để hệ
+      // camera du lịch điều khiển) — sảnh chờ dùng chung góc quay màn
+      // chính vì người chơi vẫn đứng ở sân làng, chưa vào trận.
       if (!tour.active) {
         var mt = t * 0.07;
         camera.position.set(Math.sin(mt) * 9, 5.6, 58);
@@ -5635,7 +5658,11 @@
       }
     }
     if (introBlend > 0) introBlend -= dt;
-    if ((phase !== 'menu' && phase !== 'flyover') || tour.active) updateCamera(dt);
+    // #38 (cycle 51): 'lobby' cũng không chạy updateCamera (như 'menu')
+    // để camera quay chậm ở sảnh chờ không bị updateCamera (bám người
+    // chơi/khán giả) giành lại mỗi khung hình; lúc tour.active thì tour
+    // vẫn điều khiển camera như trước.
+    if ((phase !== 'menu' && phase !== 'lobby' && phase !== 'flyover') || tour.active) updateCamera(dt);
     minimapTimer += dt;
     if (minimapTimer > 0.12) { minimapTimer = 0; drawMinimap(); updateAliveHUD(); }
     updateRoundTimer();

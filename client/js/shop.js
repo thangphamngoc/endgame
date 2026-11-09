@@ -67,6 +67,11 @@
   // ({quests, progress}); chơi đơn thì local-economy.js trả y hệt.
   var quests = null;
   var questProgress = null;
+  // Sao lưu ví chơi đơn (cycle 52, #19 bước 3): mã xuất lần cuối + thông
+  // báo chuyển ví — giữ ở biến module để renderShop() vẽ lại panel không
+  // làm mất mã/thông báo (renderShop chạy lại sau mỗi message economy).
+  var lastExportCode = '';
+  var walletTransferMsg = '';
   var selectedSticker = FALLBACK_STICKERS[0].id;
   var retried = false;
   var rendered = false;
@@ -150,6 +155,41 @@
     return html + '</div>';
   }
 
+  // Mục "Sao lưu ví chơi đơn" trong panel Cửa hàng (cycle 52, #19 bước 3):
+  // chỉ hiện khi kinh tế chạy local (chơi đơn/sảnh chờ). Mã sao lưu do
+  // local-economy.js tạo (HOI1.<base64url>.<checksum>); nhập mã sẽ THAY
+  // ví local trên máy này — ghi rõ trong ghi chú, không đồng bộ server.
+  function renderWalletTransfer() {
+    var html = '<h4>Sao lưu ví chơi đơn — chuyển sang máy khác</h4>'
+      + '<p class="shop-note">Mã sao lưu chứa toàn bộ ví chơi đơn trên máy này (xu, đồ đã mua, cấp Pass, nhiệm vụ ngày). Copy mã rồi dán vào máy khác để chuyển ví sang đó — ví chơi đơn trên máy kia sẽ bị thay bằng ví này. Không đồng bộ lên máy chủ, ví nhiều người vẫn riêng. Ai có mã cũng nhập được ví này nên chỉ gửi mã cho chính mình.</p>'
+      + '<textarea id="wallet-export-code" rows="3" readonly placeholder="Bấm “Lấy mã sao lưu” để tạo mã…">' + esc(lastExportCode) + '</textarea>'
+      + '<div class="wallet-transfer-row"><button type="button" data-export-wallet>Lấy mã sao lưu</button>'
+      + '<button type="button" data-copy-wallet>Sao chép mã</button></div>'
+      + '<label>Mã sao lưu từ máy khác <input type="text" id="wallet-import-code" placeholder="Dán mã sao lưu vào đây…"></label>'
+      + '<button type="button" data-import-wallet>Nhập mã sao lưu</button>'
+      + (walletTransferMsg ? '<p class="shop-note" id="wallet-transfer-msg">' + esc(walletTransferMsg) + '</p>' : '');
+    return html;
+  }
+
+  function copyText(text) {
+    function done(ok) {
+      walletTransferMsg = ok ? 'Đã sao chép mã sao lưu.' : 'Không sao chép được tự động — bôi đen mã trong ô rồi copy tay.';
+      renderShop();
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        var p = navigator.clipboard.writeText(text);
+        if (p && typeof p.then === 'function') { p.then(function () { done(true); }, function () { done(false); }); return; }
+        done(true); return;
+      }
+    } catch (e) { /* rơi xuống cách cũ */ }
+    try {
+      var ta = el('wallet-export-code');
+      if (ta) { ta.focus(); ta.select(); }
+      done(document.execCommand ? document.execCommand('copy') : false);
+    } catch (e2) { done(false); }
+  }
+
   function renderShop() {
     var panel = el('shop-panel');
     if (!panel) return;
@@ -157,6 +197,8 @@
     var html = '<h3>Cửa hàng — đồ trang trí (chỉ đổi hình thức, không đổi chỉ số)</h3>'
       + '<p>Ví của bạn: <strong>' + walletBalance + ' Hội Xu</strong> — kiếm xu bằng cách chơi: +10 xu/vòng sống sót, thắng trận lấy cả Hũ Vàng (từ 100 Hội Xu), +20 xu/nhiệm vụ ngày.</p>'
       + renderQuests()
+      + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
+        ? renderWalletTransfer() : '')
       + ((typeof window !== 'undefined' && window.HoiLocalEconomy && window.HoiLocalEconomy.isActive())
         ? '<p class="shop-note">Ví chơi đơn lưu trên trình duyệt này — không đồng bộ lên máy chủ.</p>' : '')
       + '<div class="shop-grid">';
@@ -180,6 +222,25 @@
     panel.innerHTML = html;
     panel.querySelectorAll('[data-claim-quest]').forEach(function (btn) {
       btn.addEventListener('click', function () { sendEconomy({ action: 'claimQuest', questId: btn.getAttribute('data-claim-quest') }); });
+    });
+    panel.querySelectorAll('[data-export-wallet]').forEach(function (btn) {
+      btn.addEventListener('click', function () { sendEconomy({ action: 'exportWallet' }); });
+    });
+    panel.querySelectorAll('[data-copy-wallet]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var ta = el('wallet-export-code');
+        var code = (ta && ta.value) || lastExportCode;
+        if (!code) { walletTransferMsg = 'Chưa có mã — bấm “Lấy mã sao lưu” trước.'; renderShop(); return; }
+        copyText(code);
+      });
+    });
+    panel.querySelectorAll('[data-import-wallet]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = el('wallet-import-code');
+        var code = (inp && inp.value || '').trim();
+        if (!code) { walletTransferMsg = 'Chưa nhập mã — dán mã sao lưu vào ô rồi bấm Nhập.'; renderShop(); return; }
+        sendEconomy({ action: 'importWallet', code: code });
+      });
     });
     panel.querySelectorAll('[data-buy]').forEach(function (btn) {
       btn.addEventListener('click', function () { sendEconomy({ action: 'buy', itemId: btn.getAttribute('data-buy') }); });
@@ -331,6 +392,23 @@
     if (msg.action === 'quests' && msg.quests) {
       quests = msg.quests;
       if (msg.progress) questProgress = msg.progress;
+    }
+    if (msg.action === 'exportWallet' && msg.ok && msg.code) {
+      lastExportCode = msg.code;
+      walletTransferMsg = 'Mã sao lưu đã tạo — copy mã rồi dán vào máy khác. Mã dài ' + msg.code.length + ' ký tự.';
+      if (rendered) renderShop();
+      return;
+    }
+    if (msg.action === 'importWallet') {
+      if (msg.ok) {
+        walletTransferMsg = 'Đã nhập ví chơi đơn: ' + (msg.profile ? msg.profile.xu : 0) + ' Hội Xu, '
+          + (msg.profile && msg.profile.inventory ? msg.profile.inventory.length : 0) + ' món đồ, Pass cấp '
+          + (msg.profile && msg.profile.pass ? msg.profile.pass.level : 1) + '.';
+      } else {
+        walletTransferMsg = msg.error || 'Nhập mã thất bại.';
+      }
+      if (rendered) renderShop();
+      return;
     }
     if (msg.action === 'shop' && msg.catalogue) { renderShop(); return; }
     if (msg.action === 'listTournaments' && msg.tournaments) { renderTournamentList(msg.tournaments); return; }

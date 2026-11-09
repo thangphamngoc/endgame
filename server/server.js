@@ -1306,7 +1306,7 @@ wss.on('connection', (ws) => {
       analyticsSafe((a) => a.recordLobbyJoin(room));
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
       send(ws, { type: 'joined', code: room.code, isHost: true, players: publicPlayers(room),
-        qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim,
+        phase: room.phase, qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim,
         plan: room.qc ? room.roundPlan : undefined });
       broadcastLobbyList();
       return;
@@ -1345,7 +1345,7 @@ wss.on('connection', (ws) => {
       broadcast(room, { type: 'players', players: publicPlayers(room) });
       send(ws, { type: 'reconnectToken', token: player.reconnectToken });
       send(ws, { type: 'joined', code: room.code, isHost: player.isHost, players: publicPlayers(room),
-        qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined });
+        phase: room.phase, qc: room.qc, startRound: room.qcStartRound, noElim: room.qcNoElim, plan: room.qc ? room.roundPlan : undefined });
       if (room.players.size >= MAX_PLAYERS_PER_ROOM) startMatch(room);
       broadcastLobbyList();
       return;
