@@ -623,9 +623,49 @@ body.season-tet #hud .plate{border-color:#b45309}
    onboarding vẫn chặn đúng như thiết kế. Chỉ áp khi màn hình đủ rộng
    (≥900px): card sảnh chờ rộng tối đa 520px căn giữa nên dưới ~884px cột
    nút bắt đầu chồng mép phải card — màn hẹp (mobile/tablet) giữ nguyên
-   trạng thái cũ, chờ sửa layout sảnh chờ ở #23/#31. */
+   trạng thái cũ, chờ sửa layout sảnh chờ ở #23/#31. ĐÃ SỬA ở #46 (cycle
+   60): màn hẹp không dùng cột nữa mà dải ngang đáy khi sảnh chờ / màn
+   kết thúc mở (xem luật @media (max-width:899px) ngay dưới). */
 @media (min-width:900px){
   #startCard:not(.hidden) ~ #econBar{z-index:21;}
+}
+/* #46 (cycle 60): cot nut kinh te o sanh cho / man ket thuc, man hep
+   (<900px) — do that bang probe cycle 60 (hidden_files/econ-panels-probe.js
+   + econ-geometry-probe.js): o 360px nut bi card che 95%, 621px che 77%,
+   800px che 24%, 884px tuy khong bi card che nhung overlay #startCard
+   (z-20) van chan click (elementFromPoint tai tam nut tra ve startCard)
+   nen ca 5 nut CUA HANG/VE MUA/GIAI DAU/QUA TANG/THOAT GAME deu chet o
+   sanh cho man <900px; ban fix #21 chi ap >=900px. Khong the chi nang
+   z-index nhu #21 vi cot 150-172px se de len card (gan full-width o
+   mobile, che ca nut CHOI DON/NHIEU NGUOI). Nen khi sanh cho (#startCard)
+   hoac man ket thuc (#endCard) dang mo o <900px, #econBar dat xuong thanh
+   dai ngang cuon duoc o day man hinh (z-21, tren overlay), bat dau sau
+   nut CHAT (left:118px — CHAT rong ~97px o left:10px) de CHAT van bam
+   duoc; vi + cac nut giu nguyen co cham (>=38px). Dai cao ~54-58px (+
+   safe-area), nam trong vung dem day 96px cua card nen khong che noi
+   dung card. Het sanh cho (vao tran, ca 3 overlay deu an) dai tu ve lai
+   cot phai nhu cu. Khong ap cho #teamCard (man chia team chi hien vai
+   giay, tu chuyen, khong can mo panel kinh te). */
+@media (max-width:899px){
+  #startCard:not(.hidden) ~ #econBar,
+  #endCard:not(.hidden) ~ #econBar{
+    left:118px; right:6px; bottom:calc(6px + env(safe-area-inset-bottom)); top:auto;
+    width:auto; max-height:none; z-index:21;
+    flex-direction:row; align-items:center; gap:6px;
+    overflow-x:auto; overflow-y:hidden;
+    padding:4px 6px; background:rgba(60,20,5,.92);
+    border:3px solid var(--edge); border-radius:4px;
+  }
+  #startCard:not(.hidden) ~ #econBar #econBtns,
+  #endCard:not(.hidden) ~ #econBar #econBtns{flex-direction:row; gap:6px;}
+  #startCard:not(.hidden) ~ #econBar #wallet-hud,
+  #endCard:not(.hidden) ~ #econBar #wallet-hud{flex:0 0 auto; white-space:nowrap;}
+  #startCard:not(.hidden) ~ #econBar .specBtn,
+  #endCard:not(.hidden) ~ #econBar .specBtn{flex:0 0 auto; width:auto; white-space:nowrap;}
+  /* Dem day card tang 72px -> 96px o man hep de noi dung cuoi card cuon
+     len tren duoc ca dai econ (~58px + safe-area) lan nut CHAT (46px,
+     bottom:12px): luat cu 72px chi vua nut CHAT, khong du cho dai moi. */
+  #startCard .card, #endCard .card{padding-bottom:96px;}
 }
 #wallet-hud{font-weight:900;font-size:14px;text-align:center}
 #econBtns{display:flex;flex-direction:column;gap:6px}
