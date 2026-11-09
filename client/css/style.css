@@ -126,11 +126,24 @@
         background:rgba(255,240,210,.92); border:3px solid rgba(90,45,8,.65);
         box-shadow:0 4px 0 rgba(0,0,0,.35);
       }
+      /* #40 (cycle 54): nut NHAY doi sang ngay phai joystick (left:146px,
+         56x56, chu 13px) thay vi goc duoi-phai (right:20px, 82x82). Ly do:
+         cot #econBar chiem het goc phai (minimap ~118-303 + econBar
+         300/336-den day man hinh) nen NHAY cu de len nut menu phai o moi
+         man cam ung (360: THOAT GAME 2788px2; 621/800: GIAI DAU + QUA
+         TANG; 700: CUA HANG + VE MUA — do that truoc sua). Khe giua
+         joystick (het x=142) va econBar (bat dau x=204 o 360px) chi rong
+         62px — la vi tri duy nhat o hang nut duoi cung khong chong len
+         phan tu nao o moi viewport; nut 56px van tren nguong cham toi
+         thieu 44px. Khong doi len tren joystick vi nut CHAT luc choi
+         nam o do (body.playing #btnChatToggle bottom:152px); khong thu
+         gon econBar luc choi vi do la thay doi UX lon hon. Giu nguyen
+         z-index 8 va luat hien/an (chi body.playing + cam ung). */
       #btnJump{
-        position:fixed; right:20px; bottom:calc(30px + env(safe-area-inset-bottom));
-        width:82px; height:82px; border-radius:10px; z-index:8; display:none;
+        position:fixed; left:146px; bottom:calc(30px + env(safe-area-inset-bottom));
+        width:56px; height:56px; border-radius:10px; z-index:8; display:none;
         background:rgba(226,72,58,.92); border:3px solid #5d1408;
-        color:#fff; font-family:inherit; font-weight:900; font-size:15px;
+        color:#fff; font-family:inherit; font-weight:900; font-size:13px;
         box-shadow:0 6px 0 #5d1408; touch-action:none; cursor:pointer;
       }
       #btnJump:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408;}
