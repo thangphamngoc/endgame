@@ -591,7 +591,13 @@ body.season-tet #startCard .card{border-color:#b91c1c}
 body.season-tet #hud .plate{border-color:#b45309}
 
 /* --- thanh kinh tế Hội Xu --- */
-#econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px}
+#econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px;max-height:calc(100vh - 344px - env(safe-area-inset-top));overflow-y:auto;scrollbar-width:thin}
+/* #41 (cycle 55): lưới an toàn khi màn thấp — max-height neo đáy cột cách
+   mép dưới 8px + overflow-y:auto nên nút cuối (THOÁT GAME) không bao giờ
+   bị cắt hẳn: màn rất thấp thì cột cuộn được thay vì mất nút. Trước đây
+   overflow mặc định visible nên ở 621x600 THOÁT GAME cắt 24px, ở 700x500
+   cắt 124px (GIẢI ĐẤU/QUÀ TẶNG/THOÁT GAME không bấm được), host thêm nút
+   TỐ CÁO thì ở 1280x600 cắt tới 74px — đo thật bằng probe cycle 55. */
 /* #21 (cycle 30): cột nút kinh tế phải bấm được khi sảnh chờ mở — overlay
    #startCard (z-index 20, phủ toàn màn hình) trước đây che cột nút phải
    (z-index 6) nên click chuột thật không tới được CỬA HÀNG/VÉ MÙA/GIẢI
@@ -802,7 +808,7 @@ body.touch #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inse
 .stumble{animation:stumble .45s ease;background:#c62828!important}
 
 @media (max-width:620px){
-  #econBar{top:calc(300px + env(safe-area-inset-top));right:6px;width:150px}
+  #econBar{top:calc(300px + env(safe-area-inset-top));right:6px;width:150px;max-height:calc(100vh - 308px - env(safe-area-inset-top))}
   #wallet-hud{font-size:12.5px}
   #econBtns .specBtn{font-size:11.5px;min-height:40px;padding:7px 9px}
       #shop-panel,#pass-panel,#tournament-panel,#gift-panel,#report-panel,#round-overlay,#interstitial{width:calc(100vw - 16px)}
@@ -810,6 +816,21 @@ body.touch #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inse
   .oq-pit{min-width:36px;min-height:48px;font-size:16px}
   .oq-quan{width:60px}
   #deployNote{display:none}
+}
+
+/* #41 (cycle 55): màn thấp (cao ≤620px) thì thu gọn cột kinh tế để 5 nút
+   vừa trọn màn hình mà không cần cuộn — ở 600px cột thường cao 288px
+   (đáy 624px) nên THOÁT GAME cắt 24px, còn cột gọn chỉ ~242px (đáy ~578px).
+   Nút 38px (thay vì 44px) vẫn trên ngưỡng chạm nhỏ 36px và bằng cỡ nút
+   mobile đã dùng; ví thu font + đệm cho gọn. Màn thấp hơn nữa (vd. 500px)
+   hoặc host thêm nút TỐ CÁO thì vẫn cần cuộn — lưới max-height ở trên lo.
+   Đặt sau khối mobile để cùng độ đặc hiệu thì luật này thắng khi cả hai
+   cùng áp (vd. 360x560: nút 38px thay vì 40px của luật mobile). */
+@media (max-height:620px){
+  #econBar{gap:4px}
+  #econBtns{gap:4px}
+  #econBtns .specBtn{min-height:38px;padding:6px 8px;font-size:12px}
+  #wallet-hud{font-size:12.5px;padding:4px 8px;border-width:2px}
 }
 
 /* ---- CHẾ ĐỘ QC (FR-46, chỉ test) ---- */
