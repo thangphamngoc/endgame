@@ -2264,13 +2264,13 @@
     if (!list) return;
     TOUR_ISLANDS.forEach(function (island, idx) {
       var b = document.createElement('button');
-      b.className = 'btn small';
+      b.className = 'btn small tourBtn';
       var cv = document.createElement('canvas'); cv.width = 36; cv.height = 26;
       drawPoiIcon(cv, island.icon);
       b.appendChild(cv);
       var wrap = document.createElement('span');
-      var nm = document.createElement('span'); nm.textContent = island.name + ' — ' + island.label;
-      var ft = document.createElement('span'); ft.textContent = island.feat;
+      var nm = document.createElement('span'); nm.className = 'tbName'; nm.textContent = island.name + ' — ' + island.label;
+      var ft = document.createElement('span'); ft.className = 'tbFeat'; ft.textContent = island.feat;
       wrap.appendChild(nm); wrap.appendChild(document.createElement('br')); wrap.appendChild(ft);
       b.appendChild(wrap);
       b.onclick = function () { focusIsland(idx, true); };

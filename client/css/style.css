@@ -332,8 +332,16 @@
       .teamCol .tcList{padding:7px 10px; font-size:12.5px; font-weight:600; line-height:1.55; max-height:190px; overflow:auto;}
       .teamCol .tcList .me{font-weight:900; color:#9c3418;}
       .teamCol.mine{box-shadow:0 0 0 3px #ffd34d, 0 6px 0 rgba(60,20,5,.35);}
-      .tourBtn{display:flex; align-items:center; gap:9px; text-align:left;}
+      /* #42: .btn.tourBtn (0,2,0) thang .btn (0,1,0, dong 658, sau luat
+         nay) — neu chi .tourBtn thi display:flex thua display:inline-block
+         cua .btn roi bi blockify thanh block khi lam flex-item cua
+         #tourList, flex khong bao gio ap dung. */
+      .btn.tourBtn{display:flex; align-items:center; gap:9px; text-align:left;}
       .tourBtn canvas{flex:0 0 auto; border:2px solid rgba(0,0,0,.4); background:#bfe6ef;}
+      /* #42: cot chu phai co min-width:0 + flex:1 de goi xuong trong nut
+         (flex item mac dinh min-width:auto se khong goi, nut tran panel);
+         khong co luat nay thi nut co lai van tran chu ra ngoai. */
+      .tourBtn > span{min-width:0; flex:1 1 auto;}
       .tourBtn .tbName{display:block; font-size:12.5px; font-weight:900; line-height:1.2;}
       .tourBtn .tbFeat{display:block; font-size:10.5px; font-weight:600; opacity:.85; line-height:1.3; margin-top:1px;}
       @media (max-width:620px){
