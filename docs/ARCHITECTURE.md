@@ -389,7 +389,8 @@ xác thực nên `playerId` có thể bị giả mạo giữa các phiên — ch
 
 Tầm nhìn đầy đủ (xem `docs/BRD.md` §8) là: phòng 456 người, đủ 456 thì tự
 bắt đầu, 1.000 người vào thì tách thành nhiều trận song song, vòng đầu chia
-nhỏ rồi gộp lại, tổng 6 vòng loại tới 1 người thắng trong ~25–35 phút.
+nhỏ rồi gộp lại, số vòng không giới hạn (OD-11): trận chỉ kết thúc khi còn
+1 người thắng, thường 6 vòng với phòng đủ người, trong ~25–35 phút.
 **Bản demo hiện tại chưa làm được điều này** — nó chỉ là phòng tối đa 20
 người tự bắt đầu, 2 vòng, không có chia nhỏ hay gộp lại. Dưới đây là những
 gì phải thay đổi, theo thứ tự.

@@ -253,24 +253,119 @@ function findItem(itemId) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Lì xì Tết — #16 P4-06 bước 2b (cycle 36, 2026-11-08): lì xì Hội Xu  */
+/* ở CHƠI NHIỀU NGƯỜI, y hệt mức chơi đơn ở client/js/local-economy.js */
+/* (cycle 35): +8 xu/vòng sống sót, +20 xu/thắng, chỉ xu không XP.      */
+/* Server tự tính mùa theo ngày ICT (UTC+7), KHÔNG tin mùa client gửi  */
+/* (?season=tet của client chỉ đổi chủ đề/toast, không đổi thưởng —     */
+/* chống cày xu bằng cách giả mùa). Cửa sổ Tết mirror client/js/       */
+/* seasonal.js (nguồn chân lý về ngày đã kiểm chứng: Tết Hội Làng 2027 */
+/* 30/01–10/02/2027); Sudo chốt lại ngày âm lịch mỗi năm trước khi mở.  */
+/* Ghi đè để test/QC ngoài cửa sổ: HOI_SEASON_OVERRIDE=tet | none.      */
+/* ------------------------------------------------------------------ */
+
+const LIXI_XU_PER_ROUND = 8;
+const LIXI_XU_PER_WIN = 20;
+// Cửa sổ mùa (ngày dương cố định theo từng năm, xem seasonal.js).
+const SEASONS = [
+  { id: 'tet', start: '2027-01-30', end: '2027-02-10' },
+];
+
+// Ngày hiện tại theo giờ Việt Nam, dạng YYYY-MM-DD (so chuỗi là đủ).
+function ictDateStr(now) {
+  const d = (now instanceof Date) ? now : new Date(now || Date.now());
+  return new Date(d.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function detectSeason(now) {
+  const ov = String(process.env.HOI_SEASON_OVERRIDE || '').trim().toLowerCase();
+  if (ov === 'tet') return 'tet';
+  if (ov === 'none' || ov === 'off' || ov === '0') return null;
+  const today = ictDateStr(now);
+  for (let i = 0; i < SEASONS.length; i++) {
+    if (today >= SEASONS[i].start && today <= SEASONS[i].end) return SEASONS[i].id;
+  }
+  return null;
+}
+
+// opts.seasonId ghi đè rõ (phục vụ test), y hệt local-economy.js: có khóa
+// seasonId thì lấy đúng giá trị đó (kể cả null = ép "không mùa"); mùa lạ
+// (không có trong SEASONS) cũng thành null — không lì xì. Không có khóa
+// thì detect theo ngày ICT (+ ghi đè env HOI_SEASON_OVERRIDE).
+function seasonId(opts, now) {
+  if (opts && Object.prototype.hasOwnProperty.call(opts, 'seasonId')) {
+    const v = opts.seasonId;
+    return (typeof v === 'string' && SEASONS.some((s) => s.id === v)) ? v : null;
+  }
+  return detectSeason(now);
+}
+
+function lixiFor(kind, sid) {
+  if (sid !== 'tet') return 0;
+  return kind === 'win' ? LIXI_XU_PER_WIN : LIXI_XU_PER_ROUND;
+}
+
+/* ------------------------------------------------------------------ */
 /* Earn: xu + XP + tiến độ nhiệm vụ ngày                               */
 /* ------------------------------------------------------------------ */
 
-function awardRoundSurvived(playerId, name) {
+function awardRoundSurvived(playerId, name, opts) {
   const p = getProfile(playerId, name);
-  p.xu += 10; // +10 xu / vòng sống sót
+  const sid = seasonId(opts);
+  const lixi = lixiFor('round', sid);
+  p.xu += 10 + lixi; // +10 xu / vòng sống sót (+8 lì xì nếu mùa Tết)
   p.quests.surviveRounds += 1;
-  const rewards = grantXp(p, 100); // 100 XP / vòng sống sót
+  const rewards = grantXp(p, 100); // 100 XP / vòng sống sót (lì xì không cộng XP)
   save();
-  return { profile: publicProfile(p), rewards };
+  return { profile: publicProfile(p), rewards, lixi, seasonId: sid };
 }
 
-function awardWin(playerId, name) {
+function awardWin(playerId, name, opts) {
   const p = getProfile(playerId, name);
-  p.xu += 50; // +50 xu khi thắng trận
-  const rewards = grantXp(p, 500); // 500 XP / thắng trận
+  const sid = seasonId(opts);
+  const lixi = lixiFor('win', sid);
+  p.xu += 50 + lixi; // +50 xu khi thắng trận (+20 lì xì nếu mùa Tết)
+  const rewards = grantXp(p, 500); // 500 XP / thắng trận (lì xì không cộng XP)
   save();
-  return { profile: publicProfile(p), rewards };
+  return { profile: publicProfile(p), rewards, lixi, seasonId: sid };
+}
+
+/* ------------------------------------------------------------------ */
+/* Hũ Vàng Hội Làng — #39 bước 1 (cycle 41, 2026-11-08, OD-12 Sudo):   */
+/* tiền thưởng top 1 tăng theo người bị loại, kiểu Squid Game. Hũ khởi */
+/* đầu 100 Hội Xu + 10 xu mỗi lần có người bị loại; server làm chủ hũ   */
+/* (server/server.js giữ room.pot, broadcast {type:'pot'} mỗi lần loại);*/
+/* người thắng lấy TẤT CẢ thay cho +50 xu thắng cố định (hũ tối thiểu    */
+/* 100 nên luôn hơn; lì xì Tết +20 thắng vẫn cộng thêm, chỉ xu không    */
+/* XP thêm). Tối đa trận 456 người: 100 + 455×10 = 4.650 xu; phòng 61    */
+/* người: 700 xu. Chỉ Hội Xu, không tiền thật, không đổi ra tiền,       */
+/* không cược. QC: hiện hũ nhưng KHÔNG trả thưởng (server.js chặn ở     */
+/* endMatch như awardWin). Số tạm — chỉnh sau khi có số liệu trả        */
+/* thưởng thật. Chơi đơn: ví local đổi theo (client/js/local-economy.js */
+/* awardWin nhận opts.potXu).                                           */
+/* ------------------------------------------------------------------ */
+
+const POT_START_XU = 100;
+const POT_PER_ELIMINATION_XU = 10;
+
+// Số hũ sau n lần loại (hàm thuần, test được): 100 + 10×n.
+function potAmount(eliminations) {
+  const n = Math.max(0, Math.floor(Number(eliminations) || 0));
+  return POT_START_XU + POT_PER_ELIMINATION_XU * n;
+}
+
+// Trả hũ cho người thắng: cộng toàn bộ hũ + lì xì Tết (nếu có), 500 XP
+// như awardWin (XP không đổi — hũ chỉ thay phần XU của thưởng thắng).
+// pot <= 0 hoặc không phải số -> coi như 0 xu hũ (chỉ còn lì xì).
+function awardPotWin(playerId, name, pot, opts) {
+  const p = getProfile(playerId, name);
+  const sid = seasonId(opts);
+  const lixi = lixiFor('win', sid);
+  const potXu = Math.max(0, Math.floor(Number(pot) || 0));
+  p.xu += potXu + lixi;
+  const rewards = grantXp(p, 500); // 500 XP / thắng trận (hũ + lì xì không thêm XP)
+  save();
+  return { profile: publicProfile(p), rewards, lixi, seasonId: sid, potAmount: potXu };
 }
 
 function recordMatchPlayed(playerId, name) {
@@ -627,5 +722,15 @@ module.exports = {
   MAX_PASS_LEVEL,
   STUB_MESSAGE,
   ECONOMY_STUB,
+  LIXI_XU_PER_ROUND,
+  LIXI_XU_PER_WIN,
+  POT_START_XU,
+  POT_PER_ELIMINATION_XU,
+  potAmount,
+  awardPotWin,
+  SEASONS,
+  detectSeason,
+  seasonId,
+  lixiFor,
   save,
 };

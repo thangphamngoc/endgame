@@ -31,16 +31,26 @@
         background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
         background-size:14px 14px;
       }
-      #statePlate{display:flex; align-items:center; gap:9px; min-width:158px;}
+      /* #22 (cycle 37): dải trạng thái không bao giờ được xuống 2 dòng —
+         chuỗi dài cũ ("Rồng Rắn Cướp Cờ — chạm cờ rồi về vạch xuất phát!")
+         tràn plate đè lên thanh tiến độ. Tên trò đã rút ngắn ở JS, CSS
+         khóa thêm: 1 dòng + cắt bằng … nếu có chuỗi dài lọt vào sau này.
+         max-width chỉ áp desktop — mobile ≤620px đã có flex:1 1 auto. */
+      #statePlate{display:flex; align-items:center; gap:9px; min-width:158px; max-width:min(420px,52vw);}
+      #statePlate>div{min-width:0; overflow:hidden;}
+      #stateDot{width:16px; height:16px; border-radius:2px; border:2px solid rgba(0,0,0,.45); background:#9a8f80; flex:0 0 auto; box-shadow:0 0 0 2px rgba(255,255,255,.18);}
       #stateDot{width:16px; height:16px; border-radius:2px; border:2px solid rgba(0,0,0,.45); background:#9a8f80; flex:0 0 auto; box-shadow:0 0 0 2px rgba(255,255,255,.18);}
       #statePlate.drum #stateDot{background:var(--drum); box-shadow:0 0 14px 3px rgba(226,72,58,.75);}
       #statePlate.gong #stateDot{background:var(--gong); box-shadow:0 0 14px 3px rgba(242,176,30,.8);}
-      #hudState{font-weight:900; font-size:19px; letter-spacing:.4px; line-height:1;}
-      #stateSub{font-size:11px; font-weight:500; opacity:.85; margin-top:3px; line-height:1;}
+      #hudState{font-weight:900; font-size:19px; letter-spacing:.4px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+      #stateSub{font-size:11px; font-weight:500; opacity:.85; margin-top:3px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
       #hudStats{margin-left:auto; display:flex; gap:8px;}
       .stat{text-align:center; min-width:74px;}
-      .stat b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05;}
-      .stat span{font-size:10.5px; font-weight:500; opacity:.85; letter-spacing:.4px;}
+      /* #22 (cycle 37): số + nhãn ô thống kê không gãy dòng — "ĐẾM NGƯỢC"
+         từng gãy thành ĐẾM/NGƯỢC vì ô min-width 74px hẹp hơn chữ; nay
+         nowrap để ô tự rộng ra thay vì cao lên đè thanh tiến độ. */
+      .stat b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05; white-space:nowrap;}
+      .stat span{font-size:10.5px; font-weight:500; opacity:.85; letter-spacing:.4px; white-space:nowrap;}
       /* progress */
       #progressWrap{
         position:fixed; left:50%; transform:translateX(-50%);
@@ -88,8 +98,19 @@
       }
       .specBtn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--edge), inset 0 0 0 2px rgba(255,205,120,.2);}
       .specBtn.on{background:#d63c2f; border-color:var(--edge); color:#fff; box-shadow:0 4px 0 var(--edge), inset 0 0 0 2px #ffd34d;}
+      .specBtn.danger{background:#991b1b; border-color:#450a0a; box-shadow:0 4px 0 #450a0a, inset 0 0 0 2px rgba(255,205,120,.2);}
+      .specBtn.danger:active{transform:translateY(3px); box-shadow:0 1px 0 #450a0a, inset 0 0 0 2px rgba(255,205,120,.2);}
       #specTargetName{font-size:14px; font-weight:900; color:#ffd34d; min-width:150px; display:flex; align-items:center; justify-content:center;}
       .specHint{font-size:11px; font-weight:500; opacity:.75; margin-top:7px; line-height:1.4;}
+      /* bảng xếp hạng trực tiếp trong banner khán giả (P1-09) */
+      #leaderboard{margin-top:10px; border-top:2px solid rgba(255,205,120,.35); padding-top:8px; text-align:left; font-size:13px; line-height:1.45;}
+      #leaderboard .lbTitle{font-weight:900; color:#ffd34d; text-align:center; margin-bottom:4px; font-size:13.5px;}
+      #leaderboard .lbHead{font-weight:900; color:#ffb3a0; margin-top:6px; font-size:11.5px; letter-spacing:.5px;}
+      #leaderboard .lbRow{display:flex; justify-content:space-between; gap:8px; padding:1px 2px;}
+      #leaderboard .lbRank{color:#ffd34d; font-weight:900;}
+      #leaderboard .lbTime{opacity:.85; font-variant-numeric:tabular-nums;}
+      #leaderboard .lbWhy{opacity:.8; font-size:12px; text-align:right;}
+      #leaderboard .lbEmpty{opacity:.7; font-size:12px; padding:1px 2px;}
       body.spectator #joyBase, body.spectator #btnJump{display:none !important;}
       /* ---------- touch controls ---------- */
       #joyBase{
@@ -105,15 +126,31 @@
         background:rgba(255,240,210,.92); border:3px solid rgba(90,45,8,.65);
         box-shadow:0 4px 0 rgba(0,0,0,.35);
       }
+      /* #40 (cycle 54): nut NHAY doi sang ngay phai joystick (left:146px,
+         56x56, chu 13px) thay vi goc duoi-phai (right:20px, 82x82). Ly do:
+         cot #econBar chiem het goc phai (minimap ~118-303 + econBar
+         300/336-den day man hinh) nen NHAY cu de len nut menu phai o moi
+         man cam ung (360: THOAT GAME 2788px2; 621/800: GIAI DAU + QUA
+         TANG; 700: CUA HANG + VE MUA — do that truoc sua). Khe giua
+         joystick (het x=142) va econBar (bat dau x=204 o 360px) chi rong
+         62px — la vi tri duy nhat o hang nut duoi cung khong chong len
+         phan tu nao o moi viewport; nut 56px van tren nguong cham toi
+         thieu 44px. Khong doi len tren joystick vi nut CHAT luc choi
+         nam o do (body.playing #btnChatToggle bottom:152px); khong thu
+         gon econBar luc choi vi do la thay doi UX lon hon. Giu nguyen
+         z-index 8 va luat hien/an (chi body.playing + cam ung). */
       #btnJump{
-        position:fixed; right:20px; bottom:calc(30px + env(safe-area-inset-bottom));
-        width:82px; height:82px; border-radius:10px; z-index:8; display:none;
+        position:fixed; left:146px; bottom:calc(30px + env(safe-area-inset-bottom));
+        width:56px; height:56px; border-radius:10px; z-index:8; display:none;
         background:rgba(226,72,58,.92); border:3px solid #5d1408;
-        color:#fff; font-family:inherit; font-weight:900; font-size:15px;
+        color:#fff; font-family:inherit; font-weight:900; font-size:13px;
         box-shadow:0 6px 0 #5d1408; touch-action:none; cursor:pointer;
       }
       #btnJump:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408;}
-      body.playing #joyBase, body.playing #btnJump{display:block;}
+      /* Joystick + nút NHẢY CHỈ hiện trên thiết bị cảm ứng (P4-03, cycle 14):
+         trước đây dòng body.playing ... {display:block} không phân biệt nên
+         desktop cũng hiện joystick giữa màn hình. body.touch do game.js gắn
+         khi isTouchDevice() đúng (laptop cảm ứng: pointer:fine + touch). */
       @media (pointer:coarse){ body.playing #joyBase, body.playing #btnJump{display:block;} }
       @media (pointer:fine){ body.playing.touch #joyBase, body.playing.touch #btnJump{display:block;} }
       /* ---------- cards ---------- */
@@ -146,6 +183,10 @@
         box-shadow:0 6px 0 #5d1408, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,211,77,.5);
       }
       .bigBtn:active{transform:translateY(4px); box-shadow:0 2px 0 #5d1408, inset 0 0 0 2px rgba(255,211,77,.5);}
+      /* #35 (cycle 50): nút THOÁT GAME trên màn kết thúc — đỏ sẫm như
+         .specBtn.danger để phân biệt với nút chơi lại đỏ tươi. */
+      .bigBtn.danger{background:#991b1b; border-color:#450a0a; box-shadow:0 6px 0 #450a0a, 0 12px 24px rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,211,77,.5);}
+      .bigBtn.danger:active{transform:translateY(4px); box-shadow:0 2px 0 #450a0a, inset 0 0 0 2px rgba(255,211,77,.5);}
       .ctrls{font-size:12.5px; opacity:.75; margin-top:12px; line-height:1.6;}
       .resultGrid{display:flex; gap:10px; justify-content:center; margin:14px 0 4px; flex-wrap:wrap;}
       .resultGrid .cell{background:#ffedb8; border-radius:3px; border:3px solid #c98a1e; box-shadow:inset 0 0 0 2px #fff3d9; padding:10px 16px; min-width:104px;}
@@ -202,6 +243,10 @@
         width:min(600px,95vw); max-height:52vh; overflow:auto;
         box-shadow:inset 0 0 0 2px rgba(120,220,200,.25), 0 6px 0 rgba(0,0,0,.3);
       }
+      /* Panel tour chi hien qua class .open (giong #chatPanel, backlog #20):
+         display:none o tren thang .hidden vi panel khong co class .hidden
+         luc dau — chi go .hidden thi panel van an (loi #33, cycle 21). */
+      #tourPanel.open{display:block;}
       #tourPanel .tourTitle{font-weight:900; font-size:16px; color:#aef2dd; letter-spacing:.4px;}
       #tourPanel .tourNote{font-size:11px; opacity:.8; margin-top:2px; line-height:1.4;}
       #tourList{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
@@ -214,6 +259,10 @@
       .tourBtn.on{background:#0f766e; box-shadow:0 3px 0 var(--edge), inset 0 0 0 2px #aef2dd;}
       .tourBtn:active{transform:translateY(2px); box-shadow:0 1px 0 var(--edge);}
       #tourInfo{background:rgba(255,243,217,.1); border:2px solid rgba(174,242,221,.35); border-radius:3px; padding:8px 11px; margin-top:9px;}
+      /* Ghi chu trong #tourInfo: .note goc mau nau dam (#5a4632) lam cho nen
+         sang — tren nen tour toi om la doc khong ra (thay o anh 09-tour
+         cycle 21). Cho chu ghi chu mau sang rieng trong tour. */
+      #tourInfo .note{color:#aef2dd; opacity:.85;}
       #tourInfoName{font-weight:900; font-size:14.5px; color:#ffd34d;}
       #tourInfoText{font-size:12.5px; line-height:1.5; margin-top:2px;}
       .tourRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px;}
@@ -224,12 +273,35 @@
       #endBoard .brow b.rk{color:#9c3418; font-weight:900; min-width:34px;}
       #endBoard .brow .bt{margin-left:auto; font-variant-numeric:tabular-nums; opacity:.8; font-size:12.5px;}
       #endBoard .brow.me{background:#ffe1a1; border-radius:3px; font-weight:900;}
-      /* ---------- panel team vòng 2 + màn hình chia team ---------- */
+      /* ---------- panel team vòng 2: DẢI GỌN Ở MÉP TRÊN, KHÔNG CHE GIỮA MÀN HÌNH ----------
+         Sudo báo banner team ("qua cầu 0/0") chắn màn hình ở vòng 2: trước đây
+         panel liệt kê cả hàng chờ dài thành nhiều dòng ở góc trái, che mất
+         cầu và ván. Giờ nó là một dải gọn 1–2 dòng, gắn sát mép trên dưới
+         thanh tiến độ, nền mờ, không bắt chuột (pointer-events:none) nên
+         không chặn được cú bấm lên ván cầu. Thông tin vẫn giữ đủ: số người
+         mỗi đội đã qua cầu, đội của bạn, ai đang tới lượt, đếm ngược lượt
+         30 giây — chỉ gọn lại, không bỏ. Danh sách thứ tự đầy đủ vẫn có
+         trên màn CHIA TEAM trước khi vòng bắt đầu (thẻ lớn, lúc đó chưa chơi). */
+      /* Dải team vòng 2: ĐẶT DƯỚI dải gợi ý phím (#roundHint, top 122px,
+         cao tối đa ~55px cho 2 dòng) để hai dải không đè nhau trong 12 giây
+         đầu vòng 2 — beginRound2Play hiện cả hai cùng lúc (cycle 15, #10).
+         Trước đây top 118px = cùng dải với gợi ý, gợi ý (z-index 7) che
+         mất nửa trên của dải team. Sau khi gợi ý tự ẩn, dải team vẫn ở đây. */
       #teamPanel{
-        position:fixed; left:10px; top:calc(118px + env(safe-area-inset-top)); z-index:6;
-        display:none; min-width:196px; pointer-events:none;
+        position:fixed; left:50%; transform:translateX(-50%);
+        top:calc(182px + env(safe-area-inset-top)); z-index:5;
+        width:min(600px, 92vw); max-width:92vw;
+        display:none; pointer-events:none;
+        background:rgba(30,18,10,.72);
+        border:2px solid var(--edge); border-radius:3px;
+        box-shadow:inset 0 0 0 2px rgba(255,205,120,.18), 0 3px 0 rgba(0,0,0,.25);
+        padding:4px 10px; font-size:12.5px; font-weight:700; line-height:1.4;
       }
-      #teamPanel .tpTitle{font-size:10px; font-weight:900; letter-spacing:1px; color:#ffd34d; margin-bottom:5px;}
+      #teamPanel .tpTitle{font-size:10px; font-weight:900; letter-spacing:1px; color:#ffd34d; margin-bottom:1px;}
+      .tpLine1, .tpLine2{white-space:normal; overflow:hidden;}
+      .tpLine1 b, .tpLine2 b{color:#ffd34d;}
+      .tpLine2 .turnLeft{color:#ffd34d; font-weight:900;}
+      .tpLine2 .turnLeft.urgent{color:#ff6b5e;}
       .tpRow{display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; padding:2.5px 0;}
       .tpChip{width:13px; height:13px; border:2px solid rgba(0,0,0,.55); flex:0 0 auto;}
       .tpRow .tpCount{margin-left:auto; font-variant-numeric:tabular-nums; opacity:.9;}
@@ -237,17 +309,50 @@
       #tpTurn{margin-top:6px; padding-top:6px; border-top:2px dashed rgba(255,205,120,.35); font-size:12.5px; font-weight:800; line-height:1.45;}
       #tpTurn b{color:#ffd34d;}
       .teamCols{display:flex; gap:10px; margin:14px 0 4px; text-align:left;}
+      /* Màn kết thúc trận tái dùng #teamCard (showRanking): chế độ ranking
+         ẩn phần chia team (tiêu đề + luật + dòng tự chuyển), hiện tiêu đề
+         kết quả, bảng xếp hạng thành 1 cột rộng thay vì bị ép thành cột
+         hẹp trong flex .teamCols (lỗi cycle 9: tiêu đề gãy dòng, khó đọc). */
+      #teamCard .rankTitle{display:none;}
+      #teamCard.ranking .rankTitle{display:block;}
+      #teamCard.ranking .teamOnly{display:none;}
+      /* #35 (cycle 50): nút THOÁT GAME riêng trên màn kết thúc trận — cột
+         menu phải (#econBar, z-index 6) nằm dưới overlay #teamCard
+         (z-index 20) nên nút THOÁT GAME ở đó không bấm được khi bảng xếp
+         hạng đang hiện. Nút này chỉ hiện ở chế độ ranking, xếp dưới nút
+         chơi lại, bấm là exitToMenu() (phase 'finished' thoát thẳng,
+         không hỏi xác nhận). */
+      #teamCard .rankOnly{display:none;}
+      #teamCard.ranking .rankOnly{display:block; margin-left:auto; margin-right:auto;}
+      #teamCard.ranking .teamCols{flex-direction:column; gap:0;}
+      #teamCard .teamCols .rankRow{padding:7px 10px; font-size:14px; font-weight:700; line-height:1.5; border-bottom:1px dashed rgba(122,45,22,.35); text-align:left;}
+      #teamCard .teamCols .rankRow.first{background:rgba(255,211,77,.35); font-weight:900;}
       .teamCol{flex:1 1 0; border:3px solid #7a2d16; border-radius:3px; overflow:hidden; background:#fff8e6; min-width:0;}
       .teamCol .tcHead{padding:7px 9px; font-weight:900; font-size:14px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); letter-spacing:.4px;}
       .teamCol .tcList{padding:7px 10px; font-size:12.5px; font-weight:600; line-height:1.55; max-height:190px; overflow:auto;}
       .teamCol .tcList .me{font-weight:900; color:#9c3418;}
       .teamCol.mine{box-shadow:0 0 0 3px #ffd34d, 0 6px 0 rgba(60,20,5,.35);}
-      .tourBtn{display:flex; align-items:center; gap:9px; text-align:left;}
+      /* #42: .btn.tourBtn (0,2,0) thang .btn (0,1,0, dong 658, sau luat
+         nay) — neu chi .tourBtn thi display:flex thua display:inline-block
+         cua .btn roi bi blockify thanh block khi lam flex-item cua
+         #tourList, flex khong bao gio ap dung. */
+      .btn.tourBtn{display:flex; align-items:center; gap:9px; text-align:left;}
       .tourBtn canvas{flex:0 0 auto; border:2px solid rgba(0,0,0,.4); background:#bfe6ef;}
+      /* #42: cot chu phai co min-width:0 + flex:1 de goi xuong trong nut
+         (flex item mac dinh min-width:auto se khong goi, nut tran panel);
+         khong co luat nay thi nut co lai van tran chu ra ngoai. */
+      .tourBtn > span{min-width:0; flex:1 1 auto;}
       .tourBtn .tbName{display:block; font-size:12.5px; font-weight:900; line-height:1.2;}
       .tourBtn .tbFeat{display:block; font-size:10.5px; font-weight:600; opacity:.85; line-height:1.3; margin-top:1px;}
       @media (max-width:620px){
-        #teamPanel{top:calc(104px + env(safe-area-inset-top)); left:6px; min-width:160px; padding:5px 8px;}
+        /* Dải team ở vòng 2 trên điện thoại: dạt sang trái, chừa chỗ cho
+           minimap ở góc phải, vẫn ở mép trên, không che giữa màn hình.
+           Top 252px = dưới dải gợi ý phím mobile (top 162px, cao tối đa
+           ~83px cho 4 dòng, đo thật) + 7px hở. Right 160px: minimap rộng
+           135px ở right:6px (cạnh trái x=219) VÀ dải team cao có thể chạm
+           tới cột econBar (bắt đầu x=204px ở 360px) — right:122px cũ đè
+           lên minimap 19px (cycle 15, đo thật). */
+        #teamPanel{left:6px; right:160px; transform:none; width:auto; max-width:none; top:calc(252px + env(safe-area-inset-top)); padding:3px 8px; font-size:11px;}
         .tpRow{font-size:11px;}
         #tpTurn{font-size:11px;}
         .teamCols{flex-direction:column;}
@@ -313,6 +418,35 @@
       .chatMsg:last-child{margin-bottom:0;}
       .chatMsg .cmName{font-weight:900;}
       .chatMsg .cmTime{opacity:.55; font-size:10.5px; font-weight:700; margin-left:5px; font-variant-numeric:tabular-nums;}
+      .cmReport{
+        margin-left:6px; padding:1px 5px; min-height:22px; border-radius:3px; cursor:pointer;
+        background:transparent; color:#ffd9a8; border:1px solid rgba(255,217,168,.5);
+        font-family:inherit; font-size:11px; line-height:1; vertical-align:middle;
+      }
+      .cmReport:hover{background:rgba(214,60,47,.35);}
+      #reportMenu{
+        position:fixed; z-index:60; width:220px; padding:8px; border-radius:6px;
+        background:#173f3a; color:#eafff7; border:2px solid var(--edge);
+        box-shadow:0 6px 0 rgba(0,0,0,.35); font-size:12.5px;
+      }
+      .reportMenuTitle{font-weight:900; margin-bottom:6px; color:#aef2dd;}
+      .reportReasonBtn{
+        display:block; width:100%; text-align:left; min-height:36px; margin-top:4px; padding:6px 10px;
+        border-radius:3px; cursor:pointer; background:#0f766e; color:#eafff7; border:2px solid var(--edge);
+        font-family:inherit; font-weight:700; font-size:12.5px;
+      }
+      .reportReasonBtn:active{transform:translateY(2px);}
+      .reportReasonBtn.reportCloseBtn{background:#4a2f16; text-align:center;}
+      /* KPI-08 bước 6 (cycle 31): panel danh sách tố cáo cho host. */
+      #report-panel .reportNote{font-size:12.5px; line-height:1.5; opacity:.85; margin:6px 0;}
+      .reportRow{display:flex; gap:8px; align-items:center; padding:8px 0; border-top:2px solid rgba(122,45,22,.25);}
+      .reportInfo{flex:1 1 auto; min-width:0; text-align:left;}
+      .reportTarget{font-weight:900; font-size:14px; color:#9c3418; word-break:break-word;}
+      .reportReason{font-size:12.5px; opacity:.85;}
+      .reportBtn{min-height:40px; padding:6px 10px; border-radius:3px; cursor:pointer; background:#0f766e; color:#eafff7; border:3px solid var(--edge); font-family:inherit; font-weight:800; font-size:12.5px; white-space:nowrap;}
+      .reportBtn:disabled{opacity:.45; cursor:default;}
+      .reportEmpty{padding:10px 0; font-size:13.5px; opacity:.8;}
+      #btn-reports.hasPending{background:#a42418; color:#ffe9b0;}
       .chatMsg.sys{opacity:.75; font-style:italic; font-size:11.5px;}
       .chatQuick{display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;}
       .quickBtn{
@@ -349,31 +483,64 @@
         #minimapHint{display:none;}
       }
       @media (max-width:620px){
-        #hud{gap:6px; padding-left:8px; padding-right:8px;}
+        /* HUD 2 hàng trên điện thoại (P4-03, cycle 15): 5 ô thống kê + dải
+           trạng thái không vừa 1 hàng 360px — trước đây flex không wrap nên
+           dải trạng thái bị bóp còn 22px (nội dung 191px tràn ra ngoài) và
+           ô "ĐÃ ĐI" tràn phải tới 386px, bị cắt. Hàng 1: dải trạng thái
+           (chiếm hết chiều ngang); hàng 2: 5 ô thống kê chia đều. Toàn bộ
+           dải dưới (tiến độ / đồng hồ vòng / gợi ý / team / minimap) dời
+           xuống theo: HUD 2 hàng cao ~100px. */
+        #hud{flex-wrap:wrap; gap:6px; padding-left:8px; padding-right:8px;}
         .plate{padding:6px 9px; border-radius:3px; border-width:2px;}
-        #minimapWrap{top:calc(104px + env(safe-area-inset-top)); right:6px; padding:4px; border-width:2px;}
+        #minimapWrap{top:calc(162px + env(safe-area-inset-top)); right:6px; padding:4px; border-width:2px;}
         #minimap{width:100px; height:100px;}
         #minimapLabel{font-size:8.5px; letter-spacing:.8px;}
         #minimapLegend{display:none;}
-        #statePlate{min-width:0; gap:7px;}
+        #statePlate{flex:1 1 auto; min-width:0; max-width:none; gap:7px;}
         #stateDot{width:13px; height:13px;}
         #hudState{font-size:15px; white-space:nowrap;}
         #stateSub{font-size:10px; white-space:nowrap;}
-        #hudStats{gap:6px;}
-        .stat{min-width:56px; padding:6px 7px;}
-        .stat b{font-size:16px;}
-        .stat span{font-size:9px; white-space:nowrap;}
-        #progressWrap{top:calc(60px + env(safe-area-inset-top)); width:88vw;}
+        #hudStats{margin-left:0; width:100%; gap:6px;}
+        .stat{flex:1 1 0; min-width:0; padding:6px 2px;}
+        .stat b{font-size:13px; white-space:nowrap;}
+        .stat span{font-size:8px; white-space:nowrap;}
+        #progressWrap{top:calc(114px + env(safe-area-inset-top)); width:88vw;}
       }
       /* đang du lịch/khám phá: chat dạt lên trên-trái, nhường đáy màn hình cho panel du lịch */
       body.touring #btnChatToggle{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
       body.touring #chatPanel{top:calc(246px + env(safe-area-inset-top)); bottom:auto;}
       /* thẻ phủ (bắt đầu / kết thúc / chia team) chừa đệm đáy để nút cuối thẻ không bị nút CHAT đè */
       #startCard .card, #endCard .card, #teamCard .card{padding-bottom:72px;}
+
+      /* #23 (cycle 38): sảnh chờ ở màn hình rộng nhưng thấp (1280×800) —
+         card 1 cột cao ~1340px trong khi chỉ thấy 736px (92vh) nên nút
+         CHƠI ĐƠN / CHƠI NHIỀU NGƯỜI + mục QC nằm dưới nếp gấp, phải cuộn
+         trong card mới tới được. Ở ≥1280px rộng và ≤860px cao: card rộng
+         900px chia 2 cột (trái: giới thiệu + luật; phải: nút chơi +
+         tên/phòng + QC + phím tắt) để toàn bộ nội dung vừa trong 92vh mà
+         không cuộn. Ngưỡng rộng 1280px (không phải 1100px) để mép phải
+         card (x≈1090 ở 1280px) không chồng cột nút kinh tế #econBar
+         (x≈1098, z-index 21 khi sảnh chờ mở — xem cycle 30); ở màn hẹp
+         hơn giữ nguyên 1 cột như cũ. Ngoài dải này .lobby-cols chỉ là
+         khối block thường, không ảnh hưởng layout. */
+      @media (min-width:1280px) and (max-height:860px){
+        #startCard .card{max-width:900px; padding:14px 22px 16px;}
+        #startCard .card h1{font-size:30px; margin:0 0 2px;}
+        .lobby-cols{display:flex; gap:20px; align-items:flex-start; text-align:left;}
+        .lobby-col{flex:1 1 0; min-width:0;}
+        .lobby-col p{font-size:13.5px; line-height:1.5; margin:4px 0;}
+        .lobby-col .rules{margin:10px 0 0; font-size:13px; line-height:1.55; padding:9px 12px;}
+        .lobby-col > .bigBtn{display:block; width:100%; box-sizing:border-box; margin-top:8px; font-size:18px; padding:10px 16px;}
+        /* .ctrls ở cột hẹp 414px bị gãy thành ~10 dòng (đo lần 1: cao
+           202px, card tràn 44px) nên thu chữ + giãn dòng ở chế độ gọn;
+           nội dung phím tắt đầy đủ vẫn ở onboarding 3 bước + nút
+           HƯỚNG DẪN CHƠI. */
+        .lobby-col .ctrls{font-size:11px; line-height:1.5; margin-top:8px;}
+      }
     
 
 /* ==========================================================================
-   REPO ADDITIONS — hệ 6 vòng + kinh tế Hội Xu (shop / pass / giải đấu / quà)
+   REPO ADDITIONS — hệ nhiều vòng + kinh tế Hội Xu (shop / pass / giải đấu / quà)
    Port từ client/css/style.css cũ, chỉnh theo palette artifact:
    nền giấy #fff3d9 / plate rgba(30,18,10,.88), viền 3px var(--edge),
    bóng khối cứng, điểm nhấn #ffd34d, nút chính đỏ #d63c2f, phụ xanh #0f766e.
@@ -389,9 +556,117 @@
 
 /* --- toast --- */
 #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(30,18,10,.94);color:#ffe9b0;border:3px solid var(--edge);border-radius:3px;box-shadow:inset 0 0 0 2px rgba(255,205,120,.22),0 4px 0 rgba(0,0,0,.3);padding:8px 16px;font-weight:800;font-size:13.5px;z-index:40;display:none;text-align:center;max-width:92vw}
+/* #36 (cycle 53): toast khong duoc che cot nut kinh te ben phai o man hep.
+   Do that truoc khi sua (probe toast-flyover-probe.js): toast bottom:96px
+   o 360x640 nam y450-544, de len GIAI DAU 1320px2 + QUA TANG 2640px2 +
+   THOAT GAME 1452px2; o 621x600 de len VE MUA 756px2 + GIAI DAU 648px2;
+   o 700x500 de len CUA HANG 168px2; 800x600 + 1280x800 khong de.
+   Cach sua: o man <=900px, toast roi khoi day man hinh, dock ben trai,
+   chua cot econBar (bat dau x=204px o 360px, x=vw-182 o 621-900px):
+   - 621-900px: dai tren duoi HUD (HUD day ~68px), left:6px right:200px
+     (mep phai cach minimap 20px), top 76px, chu 12px de text flyover
+     con 1 dong o 621px (khong cham #roundHint top 122px).
+   - <=620px: khong con dai tren trong (HUD day 108px, tieu de flyover
+     139-219px, #roundHint 162-245px, #teamPanel 252-324px) nen dock
+     duoi #teamPanel: top 336px, left:6px right:166px (mep phai cach
+     econBar 16px), chu 12px (toast ~63px, day ~399px, cach joystick
+     12px o man 568px). Ap moi chieu cao (cycle 57, bo dieu kien
+     min-height:560px): man 540px chi cham mep tren joystick 3px;
+     man <531px toast dai hon khe giua #teamPanel (day 324px) va
+     joystick (dinh vh-144px) nen che phan tren joystick (do that:
+     500px che 5332px2, 480px che 7812px2) — chap nhan vi joystick
+     khong dung duoc trong luc flyover (toast hay gap nhat, moi tran),
+     toast giua tran hiem + chi 3s, nua duoi joystick van nhin thay +
+     bam duoc; con nut econ thi KHONG bao gio bi che nua.
+   Danh doi da chap nhan: o <=620px, toast co the che dai move-mode sim
+   (top 328px, vong Rong Ran / Bit Mat lam de, cam ung) va dinh tam
+   bottom-sheet sim / panel chat neu dang mo — cac lop nay deu la
+   overlay tam thoi, con toast cung chi hien 3s. O 621-900px, toast che
+   phan trai thanh tien do (#progressWrap top 74px) + dong ho vong
+   (#round-timer-wrap top 106px) trong 3s — ca hai deu pointer-events:none
+   va chi thong tin (quang duong chay con hien bang so o o HUD "DA DI").
+   Toast KHONG bao gio che nut econ, nut NHAY, minimap, HUD,
+   #roundHint, #teamPanel hay tieu de flyover (cycle 57: ca man thap
+   <560px o <=620px — truoc day luat cu che 1-3 nut econ moi tran).
+   Joystick: khong che o man >=531px; man cam ung <531px thi che phan
+   tren joystick trong 3s (xem tren). Desktop >900px giu nguyen
+   (khong de).
+*/
+@media (min-width:621px) and (max-width:900px){
+  #toast{left:6px;right:200px;top:calc(76px + env(safe-area-inset-top));bottom:auto;transform:none;max-width:none;text-align:left;font-size:12px;padding:6px 10px}
+}
+@media (max-width:620px){
+  #toast{left:6px;right:166px;top:calc(336px + env(safe-area-inset-top));bottom:auto;transform:none;max-width:none;text-align:left;font-size:12px;padding:6px 10px}
+}
+
+/* --- badge sự kiện theo mùa (#16, P4-06) --- */
+#seasonBadge{display:inline-block;background:#b91c1c;color:#fde68a;border:3px solid #7f1d1d;border-radius:3px;box-shadow:0 3px 0 #7f1d1d, inset 0 0 0 2px rgba(253,230,138,.35);padding:4px 12px;font-weight:900;font-size:14px;letter-spacing:.4px;margin:4px 0 2px}
+#seasonBadge.hidden{display:none}
+body.season-tet #startCard .card{border-color:#b91c1c}
+body.season-tet #hud .plate{border-color:#b45309}
 
 /* --- thanh kinh tế Hội Xu --- */
-#econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px}
+#econBar{position:fixed;right:10px;top:calc(336px + env(safe-area-inset-top));z-index:6;display:flex;flex-direction:column;gap:6px;align-items:stretch;width:172px;max-height:calc(100vh - 344px - env(safe-area-inset-top));overflow-y:auto;scrollbar-width:thin}
+/* #41 (cycle 55): lưới an toàn khi màn thấp — max-height neo đáy cột cách
+   mép dưới 8px + overflow-y:auto nên nút cuối (THOÁT GAME) không bao giờ
+   bị cắt hẳn: màn rất thấp thì cột cuộn được thay vì mất nút. Trước đây
+   overflow mặc định visible nên ở 621x600 THOÁT GAME cắt 24px, ở 700x500
+   cắt 124px (GIẢI ĐẤU/QUÀ TẶNG/THOÁT GAME không bấm được), host thêm nút
+   TỐ CÁO thì ở 1280x600 cắt tới 74px — đo thật bằng probe cycle 55. */
+/* #21 (cycle 30): cột nút kinh tế phải bấm được khi sảnh chờ mở — overlay
+   #startCard (z-index 20, phủ toàn màn hình) trước đây che cột nút phải
+   (z-index 6) nên click chuột thật không tới được CỬA HÀNG/VÉ MÙA/GIẢI
+   ĐẤU/QUÀ TẶNG/THOÁT GAME dù nút vẫn nhìn thấy được. Cho #econBar nổi lên
+   trên overlay (z-index 21) khi sảnh chờ đang mở (game.js gắn/gỡ class
+   .hidden cho #startCard; #econBar là sibling sau #startCard nên dùng
+   được ~). Vẫn dưới panel shop (33), onboarding (40) và toast (40) nên
+   onboarding vẫn chặn đúng như thiết kế. Chỉ áp khi màn hình đủ rộng
+   (≥900px): card sảnh chờ rộng tối đa 520px căn giữa nên dưới ~884px cột
+   nút bắt đầu chồng mép phải card — màn hẹp (mobile/tablet) giữ nguyên
+   trạng thái cũ, chờ sửa layout sảnh chờ ở #23/#31. ĐÃ SỬA ở #46 (cycle
+   60): màn hẹp không dùng cột nữa mà dải ngang đáy khi sảnh chờ / màn
+   kết thúc mở (xem luật @media (max-width:899px) ngay dưới). */
+@media (min-width:900px){
+  #startCard:not(.hidden) ~ #econBar{z-index:21;}
+}
+/* #46 (cycle 60): cot nut kinh te o sanh cho / man ket thuc, man hep
+   (<900px) — do that bang probe cycle 60 (hidden_files/econ-panels-probe.js
+   + econ-geometry-probe.js): o 360px nut bi card che 95%, 621px che 77%,
+   800px che 24%, 884px tuy khong bi card che nhung overlay #startCard
+   (z-20) van chan click (elementFromPoint tai tam nut tra ve startCard)
+   nen ca 5 nut CUA HANG/VE MUA/GIAI DAU/QUA TANG/THOAT GAME deu chet o
+   sanh cho man <900px; ban fix #21 chi ap >=900px. Khong the chi nang
+   z-index nhu #21 vi cot 150-172px se de len card (gan full-width o
+   mobile, che ca nut CHOI DON/NHIEU NGUOI). Nen khi sanh cho (#startCard)
+   hoac man ket thuc (#endCard) dang mo o <900px, #econBar dat xuong thanh
+   dai ngang cuon duoc o day man hinh (z-21, tren overlay), bat dau sau
+   nut CHAT (left:118px — CHAT rong ~97px o left:10px) de CHAT van bam
+   duoc; vi + cac nut giu nguyen co cham (>=38px). Dai cao ~54-58px (+
+   safe-area), nam trong vung dem day 96px cua card nen khong che noi
+   dung card. Het sanh cho (vao tran, ca 3 overlay deu an) dai tu ve lai
+   cot phai nhu cu. Khong ap cho #teamCard (man chia team chi hien vai
+   giay, tu chuyen, khong can mo panel kinh te). */
+@media (max-width:899px){
+  #startCard:not(.hidden) ~ #econBar,
+  #endCard:not(.hidden) ~ #econBar{
+    left:118px; right:6px; bottom:calc(6px + env(safe-area-inset-bottom)); top:auto;
+    width:auto; max-height:none; z-index:21;
+    flex-direction:row; align-items:center; gap:6px;
+    overflow-x:auto; overflow-y:hidden;
+    padding:4px 6px; background:rgba(60,20,5,.92);
+    border:3px solid var(--edge); border-radius:4px;
+  }
+  #startCard:not(.hidden) ~ #econBar #econBtns,
+  #endCard:not(.hidden) ~ #econBar #econBtns{flex-direction:row; gap:6px;}
+  #startCard:not(.hidden) ~ #econBar #wallet-hud,
+  #endCard:not(.hidden) ~ #econBar #wallet-hud{flex:0 0 auto; white-space:nowrap;}
+  #startCard:not(.hidden) ~ #econBar .specBtn,
+  #endCard:not(.hidden) ~ #econBar .specBtn{flex:0 0 auto; width:auto; white-space:nowrap;}
+  /* Dem day card tang 72px -> 96px o man hep de noi dung cuoi card cuon
+     len tren duoc ca dai econ (~58px + safe-area) lan nut CHAT (46px,
+     bottom:12px): luat cu 72px chi vua nut CHAT, khong du cho dai moi. */
+  #startCard .card, #endCard .card{padding-bottom:96px;}
+}
 #wallet-hud{font-weight:900;font-size:14px;text-align:center}
 #econBtns{display:flex;flex-direction:column;gap:6px}
 #econBtns .specBtn{width:100%;text-align:center}
@@ -399,8 +674,8 @@
 #deployNote b{color:#ffd34d}
 
 /* --- panel kinh tế (shop.js điền nội dung) --- */
-#shop-panel,#pass-panel,#tournament-panel,#gift-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:86vh;overflow:auto;z-index:33;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px;background-image:linear-gradient(rgba(150,90,20,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(150,90,20,.06) 1px,transparent 1px);background-size:18px 18px}
-#shop-panel h3,#pass-panel h3,#tournament-panel h3,#gift-panel h3{margin:2px 0 8px;font-size:20px;font-weight:900;color:#b5451b}
+#shop-panel,#pass-panel,#tournament-panel,#gift-panel,#report-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:86vh;overflow:auto;z-index:33;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px;background-image:linear-gradient(rgba(150,90,20,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(150,90,20,.06) 1px,transparent 1px);background-size:18px 18px}
+#shop-panel h3,#pass-panel h3,#tournament-panel h3,#gift-panel h3,#report-panel h3{margin:2px 0 8px;font-size:20px;font-weight:900;color:#b5451b}
 #shop-panel h4,#pass-panel h4,#tournament-panel h4,#gift-panel h4{margin:12px 0 6px;font-size:15px;font-weight:900;color:#9c3418}
 #shop-panel p,#pass-panel p,#tournament-panel p,#gift-panel p{font-size:13.5px;line-height:1.55;font-weight:500;margin:6px 0}
 #shop-panel label,#pass-panel label,#tournament-panel label,#gift-panel label{display:block;font-size:13px;font-weight:800;margin:8px 0 2px;text-align:left}
@@ -420,6 +695,17 @@
 .pass-table th{background:#ffedb8;color:#9c3418;font-weight:900}
 .pass-reached{background:#ffe1a1}
 .shop-error{color:#c62828;font-weight:700}
+.shop-note{font-size:13px;color:#5a4632;font-style:italic}
+/* Nhiệm vụ ngày (cycle 45, #19 bước 2) — mục trong panel Cửa hàng. */
+.quest-list{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.quest-row{display:flex;align-items:center;gap:10px;border:3px solid var(--edge);border-radius:3px;padding:8px 10px;background:#fff8e6}
+.quest-row>div:first-child{flex:1}
+.quest-name{font-weight:900;color:#9c3418}
+.quest-desc{font-size:13px;color:#5a4632;line-height:1.4}
+.quest-progress{font-weight:800;color:#33200f;white-space:nowrap}
+.quest-row button{min-height:44px;border:3px solid var(--edge);background:#fff7ea;color:#33200f;font-family:inherit;font-weight:800;cursor:pointer;padding:8px 10px;border-radius:3px;box-shadow:0 3px 0 var(--edge)}
+.quest-row button:disabled{opacity:.55;cursor:default}
+.quest-row button:not(:disabled):hover{background:#ffe1a1}
 #tournament-list ul{margin:8px 0;padding-left:18px;font-size:13.5px;line-height:1.6}
 #tournament-list li{margin:4px 0}
 
@@ -433,18 +719,106 @@
 .note{font-size:13px;color:#5a4632;line-height:1.5}
 .story-label{display:inline-block;background:#7a2d16;color:#fff7ea;font-size:12px;font-weight:800;padding:2px 8px;margin-bottom:6px;border-radius:2px}
 
-/* --- overlay hệ 6 vòng (rounds.js điền nội dung) --- */
+/* --- overlay hệ nhiều vòng (rounds.js điền nội dung) --- */
 #round-overlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;z-index:32;text-align:center;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px;background-image:linear-gradient(rgba(150,90,20,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(150,90,20,.06) 1px,transparent 1px);background-size:18px 18px}
+/* Vòng có mô phỏng 3D (sim): overlay không được che giữa màn hình nữa —
+   thu thành tấm dưới cùng, thế giới 3D mới là sân chơi chính. */
+#round-overlay.sim-mode{top:auto;bottom:12px;transform:translateX(-50%);width:min(640px,96vw);max-height:44vh;padding:12px 16px;text-align:left}
+/* Vòng cần di chuyển mà overlay vẫn hiện (Rồng Rắn chạy cờ, Bịt Mắt khi làm
+   dê): trên cảm ứng, dải bottom-sheet sẽ đè lên joystick + nút NHẢY + nút
+   CHAT nên chuyển overlay thành dải gọn phía trên, chừa cột minimap bên
+   phải (cùng cách #teamPanel/#roundHint làm). Desktop dùng bàn phím nên giữ
+   nguyên bottom-sheet. (P4-03, cycle 14)
+   Top 245px (#32, cycle 48): dải cue của sim đã dời xuống dưới gợi ý phím
+   (top 166px, đáy ~220px ở Rồng Rắn; tablet 184px vì gợi ý xuống 2 dòng ở
+   621px nên đáy dải ~238px) nên overlay di chuyển phải nằm dưới dải cue,
+   không còn ở 184px như trước — nếu không sẽ đè lên dải cue. */
+@media (pointer:coarse){
+  #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+}
+body.touch #round-overlay.sim-mode.move-mode{top:calc(245px + env(safe-area-inset-top));bottom:auto;max-height:32vh;padding:10px 14px;left:6px;right:166px;transform:none;width:auto;text-align:left}
+#round-overlay.sim-mode.move-mode h2{font-size:17px;margin:0 0 4px}
+#round-overlay.sim-mode.move-mode .note{display:none}
+#round-overlay.sim-mode.move-mode #flag-status{display:block;margin:0}
+@media (max-width:620px){
+  /* Cùng độ đặc hiệu với luật body.touch ở trên (1 id + 3 class), nếu không
+     luật đó thắng và dải chỉ rộng 194px thay vì 232px. Minimap mobile đo
+     thật rộng 135px ở right:6px (chiếm tới 141px) nên right:150px mới chừa đủ.
+     Top 328px (#32, cycle 48): dải cue của sim đã dời xuống dưới gợi ý phím
+     mobile (top 236px; dải cue Rồng Rắn cao ~54px → đáy ~290px) nên dải di
+     chuyển phải nằm dưới dải cue, không còn ở 226px như trước — nếu không
+     sẽ đè lên dải cue. Right 160px = chừa cột econBar (bắt đầu x=204px
+     ở 360px; dải tới x=200px), dải cao tối đa 32vh có thể chạm tới y=300px
+     của cột kinh tế nhưng không đè ngang lên cột.
+     Tấm overlay bottom-sheet (#round-overlay.sim-mode, max-height 44vh)
+     cũng phải chặn đỉnh ở dưới đáy dải cue: dải Ô Ăn Quan / Tò He mobile
+     cao ~110-128px (đáy ~344-364px) trong khi tấm overlay bị đẩy lên tới
+     y=346px ở màn 640px. Giới hạn max-height theo chiều cao màn hình để
+     đỉnh tấm luôn ≥ 372px (100vh - 12px đáy - 372px), không phụ thuộc vh. */
+  #round-overlay.sim-mode{max-height:max(150px,calc(100vh - 384px))}
+  #round-overlay.sim-mode.move-mode{top:calc(328px + env(safe-area-inset-top));right:160px}
+  body.touch #round-overlay.sim-mode.move-mode{top:calc(328px + env(safe-area-inset-top));right:160px}
+}
+#round-overlay.sim-mode h2{font-size:19px}
+#round-overlay.sim-mode .note{font-size:13px;line-height:1.4}
 #round-overlay h2{margin:2px 0 8px;font-size:24px;font-weight:900;color:#b5451b;line-height:1.15}
 #round-overlay .note{text-align:left}
 #interstitial{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);z-index:35;text-align:center;background:var(--paper);color:#33200f;border:4px solid #7a2d16;border-radius:4px;box-shadow:0 10px 0 rgba(60,20,5,.45),0 24px 50px rgba(0,0,0,.5),inset 0 0 0 3px #ffedb8;padding:18px 20px}
 #interstitial h2{font-size:22px;font-weight:900;color:#b5451b;margin:2px 0 8px}
 #interstitial p{font-size:15px;line-height:1.5;font-weight:500;margin:6px 0}
 
-/* --- đồng hồ vòng (rounds 3–6) --- */
-#round-timer-wrap{height:14px;border:3px solid var(--edge);background:#3a2410;margin-bottom:6px;border-radius:2px;overflow:hidden}
+/* --- đồng hồ vòng: vạch mỏng cố định dưới thanh tiến độ (chữ đếm ngược
+   hiện trong ô ĐẾM NGƯỢC của HUD, không phải trong vạch này) --- */
+#round-timer-wrap{position:fixed;left:50%;transform:translateX(-50%);top:calc(106px + env(safe-area-inset-top));width:min(520px,72vw);height:8px;border:2px solid var(--edge);background:#3a2410;border-radius:2px;overflow:hidden;z-index:5;pointer-events:none}
+#round-timer-wrap #hud-round-time{display:none}
 #round-timer-fill{height:100%;width:100%;background:#53e0d4}
 #round-timer-fill.urgent{background:#e2483a}
+.stat b.urgent{color:#ff6b5e}
+/* --- #39 bước 1 — Hũ Vàng Hội Làng (OD-12): ô HŨ VÀNG chữ vàng, nhấp
+   nháy nền vàng ~0.9s mỗi khi hũ tăng (setPot gắn class pot-flash) --- */
+.stat.pot b{color:#ffd54a}
+.stat.pot span{color:#ffe082}
+@keyframes potFlash{0%{background:#ffd54a;box-shadow:0 0 0 2px #ffd54a,0 0 14px rgba(255,213,74,.9)}100%{background:transparent;box-shadow:none}}
+.stat.pot.pot-flash{animation:potFlash .9s ease}
+/* Trong lúc nháy nền vàng, chữ vàng trên nền vàng sẽ mất hút — đổi chữ
+   sang nâu đậm trong suốt thời gian có class pot-flash. */
+.stat.pot.pot-flash b,.stat.pot.pot-flash span{color:#7a4a00}
+#interstitial .potLine,#team-screen .potLine{font-size:17px;font-weight:900;color:#ffd54a}
+@media (max-width:620px){
+  #round-timer-wrap{top:calc(150px + env(safe-area-inset-top));width:88vw}
+}
+/* --- gợi ý phím theo vòng (P4-02 bước 2, cycle 13): dải nhỏ dưới đồng hồ
+   vòng, trên thanh tiến độ không đè; tự ẩn sau 12 giây --- */
+#roundHint{position:fixed;left:50%;transform:translateX(-50%);top:calc(122px + env(safe-area-inset-top));z-index:7;display:flex;align-items:center;gap:10px;max-width:min(640px,92vw);background:var(--plate);border:3px solid var(--edge);border-radius:3px;padding:7px 12px;box-shadow:inset 0 0 0 2px rgba(255,205,120,.22),0 4px 0 rgba(0,0,0,.25);font-size:13px;font-weight:600;line-height:1.35;color:var(--ink);pointer-events:auto}
+#roundHint b{color:#ffd34d;font-weight:900}
+#roundHintClose{flex:0 0 auto;background:none;border:none;cursor:pointer;font:inherit;font-weight:900;font-size:15px;line-height:1;color:#ffd34d;padding:2px 4px}
+@media (max-width:620px){
+  /* Dạt sang trái, chừa cột minimap ở góc phải — cùng cách #teamPanel làm,
+     nếu không minimap (z-index 6) sẽ đè lên nửa phải của gợi ý + nút ✕.
+     Right 150px (cycle 15, đo thật): minimapWrap rộng 135px do nhãn
+     "BẢN ĐỒ · ĐẢO HỘI LÀNG" dài hơn canvas 100px, cạnh trái ở x=219 —
+     right:122px cũ cho gợi ý chạm tới x=238, đè lên minimap 19px. */
+  #roundHint{left:6px;right:150px;transform:none;width:auto;max-width:none;top:calc(162px + env(safe-area-inset-top));font-size:12px;padding:6px 10px}
+}
+@media (min-width:621px) and (max-width:900px){
+  /* Dải tablet 621–900px (#31, cycle 47): teamPanel 600px căn giữa đè ngang
+     lên minimap — đo thật trước khi sửa: ở 800px teamPanel tới x=700,
+     minimap bắt đầu x≈620, chồng 3760px² (621px: 7285px², 700px: 6110px²,
+     900px: 1410px²); desktop 1280px + mobile 360px không chồng. Dải gợi ý
+     phím #roundHint cũng có thể chạm minimap khi chữ dài (max-width 640px
+     căn giữa) nên sửa kèm cùng dải này. Cách sửa như mobile (≤620px): dạt
+     sang trái, chừa cột minimap. MinimapWrap rộng ~170px ở right:10px (đo
+     thật: nhãn "BẢN ĐỒ · ĐẢO HỘI LÀNG" + chú thích làm nó rộng hơn canvas
+     132px; cạnh trái x=vw-180) nên right:190px để hở 10px — lần sửa đầu
+     right:168px tính theo 150px nên vẫn chồng 12px ngang (564px²). Đặt
+     khối này SAU luật gốc #roundHint để left/transform/max-width trong này
+     thắng luật gốc (cùng độ ưu tiên, luật sau thắng). Top giữ nguyên như
+     desktop (HUD 1 hàng ở dải này: gợi ý top 122px, team top 182px, không
+     đè nhau; team cao ~47px nên đáy ~229px, vẫn trên cột econBar bắt đầu
+     top 336px). */
+  #teamPanel{left:6px; right:190px; transform:none; width:auto; max-width:none;}
+  #roundHint{left:6px; right:190px; transform:none; width:auto; max-width:none;}
+}
 .round-countdown{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#33200f}
 .round-countdown.urgent{color:#c62828}
 
@@ -477,6 +851,8 @@
 .oq-row{display:flex;gap:6px;margin:4px 0}
 .oq-pit{flex:1;min-height:52px;min-width:44px;font-size:18px}
 .oq-pit:disabled{opacity:.55;cursor:default}
+.oq-pit.oq-mine{border:3px solid #d97706;background:#ffedb8}
+.oq-pit.oq-foe{border:3px solid #0f766e}
 .oq-quan{border:3px solid var(--edge);background:#fff8e1;padding:8px 4px;font-size:13px;width:76px;display:flex;flex-direction:column;justify-content:center;color:#33200f}
 .oq-quan b{font-size:20px}
 .oq-quan-pit{background:#fff8e1;font-weight:900}
@@ -487,12 +863,42 @@
 .stumble{animation:stumble .45s ease;background:#c62828!important}
 
 @media (max-width:620px){
-  #econBar{top:calc(300px + env(safe-area-inset-top));right:6px;width:150px}
+  #econBar{top:calc(300px + env(safe-area-inset-top));right:6px;width:150px;max-height:calc(100vh - 308px - env(safe-area-inset-top))}
   #wallet-hud{font-size:12.5px}
   #econBtns .specBtn{font-size:11.5px;min-height:40px;padding:7px 9px}
-  #shop-panel,#pass-panel,#tournament-panel,#gift-panel,#round-overlay,#interstitial{width:calc(100vw - 16px)}
+      #shop-panel,#pass-panel,#tournament-panel,#gift-panel,#report-panel,#round-overlay,#interstitial{width:calc(100vw - 16px)}
   .round-countdown{font-size:18px}
   .oq-pit{min-width:36px;min-height:48px;font-size:16px}
   .oq-quan{width:60px}
   #deployNote{display:none}
 }
+
+/* #41 (cycle 55): màn thấp (cao ≤620px) thì thu gọn cột kinh tế để 5 nút
+   vừa trọn màn hình mà không cần cuộn — ở 600px cột thường cao 288px
+   (đáy 624px) nên THOÁT GAME cắt 24px, còn cột gọn chỉ ~242px (đáy ~578px).
+   Nút 38px (thay vì 44px) vẫn trên ngưỡng chạm nhỏ 36px và bằng cỡ nút
+   mobile đã dùng; ví thu font + đệm cho gọn. Màn thấp hơn nữa (vd. 500px)
+   hoặc host thêm nút TỐ CÁO thì vẫn cần cuộn — lưới max-height ở trên lo.
+   Đặt sau khối mobile để cùng độ đặc hiệu thì luật này thắng khi cả hai
+   cùng áp (vd. 360x560: nút 38px thay vì 40px của luật mobile). */
+@media (max-height:620px){
+  #econBar{gap:4px}
+  #econBtns{gap:4px}
+  #econBtns .specBtn{min-height:38px;padding:6px 8px;font-size:12px}
+  #wallet-hud{font-size:12.5px;padding:4px 8px;border-width:2px}
+}
+
+/* ---- CHẾ ĐỘ QC (FR-46, chỉ test) ---- */
+#qcBar{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:30;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:96vw;background:rgba(124,45,18,.92);color:#ffedd5;border:3px solid #431407;border-radius:3px;box-shadow:0 4px 0 rgba(0,0,0,.35);padding:6px 10px;font-size:12px;font-weight:700}
+#qcBar .specBtn{background:#b45309;border-color:#431407;box-shadow:0 3px 0 #431407;color:#fff7ed}
+#qcBarRounds{display:flex;gap:4px;flex-wrap:wrap}
+.qcRoundBtn{border:3px solid #431407;background:#fff7ed;color:#7c2d12;font:inherit;font-weight:800;font-size:12px;padding:4px 8px;border-radius:0;cursor:pointer}
+.qcRoundBtn.on{background:#f59e0b;color:#431407}
+#qc-round-btns .qcRoundBtn{font-size:13px;padding:7px 9px}
+
+/* ---- Onboarding người mới (P4-02, cycle 12 bước 1) ---- */
+#onboardingCard{z-index:40;}
+#onboardingCard .obDots{display:flex;gap:8px;justify-content:center;margin:10px 0 2px;}
+#onboardingCard .obDots span{width:12px;height:12px;border-radius:50%;background:#d8c49a;border:2px solid #7a2d16;display:inline-block;}
+#onboardingCard .obDots span.on{background:#d63c2f;}
+#onboardingCard .obSkip{background:none;border:none;cursor:pointer;font:inherit;font-weight:700;color:#9c3418;text-decoration:underline;margin-top:12px;}
